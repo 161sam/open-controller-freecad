@@ -1,0 +1,14 @@
+schema_version: "1.0"
+export_type: "controller.electrical"
+components:
+  - id: "enc_master_1"
+    role: "incremental_encoder"
+    io_strategy: "direct_gpio"
+  - id: "btn_play"
+    role: "momentary_switch"
+    io_strategy: "matrix"
+  - id: "oled_status"
+    role: "oled_display"
+    io_strategy: "i2c"
+warnings:
+  missing_bus_code: "missing_i2c_bus"

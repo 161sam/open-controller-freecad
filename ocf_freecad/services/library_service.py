@@ -28,3 +28,10 @@ class LibraryService:
         if not isinstance(mechanical, dict):
             raise ValueError(f"Library component '{library_ref}' has invalid mechanical defaults")
         return mechanical
+
+    def get_electrical_defaults(self, library_ref: str) -> dict[str, Any]:
+        component = self.get(library_ref)
+        electrical = component.get("electrical", {})
+        if not isinstance(electrical, dict):
+            raise ValueError(f"Library component '{library_ref}' has invalid electrical defaults")
+        return electrical
