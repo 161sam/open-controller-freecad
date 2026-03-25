@@ -1,5 +1,5 @@
-import FreeCAD as App
 from ocf_freecad.commands.base import BaseCommand
+from ocf_freecad.services.controller_service import ControllerService
 
 class CreateControllerCommand(BaseCommand):
     def GetResources(self):
@@ -9,5 +9,8 @@ class CreateControllerCommand(BaseCommand):
         }
 
     def Activated(self):
+        import FreeCAD as App
+
         doc = App.newDocument("Controller")
+        ControllerService().create_controller(doc, {"id": doc.Name.lower()})
         print("New controller document created:", doc.Name)
