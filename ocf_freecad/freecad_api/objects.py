@@ -1,6 +1,7 @@
-def create_box(doc, width, depth, height):
-    obj = doc.addObject("Part::Box", "ControllerBody")
-    obj.Length = width
-    obj.Width = depth
-    obj.Height = height
-    return obj
+from ocf_freecad.freecad_api import shapes
+
+__all__ = ["create_box"]
+
+
+def create_box(doc, width, depth, height, name="ControllerBody", x=0, y=0, z=0):
+    return shapes.create_box(doc, name, width, depth, height, x=x, y=y, z=z)
