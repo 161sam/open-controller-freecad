@@ -12,9 +12,8 @@ class CreateFromTemplateCommand(BaseCommand):
 
     def Activated(self):
         import FreeCAD as App
-        import FreeCADGui as Gui
 
-        from ocf_freecad.gui.panels.create_panel import CreatePanel
+        from ocf_freecad.workbench import ensure_workbench_ui
 
         doc = App.ActiveDocument or App.newDocument("Controller")
-        Gui.Control.showDialog(CreatePanel(doc))
+        ensure_workbench_ui(doc, focus="create")

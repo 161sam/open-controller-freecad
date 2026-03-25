@@ -2,114 +2,162 @@ from __future__ import annotations
 
 from typing import Any
 
+from ocf_freecad.gui.panels._common import (
+    FallbackButton,
+    FallbackCombo,
+    FallbackLabel,
+    FallbackText,
+    FallbackValue,
+    current_text,
+    load_qt,
+    set_label_text,
+    set_text,
+    widget_value,
+)
 from ocf_freecad.services.controller_service import ControllerService
 
 
 class LayoutPanel:
-    def __init__(self, doc: Any, controller_service: ControllerService | None = None) -> None:
+    def __init__(
+        self,
+        doc: Any,
+        controller_service: ControllerService | None = None,
+        on_applied: Any | None = None,
+        on_status: Any | None = None,
+    ) -> None:
         self.doc = doc
         self.controller_service = controller_service or ControllerService()
+        self.on_applied = on_applied
+        self.on_status = on_status
         self.form = _build_form()
+        self.widget = self.form["widget"]
+        self._connect_events()
+        self.refresh()
 
-    def apply_auto_layout(self) -> dict[str, Any]:
-        preset = _current_text(self.form["preset"]) or "grid"
-        strategy = preset if preset in {"grid", "row", "column"} else "zone"
-        config = {
-            "grid_mm": _widget_value(self.form["grid_mm"]),
-            "spacing_mm": _widget_value(self.form["spacing_mm"]),
-            "padding_mm": _widget_value(self.form["padding_mm"]),
-            "strategy": strategy,
-        }
-        result = self.controller_service.auto_layout(self.doc, strategy=strategy, config=config)
-        _set_text(
+    def refresh(self) -> None:
+        context = self.controller_service.get_ui_context(self.doc)
+        layout = context.get("layout") or {}
+        if not layout:
+            set_text(self.form["summary"], "No auto layout result yet.")
+            set_label_text(self.form["status"], "No layout has been applied yet.")
+            return
+        summary = layout.get("result_summary", {})
+        config = layout.get("config", {})
+        set_text(
             self.form["summary"],
-            (
-                f"Placed: {len(result['placed_components'])}\n"
-                f"Unplaced: {len(result['unplaced_component_ids'])}\n"
-                f"Warnings: {len(result['warnings'])}"
+            "\n".join(
+                [
+                    f"Strategy: {layout.get('strategy', '-')}",
+                    f"Placed: {summary.get('placed_count', 0)}",
+                    f"Unplaced: {summary.get('unplaced_count', 0)}",
+                    f"Warnings: {summary.get('warning_count', 0)}",
+                    f"Grid: {config.get('grid_mm', config.get('grid_size_mm', 1.0))} mm",
+                ]
             ),
         )
+
+    def apply_auto_layout(self) -> dict[str, Any]:
+        preset = current_text(self.form["preset"]) or "grid"
+        strategy = preset if preset in {"grid", "row", "column"} else "grid"
+        config = {
+            "grid_mm": widget_value(self.form["grid_mm"]),
+            "spacing_mm": widget_value(self.form["spacing_mm"]),
+            "padding_mm": widget_value(self.form["padding_mm"]),
+        }
+        result = self.controller_service.auto_layout(self.doc, strategy=strategy, config=config)
+        set_label_text(self.form["status"], f"Applied {strategy} layout.")
+        set_text(
+            self.form["summary"],
+            "\n".join(
+                [
+                    f"Placed: {len(result['placed_components'])}",
+                    f"Unplaced: {len(result['unplaced_component_ids'])}",
+                    f"Warnings: {len(result['warnings'])}",
+                ]
+            ),
+        )
+        if self.on_status is not None:
+            self.on_status(f"Applied {strategy} layout.")
+        if self.on_applied is not None:
+            self.on_applied(result)
         return result
+
+    def handle_apply_clicked(self) -> None:
+        try:
+            self.apply_auto_layout()
+        except Exception as exc:
+            set_label_text(self.form["status"], str(exc))
+            if self.on_status is not None:
+                self.on_status(str(exc))
 
     def accept(self) -> bool:
         self.apply_auto_layout()
         return True
 
+    def _connect_events(self) -> None:
+        for key in ("apply_button", "rerun_button"):
+            button = self.form[key]
+            if hasattr(button, "clicked"):
+                button.clicked.connect(self.handle_apply_clicked)
+
 
 def _build_form() -> dict[str, Any]:
-    try:
-        from PySide2 import QtWidgets
-    except ImportError:
-        try:
-            from PySide import QtGui as QtWidgets  # type: ignore
-        except ImportError:
-            return {
-                "preset": _FallbackCombo(["zone", "grid", "row", "column"]),
-                "grid_mm": _FallbackValue(1.0),
-                "spacing_mm": _FallbackValue(24.0),
-                "padding_mm": _FallbackValue(8.0),
-                "summary": _FallbackText(),
-            }
+    _qtcore, _qtgui, qtwidgets = load_qt()
+    if qtwidgets is None:
+        return {
+            "widget": object(),
+            "preset": FallbackCombo(["grid", "row", "column"]),
+            "grid_mm": FallbackValue(1.0),
+            "spacing_mm": FallbackValue(24.0),
+            "padding_mm": FallbackValue(8.0),
+            "apply_button": FallbackButton("Apply Auto Layout"),
+            "rerun_button": FallbackButton("Re-run Layout"),
+            "summary": FallbackText(),
+            "status": FallbackLabel(),
+        }
 
-    widget = QtWidgets.QWidget()
-    layout = QtWidgets.QFormLayout(widget)
-    preset = QtWidgets.QComboBox()
-    preset.addItems(["zone", "grid", "row", "column"])
-    grid_mm = QtWidgets.QDoubleSpinBox()
-    spacing_mm = QtWidgets.QDoubleSpinBox()
-    padding_mm = QtWidgets.QDoubleSpinBox()
-    summary = QtWidgets.QPlainTextEdit()
-    summary.setReadOnly(True)
+    widget = qtwidgets.QWidget()
+    layout = qtwidgets.QVBoxLayout(widget)
+    intro = qtwidgets.QLabel("Run the current layout preset again after each controller change.")
+    intro.setWordWrap(True)
+    form = qtwidgets.QFormLayout()
+    preset = qtwidgets.QComboBox()
+    preset.addItems(["grid", "row", "column"])
+    grid_mm = qtwidgets.QDoubleSpinBox()
+    spacing_mm = qtwidgets.QDoubleSpinBox()
+    padding_mm = qtwidgets.QDoubleSpinBox()
     for spinbox in (grid_mm, spacing_mm, padding_mm):
         spinbox.setRange(0.0, 1000.0)
+        spinbox.setDecimals(2)
     grid_mm.setValue(1.0)
     spacing_mm.setValue(24.0)
     padding_mm.setValue(8.0)
-    layout.addRow("Preset", preset)
-    layout.addRow("Grid (mm)", grid_mm)
-    layout.addRow("Spacing (mm)", spacing_mm)
-    layout.addRow("Padding (mm)", padding_mm)
-    layout.addRow("Result", summary)
+    apply_button = qtwidgets.QPushButton("Apply Auto Layout")
+    rerun_button = qtwidgets.QPushButton("Re-run Layout")
+    button_row = qtwidgets.QHBoxLayout()
+    button_row.addWidget(apply_button)
+    button_row.addWidget(rerun_button)
+    summary = qtwidgets.QPlainTextEdit()
+    summary.setReadOnly(True)
+    status = qtwidgets.QLabel()
+    status.setWordWrap(True)
+    form.addRow("Preset", preset)
+    form.addRow("Grid (mm)", grid_mm)
+    form.addRow("Spacing (mm)", spacing_mm)
+    form.addRow("Padding (mm)", padding_mm)
+    layout.addWidget(intro)
+    layout.addLayout(form)
+    layout.addLayout(button_row)
+    layout.addWidget(summary)
+    layout.addWidget(status)
     return {
         "widget": widget,
         "preset": preset,
         "grid_mm": grid_mm,
         "spacing_mm": spacing_mm,
         "padding_mm": padding_mm,
+        "apply_button": apply_button,
+        "rerun_button": rerun_button,
         "summary": summary,
+        "status": status,
     }
-
-
-def _current_text(combo: Any) -> str:
-    if hasattr(combo, "currentText"):
-        return str(combo.currentText())
-    return combo.items[combo.index] if combo.items else ""
-
-
-def _widget_value(widget: Any) -> float:
-    if hasattr(widget, "value"):
-        return float(widget.value())
-    return float(widget.value)
-
-
-def _set_text(widget: Any, value: str) -> None:
-    if hasattr(widget, "setPlainText"):
-        widget.setPlainText(value)
-    else:
-        widget.text = value
-
-
-class _FallbackCombo:
-    def __init__(self, items: list[str] | None = None) -> None:
-        self.items = items or []
-        self.index = 0
-
-
-class _FallbackValue:
-    def __init__(self, value: float) -> None:
-        self.value = value
-
-
-class _FallbackText:
-    def __init__(self) -> None:
-        self.text = ""

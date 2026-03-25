@@ -12,11 +12,10 @@ class ValidateConstraintsCommand(BaseCommand):
 
     def Activated(self):
         import FreeCAD as App
-        import FreeCADGui as Gui
 
-        from ocf_freecad.gui.panels.constraints_panel import ConstraintsPanel
+        from ocf_freecad.workbench import ensure_workbench_ui
 
         doc = App.ActiveDocument
         if doc is None:
             raise RuntimeError("No active FreeCAD document")
-        Gui.Control.showDialog(ConstraintsPanel(doc))
+        ensure_workbench_ui(doc, focus="constraints")

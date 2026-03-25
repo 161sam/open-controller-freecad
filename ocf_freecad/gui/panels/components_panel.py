@@ -3,6 +3,21 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from ocf_freecad.gui.panels._common import (
+    FallbackButton,
+    FallbackCombo,
+    FallbackLabel,
+    FallbackText,
+    FallbackValue,
+    current_text,
+    load_qt,
+    set_combo_items,
+    set_label_text,
+    set_text,
+    set_value,
+    text_value,
+    widget_value,
+)
 from ocf_freecad.services.controller_service import ControllerService
 from ocf_freecad.services.library_service import LibraryService
 
@@ -13,49 +28,65 @@ class ComponentsPanel:
         doc: Any,
         controller_service: ControllerService | None = None,
         library_service: LibraryService | None = None,
+        on_selection_changed: Any | None = None,
+        on_components_changed: Any | None = None,
+        on_status: Any | None = None,
     ) -> None:
         self.doc = doc
         self.controller_service = controller_service or ControllerService()
         self.library_service = library_service or LibraryService()
+        self.on_selection_changed = on_selection_changed
+        self.on_components_changed = on_components_changed
+        self.on_status = on_status
         self._component_lookup: dict[str, str] = {}
         self._add_library_lookup: dict[str, str] = {}
         self.form = _build_form()
+        self.widget = self.form["widget"]
+        self._connect_events()
+        self.refresh()
+
+    def refresh(self) -> None:
         self.refresh_add_library()
         self.refresh_components()
 
     def refresh_components(self) -> None:
         state = self.controller_service.get_state(self.doc)
-        grouped: dict[str, list[str]] = defaultdict(list)
-        self._component_lookup = {}
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for component in state["components"]:
-            label = f"{component['type']} / {component['id']}"
-            grouped[str(component["type"])].append(label)
-            self._component_lookup[label] = component["id"]
-        labels = []
+            grouped[str(component["type"])].append(component)
+        self._component_lookup = {}
+        labels: list[str] = []
         for category in sorted(grouped):
-            labels.extend(sorted(grouped[category]))
-        _set_combo_items(self.form["component"], labels)
+            for component in sorted(grouped[category], key=lambda item: item["id"]):
+                label = f"{category} / {component['id']}"
+                labels.append(label)
+                self._component_lookup[label] = component["id"]
+        set_combo_items(self.form["component"], labels)
+        selected_id = state["meta"].get("selection")
+        if selected_id is not None:
+            self._set_selected_component(selected_id)
         if labels:
             self.load_selected_component()
+            set_label_text(self.form["status"], f"{len(labels)} components loaded.")
         else:
-            _set_text(self.form["details"], "No components in controller.")
+            set_text(self.form["details"], "No components in controller.")
+            set_label_text(self.form["status"], "Add a component from the library to continue.")
 
     def refresh_add_library(self) -> None:
         categories = sorted({item["category"] for item in self.library_service.list_by_category()})
-        _set_combo_items(self.form["add_category"], ["all"] + categories)
+        set_combo_items(self.form["add_category"], ["all"] + categories)
         self.populate_add_library_components()
 
     def populate_add_library_components(self) -> None:
-        category = _current_text(self.form["add_category"])
+        category = current_text(self.form["add_category"])
         selected_category = None if category in {"", "all"} else category
         components = self.library_service.list_by_category(selected_category)
         labels = [f"{item['manufacturer']} {item['part_number']} ({item['id']})" for item in components]
         self._add_library_lookup = {label: item["id"] for label, item in zip(labels, components)}
-        _set_combo_items(self.form["add_component"], labels)
+        set_combo_items(self.form["add_component"], labels)
 
     def selected_component_id(self) -> str | None:
-        label = _current_text(self.form["component"])
-        return self._component_lookup.get(label)
+        return self._component_lookup.get(current_text(self.form["component"]))
 
     def load_selected_component(self) -> dict[str, Any]:
         component_id = self.selected_component_id()
@@ -63,180 +94,193 @@ class ComponentsPanel:
             raise ValueError("No component selected")
         component = self.controller_service.get_component(self.doc, component_id)
         self.controller_service.select_component(self.doc, component_id)
-        _set_value(self.form["x"], float(component.get("x", 0.0)))
-        _set_value(self.form["y"], float(component.get("y", 0.0)))
-        _set_value(self.form["rotation"], float(component.get("rotation", 0.0)))
-        _set_text(self.form["library_ref"], str(component.get("library_ref", "")))
-        _set_text(
+        set_value(self.form["x"], float(component.get("x", 0.0)))
+        set_value(self.form["y"], float(component.get("y", 0.0)))
+        set_value(self.form["rotation"], float(component.get("rotation", 0.0)))
+        set_text(self.form["library_ref"], str(component.get("library_ref", "")))
+        set_text(
             self.form["details"],
-            (
-                f"Component: {component['id']}\n"
-                f"Type: {component['type']}\n"
-                f"Library: {component.get('library_ref', '-')}\n"
-                f"Zone: {component.get('zone_id') or '-'}"
+            "\n".join(
+                [
+                    f"Component: {component['id']}",
+                    f"Type: {component['type']}",
+                    f"Library: {component.get('library_ref', '-')}",
+                    f"Zone: {component.get('zone_id') or '-'}",
+                ]
             ),
         )
+        if self.on_selection_changed is not None:
+            self.on_selection_changed(component_id)
         return component
 
     def update_selected_component(self) -> dict[str, Any]:
         component_id = self.selected_component_id()
         if component_id is None:
             raise ValueError("No component selected")
-        library_ref = _text_value(self.form["library_ref"]).strip()
+        library_ref = text_value(self.form["library_ref"]).strip()
         updates = {
-            "x": _widget_value(self.form["x"]),
-            "y": _widget_value(self.form["y"]),
-            "rotation": _widget_value(self.form["rotation"]),
+            "x": widget_value(self.form["x"]),
+            "y": widget_value(self.form["y"]),
+            "rotation": widget_value(self.form["rotation"]),
         }
         if library_ref:
             updates["library_ref"] = library_ref
         state = self.controller_service.update_component(self.doc, component_id, updates)
         self.refresh_components()
+        self._publish_status(f"Updated component '{component_id}'.")
+        if self.on_components_changed is not None:
+            self.on_components_changed(state)
         return state
 
     def add_component(self) -> dict[str, Any]:
-        library_ref = self._add_library_lookup.get(_current_text(self.form["add_component"]))
+        library_ref = self._add_library_lookup.get(current_text(self.form["add_component"]))
         if not library_ref:
             raise ValueError("No library component selected")
         state = self.controller_service.add_component(
             self.doc,
             library_ref=library_ref,
-            x=_widget_value(self.form["add_x"]),
-            y=_widget_value(self.form["add_y"]),
-            rotation=_widget_value(self.form["add_rotation"]),
+            x=widget_value(self.form["add_x"]),
+            y=widget_value(self.form["add_y"]),
+            rotation=widget_value(self.form["add_rotation"]),
         )
         self.refresh_components()
+        self._publish_status(f"Added library component '{library_ref}'.")
+        if self.on_components_changed is not None:
+            self.on_components_changed(state)
         return state
+
+    def handle_component_changed(self, *_args: Any) -> None:
+        try:
+            self.load_selected_component()
+        except Exception as exc:
+            self._publish_status(str(exc))
+
+    def handle_category_changed(self, *_args: Any) -> None:
+        self.populate_add_library_components()
+
+    def handle_update_clicked(self) -> None:
+        try:
+            self.update_selected_component()
+        except Exception as exc:
+            self._publish_status(str(exc))
+
+    def handle_add_clicked(self) -> None:
+        try:
+            self.add_component()
+        except Exception as exc:
+            self._publish_status(str(exc))
 
     def accept(self) -> bool:
         self.update_selected_component()
         return True
 
+    def _set_selected_component(self, component_id: str) -> None:
+        combo = self.form["component"]
+        items = getattr(combo, "items", None)
+        if items is None and hasattr(combo, "count") and hasattr(combo, "itemText"):
+            items = [combo.itemText(index) for index in range(combo.count())]
+        for index, label in enumerate(items or []):
+            if self._component_lookup.get(str(label)) == component_id:
+                combo.setCurrentIndex(index)
+                return
+
+    def _publish_status(self, message: str) -> None:
+        set_label_text(self.form["status"], message)
+        if self.on_status is not None:
+            self.on_status(message)
+
+    def _connect_events(self) -> None:
+        if hasattr(self.form["component"], "currentIndexChanged"):
+            self.form["component"].currentIndexChanged.connect(self.handle_component_changed)
+        if hasattr(self.form["add_category"], "currentIndexChanged"):
+            self.form["add_category"].currentIndexChanged.connect(self.handle_category_changed)
+        if hasattr(self.form["update_button"], "clicked"):
+            self.form["update_button"].clicked.connect(self.handle_update_clicked)
+        if hasattr(self.form["add_button"], "clicked"):
+            self.form["add_button"].clicked.connect(self.handle_add_clicked)
+
 
 def _build_form() -> dict[str, Any]:
-    try:
-        from PySide2 import QtWidgets
-    except ImportError:
-        try:
-            from PySide import QtGui as QtWidgets  # type: ignore
-        except ImportError:
-            return {
-                "component": _FallbackCombo(),
-                "add_category": _FallbackCombo(["all"]),
-                "add_component": _FallbackCombo(),
-                "x": _FallbackValue(0.0),
-                "y": _FallbackValue(0.0),
-                "rotation": _FallbackValue(0.0),
-                "library_ref": _FallbackText(),
-                "add_x": _FallbackValue(10.0),
-                "add_y": _FallbackValue(10.0),
-                "add_rotation": _FallbackValue(0.0),
-                "details": _FallbackText(),
-            }
+    _qtcore, _qtgui, qtwidgets = load_qt()
+    if qtwidgets is None:
+        return {
+            "widget": object(),
+            "component": FallbackCombo(),
+            "x": FallbackValue(0.0),
+            "y": FallbackValue(0.0),
+            "rotation": FallbackValue(0.0),
+            "library_ref": FallbackText(),
+            "update_button": FallbackButton("Update Component"),
+            "add_category": FallbackCombo(["all"]),
+            "add_component": FallbackCombo(),
+            "add_x": FallbackValue(10.0),
+            "add_y": FallbackValue(10.0),
+            "add_rotation": FallbackValue(0.0),
+            "add_button": FallbackButton("Add Component"),
+            "details": FallbackText(),
+            "status": FallbackLabel(),
+        }
 
-    widget = QtWidgets.QWidget()
-    layout = QtWidgets.QVBoxLayout(widget)
-    form = QtWidgets.QFormLayout()
-    component = QtWidgets.QComboBox()
-    add_category = QtWidgets.QComboBox()
-    add_component = QtWidgets.QComboBox()
-    x = QtWidgets.QDoubleSpinBox()
-    y = QtWidgets.QDoubleSpinBox()
-    rotation = QtWidgets.QDoubleSpinBox()
-    library_ref = QtWidgets.QLineEdit()
-    add_x = QtWidgets.QDoubleSpinBox()
-    add_y = QtWidgets.QDoubleSpinBox()
-    add_rotation = QtWidgets.QDoubleSpinBox()
-    details = QtWidgets.QPlainTextEdit()
-    details.setReadOnly(True)
-    for spinbox in (x, y, rotation, add_x, add_y, add_rotation):
+    widget = qtwidgets.QWidget()
+    layout = qtwidgets.QVBoxLayout(widget)
+    selector_box = qtwidgets.QGroupBox("Selected Component")
+    selector_layout = qtwidgets.QFormLayout(selector_box)
+    component = qtwidgets.QComboBox()
+    x = qtwidgets.QDoubleSpinBox()
+    y = qtwidgets.QDoubleSpinBox()
+    rotation = qtwidgets.QDoubleSpinBox()
+    library_ref = qtwidgets.QLineEdit()
+    update_button = qtwidgets.QPushButton("Update Component")
+    for spinbox in (x, y, rotation):
         spinbox.setRange(-1000.0, 1000.0)
+        spinbox.setDecimals(2)
+    selector_layout.addRow("Component", component)
+    selector_layout.addRow("X (mm)", x)
+    selector_layout.addRow("Y (mm)", y)
+    selector_layout.addRow("Rotation", rotation)
+    selector_layout.addRow("Library Ref", library_ref)
+    selector_layout.addRow("", update_button)
+    add_box = qtwidgets.QGroupBox("Add Component")
+    add_layout = qtwidgets.QFormLayout(add_box)
+    add_category = qtwidgets.QComboBox()
+    add_component = qtwidgets.QComboBox()
+    add_x = qtwidgets.QDoubleSpinBox()
+    add_y = qtwidgets.QDoubleSpinBox()
+    add_rotation = qtwidgets.QDoubleSpinBox()
+    add_button = qtwidgets.QPushButton("Add Component")
+    for spinbox in (add_x, add_y, add_rotation):
+        spinbox.setRange(-1000.0, 1000.0)
+        spinbox.setDecimals(2)
     add_x.setValue(10.0)
     add_y.setValue(10.0)
-    form.addRow("Component", component)
-    form.addRow("X (mm)", x)
-    form.addRow("Y (mm)", y)
-    form.addRow("Rotation", rotation)
-    form.addRow("Library Ref", library_ref)
-    form.addRow("Add Category", add_category)
-    form.addRow("Add Component", add_component)
-    form.addRow("Add X", add_x)
-    form.addRow("Add Y", add_y)
-    form.addRow("Add Rotation", add_rotation)
-    layout.addLayout(form)
+    add_layout.addRow("Category", add_category)
+    add_layout.addRow("Library", add_component)
+    add_layout.addRow("X (mm)", add_x)
+    add_layout.addRow("Y (mm)", add_y)
+    add_layout.addRow("Rotation", add_rotation)
+    add_layout.addRow("", add_button)
+    details = qtwidgets.QPlainTextEdit()
+    details.setReadOnly(True)
+    status = qtwidgets.QLabel()
+    status.setWordWrap(True)
+    layout.addWidget(selector_box)
+    layout.addWidget(add_box)
     layout.addWidget(details)
+    layout.addWidget(status)
     return {
         "widget": widget,
         "component": component,
-        "add_category": add_category,
-        "add_component": add_component,
         "x": x,
         "y": y,
         "rotation": rotation,
         "library_ref": library_ref,
+        "update_button": update_button,
+        "add_category": add_category,
+        "add_component": add_component,
         "add_x": add_x,
         "add_y": add_y,
         "add_rotation": add_rotation,
+        "add_button": add_button,
         "details": details,
+        "status": status,
     }
-
-
-def _set_combo_items(combo: Any, items: list[str]) -> None:
-    if hasattr(combo, "clear"):
-        combo.clear()
-    if hasattr(combo, "addItems"):
-        combo.addItems(items)
-    else:
-        combo.items = list(items)
-        combo.index = 0
-
-
-def _current_text(combo: Any) -> str:
-    if hasattr(combo, "currentText"):
-        return str(combo.currentText())
-    return combo.items[combo.index] if combo.items else ""
-
-
-def _widget_value(widget: Any) -> float:
-    if hasattr(widget, "value"):
-        return float(widget.value())
-    return float(widget.value)
-
-
-def _set_value(widget: Any, value: float) -> None:
-    if hasattr(widget, "setValue"):
-        widget.setValue(value)
-    else:
-        widget.value = value
-
-
-def _set_text(widget: Any, value: str) -> None:
-    if hasattr(widget, "setPlainText"):
-        widget.setPlainText(value)
-    elif hasattr(widget, "setText"):
-        widget.setText(value)
-    else:
-        widget.text = value
-
-
-def _text_value(widget: Any) -> str:
-    if hasattr(widget, "text"):
-        result = widget.text()
-        return str(result) if not isinstance(result, str) else result
-    return str(getattr(widget, "text", ""))
-
-
-class _FallbackCombo:
-    def __init__(self, items: list[str] | None = None) -> None:
-        self.items: list[str] = items or []
-        self.index = 0
-
-
-class _FallbackValue:
-    def __init__(self, value: float) -> None:
-        self.value = value
-
-
-class _FallbackText:
-    def __init__(self) -> None:
-        self.text = ""

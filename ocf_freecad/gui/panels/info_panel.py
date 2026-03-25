@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ocf_freecad.gui.panels._common import FallbackText, load_qt, set_text
 from ocf_freecad.services.controller_service import ControllerService
 
 
@@ -10,21 +11,24 @@ class InfoPanel:
         self.doc = doc
         self.controller_service = controller_service or ControllerService()
         self.form = _build_form()
+        self.widget = self.form["widget"]
         self.refresh()
 
     def refresh(self) -> str:
         context = self.controller_service.get_ui_context(self.doc)
+        overrides = context.get("overrides") or {}
+        override_lines = [f"{key}: {value}" for key, value in sorted(overrides.items())]
         lines = [
             f"Template: {context['template_id'] or '-'}",
             f"Variant: {context['variant_id'] or '-'}",
             f"Selected: {context['selection'] or '-'}",
             f"Components: {context['component_count']}",
         ]
-        if context["component_types"]:
-            type_summary = ", ".join(
-                f"{component_type} x{count}" for component_type, count in sorted(context["component_types"].items())
+        component_types = context.get("component_types") or {}
+        if component_types:
+            lines.append(
+                "Types: " + ", ".join(f"{component_type} x{count}" for component_type, count in sorted(component_types.items()))
             )
-            lines.append(f"Types: {type_summary}")
         layout = context.get("layout") or {}
         if layout:
             lines.append(f"Layout: {layout.get('strategy', '-')}")
@@ -34,11 +38,12 @@ class InfoPanel:
             lines.append(
                 f"Validation: {summary.get('error_count', 0)} errors / {summary.get('warning_count', 0)} warnings"
             )
-        overrides = context.get("overrides") or {}
-        if overrides:
-            lines.append(f"Overrides: {', '.join(sorted(overrides.keys()))}")
+        if override_lines:
+            lines.append("")
+            lines.append("Overrides:")
+            lines.extend(override_lines)
         text = "\n".join(lines)
-        _set_text(self.form["info"], text)
+        set_text(self.form["info"], text)
         return text
 
     def accept(self) -> bool:
@@ -47,29 +52,13 @@ class InfoPanel:
 
 
 def _build_form() -> dict[str, Any]:
-    try:
-        from PySide2 import QtWidgets
-    except ImportError:
-        try:
-            from PySide import QtGui as QtWidgets  # type: ignore
-        except ImportError:
-            return {"info": _FallbackText()}
+    _qtcore, _qtgui, qtwidgets = load_qt()
+    if qtwidgets is None:
+        return {"widget": object(), "info": FallbackText()}
 
-    widget = QtWidgets.QWidget()
-    layout = QtWidgets.QVBoxLayout(widget)
-    info = QtWidgets.QPlainTextEdit()
+    widget = qtwidgets.QWidget()
+    layout = qtwidgets.QVBoxLayout(widget)
+    info = qtwidgets.QPlainTextEdit()
     info.setReadOnly(True)
     layout.addWidget(info)
     return {"widget": widget, "info": info}
-
-
-def _set_text(widget: Any, value: str) -> None:
-    if hasattr(widget, "setPlainText"):
-        widget.setPlainText(value)
-    else:
-        widget.text = value
-
-
-class _FallbackText:
-    def __init__(self) -> None:
-        self.text = ""
