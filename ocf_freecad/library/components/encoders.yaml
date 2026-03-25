@@ -1,0 +1,61 @@
+components:
+  - id: "alps_ec11e15204a3"
+    category: "encoder"
+    manufacturer: "Alps Alpine"
+    part_number: "EC11E15204A3"
+    description: "11 mm incremental rotary encoder, vertical, flat shaft, 20 mm actuator, 30 detents, 15 pulses, no push switch"
+    tags:
+      - "encoder"
+      - "incremental"
+      - "vertical"
+      - "11mm"
+      - "alps"
+    mechanical:
+      body_size_mm:
+        width: 11.0
+        depth: 11.0
+        height: 13.5
+      shaft:
+        shape: "flat"
+        length_mm: 20.0
+        diameter_mm: 6.0
+      panel:
+        recommended_hole_diameter_mm: 7.0
+        recommended_hole_diameter_with_tolerance_mm: 7.2
+        recommended_keepout_top_diameter_mm: 20.0
+        recommended_keepout_bottom_diameter_mm: 24.0
+        recommended_keepout_bottom_depth_mm: 18.0
+      mounting:
+        method: "threaded_bushing"
+        thread_diameter_mm: 7.0
+        nut_outer_diameter_mm: 11.8
+        washer_outer_diameter_mm: 13.0
+      orientation: "vertical"
+    electrical:
+      type: "incremental_encoder"
+      output: "quadrature_ab"
+      supply_required: false
+      rated_voltage: "5V DC"
+      rated_current: "10mA"
+      operating_temperature_c:
+        min: -40
+        max: 85
+      durability_cycles: 15000
+      pins:
+        - "A"
+        - "B"
+        - "C"
+    pcb:
+      default_footprint: "RotaryEncoder_Alps_EC11E_Vertical"
+      placement_side: "top"
+      anchor: "shaft_center"
+      tht: true
+      estimated_height_above_pcb_mm: 13.5
+      estimated_height_below_pcb_mm: 5.0
+      notes:
+        - "Footprint name is a project-local default and may need mapping to your KiCad library."
+    ocf:
+      control_type: "encoder"
+      supports:
+        - "rotate"
+      default_logical_role: "generic_encoder"

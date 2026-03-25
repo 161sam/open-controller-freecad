@@ -1,0 +1,23 @@
+from __future__ import annotations
+
+from typing import Any
+
+from ocf_freecad.library.manager import ComponentLibraryManager
+
+
+class LibraryService:
+    def __init__(self, manager: ComponentLibraryManager | None = None) -> None:
+        self.manager = manager or ComponentLibraryManager()
+
+    def get(self, component_id: str) -> dict[str, Any]:
+        return self.manager.get_component(component_id)
+
+    def list_by_category(self, category: str | None = None) -> list[dict[str, Any]]:
+        return self.manager.list_components(category=category)
+
+    def resolve(
+        self,
+        library_ref: str,
+        overrides: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        return self.manager.resolve_component(library_ref, overrides)

@@ -1,0 +1,4 @@
+expected_components:
+  - "alps_ec11e15204a3"
+  - "omron_b3f_1000"
+  - "adafruit_oled_096_i2c_ssd1306"
