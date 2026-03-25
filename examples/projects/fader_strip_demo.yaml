@@ -1,0 +1,47 @@
+project:
+  id: "fader_strip_demo"
+  name: "Fader Strip Demo"
+  source:
+    kind: "variant"
+    id: "fader_strip_60mm"
+  output_prefix: "fader_strip_demo"
+
+firmware:
+  controller_mcu:
+    id: "atmega32u4"
+    family: "ATmega32U4"
+  io_strategy:
+    default: "direct_gpio"
+  buses: {}
+
+overrides:
+  controller:
+    surface:
+      width: 130
+      height: 160
+  zones:
+    - id: "fader_lane"
+      type: "column"
+      x: 20
+      y: 12
+      width: 90
+      height: 96
+      strategy: "column"
+    - id: "button_row"
+      type: "row"
+      x: 20
+      y: 122
+      width: 90
+      height: 24
+      strategy: "row"
+
+pipeline:
+  layout:
+    strategy: "zone"
+    config:
+      grid_mm: 1.0
+      spacing_mm: 28
+      spacing_y_mm: 28
+      padding_mm: 8
+  constraints:
+    config: {}

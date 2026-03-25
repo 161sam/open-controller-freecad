@@ -1,0 +1,46 @@
+project:
+  id: "encoder_module_demo"
+  name: "Encoder Module Demo"
+  source:
+    kind: "template"
+    id: "encoder_module"
+  output_prefix: "encoder_module_demo"
+
+firmware:
+  controller_mcu:
+    id: "stm32f072"
+    family: "STM32F0"
+  io_strategy:
+    default: "direct_gpio"
+    display: "i2c"
+  buses:
+    i2c0:
+      type: "i2c"
+      pins:
+        sda: "PB7"
+        scl: "PB6"
+
+overrides:
+  controller:
+    surface:
+      width: 140
+      height: 70
+  zones:
+    - id: "main_controls"
+      type: "grid"
+      x: 14
+      y: 14
+      width: 112
+      height: 42
+      strategy: "grid"
+
+pipeline:
+  layout:
+    strategy: "grid"
+    config:
+      grid_mm: 1.0
+      spacing_x_mm: 28
+      spacing_y_mm: 20
+      padding_mm: 6
+  constraints:
+    config: {}

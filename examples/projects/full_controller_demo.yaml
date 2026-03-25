@@ -1,0 +1,127 @@
+project:
+  id: "full_controller_demo"
+  name: "Full Controller Demo"
+  source:
+    kind: "variant"
+    id: "display_nav_right"
+  output_prefix: "full_controller_demo"
+
+firmware:
+  controller_mcu:
+    id: "stm32h743"
+    family: "STM32H7"
+  io_strategy:
+    default: "direct_gpio"
+    pad: "matrix"
+    display: "i2c"
+  buses:
+    i2c0:
+      type: "i2c"
+      pins:
+        sda: "PB9"
+        scl: "PB8"
+
+overrides:
+  controller:
+    surface:
+      width: 440
+      height: 210
+  zones:
+    - id: "display_zone"
+      type: "grid"
+      x: 24
+      y: 16
+      width: 70
+      height: 30
+      strategy: "grid"
+    - id: "nav_zone"
+      type: "row"
+      x: 24
+      y: 58
+      width: 200
+      height: 30
+      strategy: "row"
+    - id: "fader_zone"
+      type: "column"
+      x: 196
+      y: 16
+      width: 110
+      height: 138
+      strategy: "column"
+    - id: "pad_zone"
+      type: "grid"
+      x: 316
+      y: 18
+      width: 100
+      height: 100
+      strategy: "grid"
+    - id: "aux_zone"
+      type: "row"
+      x: 308
+      y: 116
+      width: 96
+      height: 36
+      strategy: "row"
+  components:
+    update:
+      oled_status:
+        io_strategy: "i2c"
+        bus: "i2c0"
+        address: "0x3C"
+    add:
+      - id: "fader_main"
+        type: "fader"
+        library_ref: "generic_60mm_linear_fader"
+        zone: "fader_zone"
+      - id: "pad1"
+        type: "pad"
+        library_ref: "generic_mpc_pad_30mm"
+        zone: "pad_zone"
+        io_strategy: "matrix"
+        row: 0
+        col: 0
+      - id: "pad2"
+        type: "pad"
+        library_ref: "generic_mpc_pad_30mm"
+        zone: "pad_zone"
+        io_strategy: "matrix"
+        row: 0
+        col: 1
+      - id: "pad3"
+        type: "pad"
+        library_ref: "generic_mpc_pad_30mm"
+        zone: "pad_zone"
+        io_strategy: "matrix"
+        row: 1
+        col: 0
+      - id: "pad4"
+        type: "pad"
+        library_ref: "generic_mpc_pad_30mm"
+        zone: "pad_zone"
+        io_strategy: "matrix"
+        row: 1
+        col: 1
+      - id: "rgb_cue"
+        type: "rgb_button"
+        library_ref: "generic_rgb_arcade_button_24mm"
+        zone: "aux_zone"
+        io_strategy: "direct_gpio"
+  layout:
+    strategy: "zone"
+    config:
+      spacing_x_mm: 50
+      spacing_y_mm: 50
+      padding_mm: 8
+  defaults:
+    handedness: "right"
+
+pipeline:
+  layout:
+    strategy: "zone"
+    config:
+      grid_mm: 1.0
+      spacing_x_mm: 50
+      spacing_y_mm: 50
+      padding_mm: 8
+  constraints:
+    config: {}

@@ -11,6 +11,9 @@ variant:
   version: "1.0"
 
 overrides:
+  controller:
+    surface:
+      width: 200
   zones:
     - id: "display_zone"
       type: "grid"
@@ -20,15 +23,15 @@ overrides:
       height: 30
       strategy: "grid"
     - id: "nav_zone"
-      type: "grid"
-      x: 78
+      type: "row"
+      x: 86
       y: 45
-      width: 70
+      width: 102
       height: 30
-      strategy: "grid"
+      strategy: "row"
   layout:
     config:
       nav_alignment: "left"
-      spacing_x_mm: 28
+      spacing_x_mm: 22
   defaults:
     handedness: "left"
