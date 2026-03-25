@@ -14,3 +14,10 @@ def test_full_controller_pipeline_runs_end_to_end(tmp_path: Path):
     assert result["electrical_mapping"]["assignments"]
     assert result["schematic"]["components"]
     assert Path(result["output_paths"]["kicad_layout"]).exists()
+    assert result["bom"]["items"]
+    assert result["manufacturing"]["parts"]
+    assert result["assembly"]["steps"]
+    assert Path(result["output_paths"]["bom_yaml"]).exists()
+    assert Path(result["output_paths"]["bom_csv"]).exists()
+    assert Path(result["output_paths"]["manufacturing"]).exists()
+    assert Path(result["output_paths"]["assembly"]).exists()

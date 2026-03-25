@@ -5,12 +5,16 @@ from pathlib import Path
 from typing import Any
 
 from ocf_freecad.exporters.electrical_exporter import export_electrical_mapping
+from ocf_freecad.exporters.assembly_exporter import export_assembly
+from ocf_freecad.exporters.bom_exporter import export_bom_csv, export_bom_yaml
+from ocf_freecad.exporters.manufacturing_exporter import export_manufacturing
 from ocf_freecad.exporters.schematic_exporter import export_schematic
 from ocf_freecad.generator.controller_builder import ControllerBuilder
 from ocf_freecad.services.constraint_service import ConstraintService
 from ocf_freecad.services.electrical_service import ElectricalService
 from ocf_freecad.services.layout_service import LayoutService
 from ocf_freecad.services.library_service import LibraryService
+from ocf_freecad.services.manufacturing_service import ManufacturingService
 from ocf_freecad.services.schematic_service import SchematicService
 from ocf_freecad.services.template_service import TemplateService
 from ocf_freecad.services.variant_service import VariantService
@@ -28,6 +32,7 @@ class PipelineRunner:
         schematic_service: SchematicService | None = None,
         controller_builder: ControllerBuilder | None = None,
         library_service: LibraryService | None = None,
+        manufacturing_service: ManufacturingService | None = None,
     ) -> None:
         self.template_service = template_service or TemplateService()
         self.variant_service = variant_service or VariantService()
@@ -37,6 +42,7 @@ class PipelineRunner:
         self.schematic_service = schematic_service or SchematicService()
         self.controller_builder = controller_builder or ControllerBuilder(doc=None)
         self.library_service = library_service or LibraryService()
+        self.manufacturing_service = manufacturing_service or ManufacturingService()
 
     def run_full_pipeline(
         self,
@@ -96,12 +102,20 @@ class PipelineRunner:
         schematic = self.schematic_service.build_from_mapping(electrical_mapping)
         print("Schematic export created")
 
+        bom = self.manufacturing_service.build_bom(controller, placed_components)
+        manufacturing = self.manufacturing_service.build_manufacturing(controller, placed_components)
+        assembly = self.manufacturing_service.build_assembly(controller, placed_components)
+        print("Manufacturing exports created")
+
         output_paths = self._write_outputs(
             project_id=project_meta.get("output_prefix", project_id),
             output_dir=output_dir,
             kicad_layout=kicad_layout,
             electrical_mapping=electrical_mapping,
             schematic=schematic,
+            bom=bom,
+            manufacturing=manufacturing,
+            assembly=assembly,
         )
 
         warnings = []
@@ -121,6 +135,9 @@ class PipelineRunner:
             "kicad_layout": kicad_layout,
             "electrical_mapping": electrical_mapping,
             "schematic": schematic,
+            "bom": bom,
+            "manufacturing": manufacturing,
+            "assembly": assembly,
             "warnings": warnings,
             "output_paths": output_paths,
         }
@@ -284,6 +301,9 @@ class PipelineRunner:
         kicad_layout: dict[str, Any],
         electrical_mapping: dict[str, Any],
         schematic: dict[str, Any],
+        bom: dict[str, Any],
+        manufacturing: dict[str, Any],
+        assembly: dict[str, Any],
     ) -> dict[str, str]:
         if output_dir is None:
             return {}
@@ -293,14 +313,26 @@ class PipelineRunner:
         kicad_path = target_dir / f"{project_id}.kicad.layout.yaml"
         electrical_path = target_dir / f"{project_id}.electrical.yaml"
         schematic_path = target_dir / f"{project_id}.schematic.yaml"
+        bom_yaml_path = target_dir / f"{project_id}.bom.yaml"
+        bom_csv_path = target_dir / f"{project_id}.bom.csv"
+        manufacturing_path = target_dir / f"{project_id}.manufacturing.yaml"
+        assembly_path = target_dir / f"{project_id}.assembly.yaml"
 
         dump_yaml(kicad_path, kicad_layout)
         export_electrical_mapping(electrical_mapping, electrical_path)
         export_schematic(schematic, schematic_path)
+        export_bom_yaml(bom, bom_yaml_path)
+        export_bom_csv(bom, bom_csv_path)
+        export_manufacturing(manufacturing, manufacturing_path)
+        export_assembly(assembly, assembly_path)
         return {
             "kicad_layout": str(kicad_path),
             "electrical": str(electrical_path),
             "schematic": str(schematic_path),
+            "bom_yaml": str(bom_yaml_path),
+            "bom_csv": str(bom_csv_path),
+            "manufacturing": str(manufacturing_path),
+            "assembly": str(assembly_path),
         }
 
 
