@@ -126,6 +126,12 @@ def _derive_feature(
         return _derive_button_feature(panel, feature_name)
     if component_type == "display":
         return _derive_display_feature(panel, feature_name)
+    if component_type == "fader":
+        return _derive_fader_feature(mechanical, panel, feature_name)
+    if component_type == "pad":
+        return _derive_pad_feature(panel, feature_name)
+    if component_type == "rgb_button":
+        return _derive_encoder_feature(panel, feature_name)
     return None
 
 
@@ -214,6 +220,53 @@ def _derive_display_feature(panel: dict[str, Any], feature_name: str) -> dict[st
             "depth": keepout.get("depth"),
         }
     return None
+
+
+def _derive_fader_feature(
+    mechanical: dict[str, Any],
+    panel: dict[str, Any],
+    feature_name: str,
+) -> dict[str, Any] | None:
+    if feature_name == "cutout":
+        slot = mechanical.get("slot_cutout")
+        if not isinstance(slot, dict):
+            window = panel.get("recommended_window_mm")
+            if not isinstance(window, dict):
+                return None
+            return {
+                "shape": "rect",
+                "width": window.get("width"),
+                "height": window.get("height"),
+            }
+        return {
+            "shape": "rect",
+            "width": slot.get("length_mm"),
+            "height": slot.get("width_mm"),
+        }
+    if feature_name == "keepout_top":
+        keepout = panel.get("recommended_keepout_top_mm")
+        if not isinstance(keepout, dict):
+            return None
+        return {
+            "shape": "rect",
+            "width": keepout.get("width"),
+            "height": keepout.get("height"),
+        }
+    if feature_name == "keepout_bottom":
+        keepout = panel.get("recommended_keepout_bottom_mm")
+        if not isinstance(keepout, dict):
+            return None
+        return {
+            "shape": "rect",
+            "width": keepout.get("width"),
+            "height": keepout.get("height"),
+            "depth": keepout.get("depth"),
+        }
+    return None
+
+
+def _derive_pad_feature(panel: dict[str, Any], feature_name: str) -> dict[str, Any] | None:
+    return _derive_display_feature(panel, feature_name)
 
 
 def _as_positive_number(
