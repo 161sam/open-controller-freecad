@@ -1,0 +1,7 @@
+schema_version: "1.0.0"
+
+controller:
+  id: "simple"
+  dimensions_mm:
+    width: 100
+    depth: 60

@@ -1,0 +1,11 @@
+[project]
+name = "ocf-freecad"
+version = "0.1.0"
+description = "FreeCAD Workbench for modular MIDI controller design"
+authors = [{ name = "huckle lab" }]
+dependencies = [
+    "pyyaml"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
