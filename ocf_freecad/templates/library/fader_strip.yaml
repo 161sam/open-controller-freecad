@@ -1,0 +1,57 @@
+template:
+  id: "fader_strip"
+  name: "Fader Strip"
+  description: "Single fader with three utility buttons"
+  category: "module"
+  tags:
+    - "fader"
+    - "strip"
+  version: "1.0"
+controller:
+  surface:
+    type: "rounded_rect"
+    width: 80
+    height: 140
+    corner_radius: 8
+  height: 30
+  top_thickness: 3
+zones:
+  - id: "fader_lane"
+    type: "column"
+    x: 15
+    y: 10
+    width: 50
+    height: 80
+    strategy: "column"
+  - id: "button_row"
+    type: "row"
+    x: 10
+    y: 100
+    width: 60
+    height: 25
+    strategy: "row"
+components:
+  - id: "fader1"
+    type: "fader"
+    library_ref: "generic_60mm_linear_fader"
+    zone: "fader_lane"
+  - id: "solo"
+    type: "button"
+    library_ref: "omron_b3f_1000"
+    zone: "button_row"
+  - id: "mute"
+    type: "button"
+    library_ref: "omron_b3f_1000"
+    zone: "button_row"
+  - id: "select"
+    type: "button"
+    library_ref: "omron_b3f_1000"
+    zone: "button_row"
+layout:
+  strategy: "zone"
+  config:
+    spacing_mm: 24
+constraints:
+  profile: "default"
+defaults:
+  io_strategy: "direct_gpio"

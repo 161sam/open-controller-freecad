@@ -1,0 +1,102 @@
+template:
+  id: "pad_grid_4x4"
+  name: "4x4 Pad Grid"
+  description: "Sixteen performance pads in a 4x4 matrix"
+  category: "module"
+  tags:
+    - "pad"
+    - "grid"
+    - "performance"
+  version: "1.0"
+controller:
+  surface:
+    type: "rounded_rect"
+    width: 180
+    height: 180
+    corner_radius: 10
+  height: 32
+  top_thickness: 3
+zones:
+  - id: "pad_matrix"
+    type: "grid"
+    x: 15
+    y: 15
+    width: 150
+    height: 150
+    strategy: "grid"
+components:
+  - id: "pad1"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad2"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad3"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad4"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad5"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad6"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad7"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad8"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad9"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad10"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad11"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad12"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad13"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad14"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad15"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+  - id: "pad16"
+    type: "pad"
+    library_ref: "generic_mpc_pad_30mm"
+    zone: "pad_matrix"
+layout:
+  strategy: "grid"
+  config:
+    rows: 4
+    cols: 4
+    spacing_x_mm: 36
+    spacing_y_mm: 36
+constraints:
+  profile: "default"
+defaults:
+  io_strategy: "matrix"

@@ -1,0 +1,62 @@
+template:
+  id: "display_nav_module"
+  name: "Display Navigation Module"
+  description: "Status display with two encoders and two buttons"
+  category: "module"
+  tags:
+    - "display"
+    - "navigation"
+  version: "1.0"
+controller:
+  surface:
+    type: "rounded_rect"
+    width: 160
+    height: 90
+    corner_radius: 8
+  height: 30
+  top_thickness: 3
+zones:
+  - id: "display_zone"
+    type: "grid"
+    x: 45
+    y: 10
+    width: 70
+    height: 30
+    strategy: "grid"
+  - id: "nav_zone"
+    type: "grid"
+    x: 15
+    y: 45
+    width: 130
+    height: 30
+    strategy: "grid"
+components:
+  - id: "oled_status"
+    type: "display"
+    library_ref: "adafruit_oled_096_i2c_ssd1306"
+    zone: "display_zone"
+  - id: "enc_left"
+    type: "encoder"
+    library_ref: "generic_ec11_encoder_with_push"
+    zone: "nav_zone"
+  - id: "enc_right"
+    type: "encoder"
+    library_ref: "generic_ec11_encoder_with_push"
+    zone: "nav_zone"
+  - id: "btn_back"
+    type: "button"
+    library_ref: "omron_b3f_1000"
+    zone: "nav_zone"
+  - id: "btn_enter"
+    type: "button"
+    library_ref: "omron_b3f_1000"
+    zone: "nav_zone"
+layout:
+  strategy: "zone"
+  config:
+    spacing_x_mm: 32
+    spacing_y_mm: 24
+constraints:
+  profile: "default"
+defaults:
+  io_strategy: "direct_gpio"
