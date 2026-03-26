@@ -94,3 +94,39 @@ def test_reports_failed_placement_for_small_surface():
     assert len(result["placements"]) < 2
     assert "disp2" in result["unplaced_component_ids"] or "disp1" in result["unplaced_component_ids"]
     assert any(warning["code"] == "placement_failed" for warning in result["warnings"])
+
+
+def test_places_pad_grid_4x4_without_cutout_overlap():
+    service = LayoutService()
+    controller = Controller(
+        "pads",
+        180,
+        180,
+        32,
+        3,
+        surface={"shape": "rounded_rect", "width": 180.0, "height": 180.0, "corner_radius": 10.0},
+        layout_zones=[{"id": "pad_matrix", "x": 15.0, "y": 15.0, "width": 150.0, "height": 150.0, "strategy": "grid"}],
+    )
+    components = [
+        Component(f"pad{index}", "pad", 0, 0, library_ref="generic_mpc_pad_30mm", zone_id="pad_matrix")
+        for index in range(1, 17)
+    ]
+
+    result = service.place(
+        controller,
+        components,
+        strategy="grid",
+        config={
+            "rows": 4,
+            "cols": 4,
+            "spacing_x_mm": 36.0,
+            "spacing_y_mm": 36.0,
+            "placement_blocking_mode": "cutout_surface",
+        },
+    )
+
+    placements = result["placements"]
+    assert len(placements) == 16
+    assert {placement["x"] for placement in placements} == {36.0, 72.0, 108.0, 144.0}
+    assert {placement["y"] for placement in placements} == {36.0, 72.0, 108.0, 144.0}
+    assert not any(error["rule_id"] == "cutout_spacing" for error in result["validation"]["errors"])

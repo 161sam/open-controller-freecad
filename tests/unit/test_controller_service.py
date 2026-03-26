@@ -216,6 +216,35 @@ def test_create_from_template_uses_fallback_grid_when_layout_is_missing():
     assert all(component["x"] != 0.0 or component["y"] != 0.0 for component in state["components"])
 
 
+def test_create_from_template_pad_grid_uses_template_layout_without_cutout_overlap():
+    service = ControllerService()
+    doc = FakeDocument()
+
+    state = service.create_from_template(doc, "pad_grid_4x4")
+
+    assert len(state["components"]) == 16
+    assert state["meta"]["layout"]["strategy"] == "grid"
+    assert state["meta"]["layout"]["source"] == "template"
+    assert state["meta"]["layout"]["config"]["rows"] == 4
+    assert state["meta"]["layout"]["config"]["cols"] == 4
+    assert state["meta"]["layout"]["config"]["spacing_x_mm"] == 36.0
+    assert state["meta"]["layout"]["config"]["spacing_y_mm"] == 36.0
+    assert state["meta"]["layout"]["config"]["padding_mm"] == 10.0
+
+    placements = [(component["x"], component["y"]) for component in state["components"]]
+    assert len(set(placements)) == 16
+    assert {x for x, _y in placements} == {36.0, 72.0, 108.0, 144.0}
+    assert {y for _x, y in placements} == {36.0, 72.0, 108.0, 144.0}
+    assert all(15.0 <= component["x"] - 15.0 <= 135.0 for component in state["components"])
+    assert all(15.0 <= component["y"] - 15.0 <= 135.0 for component in state["components"])
+
+    for index, first in enumerate(state["components"]):
+        for second in state["components"][index + 1:]:
+            overlap_x = abs(first["x"] - second["x"]) < 30.0
+            overlap_y = abs(first["y"] - second["y"]) < 30.0
+            assert not (overlap_x and overlap_y)
+
+
 def test_sync_document_uses_central_controller_object_and_generated_group(monkeypatch):
     class FakeBuilder:
         def __init__(self, doc):
@@ -250,6 +279,51 @@ def test_sync_document_uses_central_controller_object_and_generated_group(monkey
     assert controller is not None
     assert generated is not None
     assert controller.ProjectJson
-    assert [obj.Label for obj in generated.Group] == ["OCF_ControllerBody", "OCF_TopPlateCut"]
+    assert [obj.Label for obj in generated.Group] == ["OCF_ControllerBody", "OCF_TopPlate"]
     assert doc.OCFLastSync["controller_object"] == "OCF_Controller"
     assert doc.OCFLastSync["generated_group"] == "OCF_Generated"
+
+
+def test_repeated_sync_document_keeps_document_object_count_bounded(monkeypatch):
+    class FakeBuilder:
+        def __init__(self, doc):
+            self.doc = doc
+
+        def build_body(self, _controller):
+            obj = self.doc.addObject("Part::Feature", "ControllerBody")
+            obj.Shape = "body"
+            return obj
+
+        def build_top_plate(self, _controller):
+            obj = self.doc.addObject("Part::Feature", "TopPlate")
+            obj.Shape = type("Shape", (), {"BoundBox": type("BoundBox", (), {"ZMin": 0.0, "ZLength": 3.0})(), "copy": lambda self: self})()
+            return obj
+
+        def apply_cutouts(self, top, _components):
+            top.Shape = "top-cut"
+            return top
+
+        def build_keepouts(self, _components):
+            return []
+
+    monkeypatch.setattr("ocf_freecad.services.controller_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocf_freecad.services.controller_service.freecad_gui.reveal_generated_objects", lambda _doc: 0)
+    monkeypatch.setattr("ocf_freecad.services.controller_service.freecad_gui.activate_document", lambda _doc: True)
+    monkeypatch.setattr("ocf_freecad.services.controller_service.freecad_gui.focus_view", lambda _doc, fit=True: True)
+
+    service = ControllerService()
+    doc = FakeFeatureDocument()
+    service.create_controller(doc, {"id": "demo"})
+    for index in range(17):
+        service.add_component(doc, "omron_b3f_1000", component_id=f"btn{index + 1}", x=10.0 + index, y=20.0)
+
+    service.sync_document(doc)
+    stable_names = sorted(obj.Name for obj in doc.Objects)
+    stable_count = len(doc.Objects)
+
+    for _ in range(3):
+        service.sync_document(doc)
+        assert len(doc.Objects) == stable_count
+        assert sorted(obj.Name for obj in doc.Objects) == stable_names
+        assert not any(obj.Name.startswith("cutout_") for obj in doc.Objects)
+        assert not any(obj.Name.startswith("TopPlate_") for obj in doc.Objects)

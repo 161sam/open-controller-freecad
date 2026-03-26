@@ -89,6 +89,15 @@ def fuse_shapes(parts):
     return result
 
 
+def cut_shape(base_shape, tool_shapes):
+    filtered = [tool for tool in tool_shapes if tool is not None]
+    if not filtered:
+        return base_shape.copy() if hasattr(base_shape, "copy") else base_shape
+    result = base_shape.copy() if hasattr(base_shape, "copy") else base_shape
+    tool = fuse_shapes(filtered) if len(filtered) > 1 else filtered[0]
+    return result.cut(tool)
+
+
 def create_box(doc, name, width, depth, height, x=0, y=0, z=0):
     import FreeCAD as App
 
@@ -178,7 +187,7 @@ def create_feature(doc, name, shape):
 
 def cut(base_obj, tool_obj, name=None):
     tool_shape = tool_obj.Shape if hasattr(tool_obj, "Shape") else tool_obj
-    result = base_obj.Shape.cut(tool_shape)
+    result = cut_shape(base_obj.Shape, [tool_shape])
     obj = base_obj.Document.addObject(
         "Part::Feature",
         name or f"{base_obj.Name}_cut",

@@ -10,3 +10,7 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# dev
+Prompt.md
+.ocf_userdata/

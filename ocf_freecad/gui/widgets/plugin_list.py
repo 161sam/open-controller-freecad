@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from ocf_freecad.gui.panels._common import (
+    configure_combo_box,
+    configure_text_panel,
     FallbackButton,
     FallbackCombo,
     FallbackLabel,
@@ -12,6 +14,7 @@ from ocf_freecad.gui.panels._common import (
     set_combo_items,
     set_enabled,
     set_label_text,
+    set_size_policy,
     set_text,
 )
 from ocf_freecad.gui.widgets.plugin_status_badge import PluginStatusBadgeWidget
@@ -158,11 +161,14 @@ def _build_widget() -> dict[str, Any]:
     remote_plugin_combo = qtwidgets.QComboBox()
     remote_summary = qtwidgets.QLabel("No remote plugin selected.")
     remote_summary.setWordWrap(True)
+    for combo in (filter_combo, plugin_combo, remote_plugin_combo):
+        configure_combo_box(combo)
     remote_details = qtwidgets.QPlainTextEdit()
-    remote_details.setReadOnly(True)
-    remote_details.setMaximumHeight(120)
+    configure_text_panel(remote_details, max_height=120)
     download_path = qtwidgets.QLineEdit(".plugin_downloads")
     download_button = qtwidgets.QPushButton("Download ZIP")
+    for child in (filter_combo, plugin_combo, export_path, import_path, remote_url, remote_plugin_combo, download_path):
+        set_size_policy(child, horizontal="expanding", vertical="preferred")
     row = qtwidgets.QHBoxLayout()
     row.addWidget(enable_button)
     row.addWidget(disable_button)

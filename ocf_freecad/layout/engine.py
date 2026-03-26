@@ -40,6 +40,7 @@ class LayoutEngine:
         controller_data = self._as_dict(controller)
         config_data = deepcopy(config) if config is not None else {}
         grid_mm = float(config_data.get("grid_mm", 1.0))
+        blocking_mode = str(config_data.get("placement_blocking_mode", "all"))
         sorted_components = self._sort_components(components)
         placed_components: list[dict[str, Any]] = []
         placements: list[Placement] = []
@@ -70,7 +71,7 @@ class LayoutEngine:
                 candidate_component["y"] = snapped_y
                 candidate_component["rotation"] = float(candidate_component.get("rotation", 0.0) or 0.0)
                 report = self.constraint_validator.validate(zone_controller, placed_components + [candidate_component], config=config_data)
-                if self._has_blocking_findings(report, candidate_component["id"]):
+                if self._has_blocking_findings(report, candidate_component["id"], blocking_mode):
                     continue
 
                 placed_components.append(candidate_component)
@@ -151,8 +152,20 @@ class LayoutEngine:
             return config["strategy"]
         return default_strategy
 
-    def _has_blocking_findings(self, report: Any, component_id: str) -> bool:
+    def _has_blocking_findings(self, report: Any, component_id: str, blocking_mode: str) -> bool:
+        blocking_rules = None
+        if blocking_mode == "cutout_surface":
+            blocking_rules = {
+                "inside_surface_component",
+                "inside_surface_keepout",
+                "inside_surface_cutout",
+                "edge_distance",
+                "cutout_spacing",
+                "mounting_hole_clearance",
+            }
         for finding in report.errors:
+            if blocking_rules is not None and finding.rule_id not in blocking_rules:
+                continue
             if finding.source_component == component_id or finding.affected_component == component_id:
                 return True
         return False

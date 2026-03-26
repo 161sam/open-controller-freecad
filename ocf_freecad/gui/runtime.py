@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 import traceback
 
-from ocf_freecad.gui.panels._common import load_qt
+from ocf_freecad.gui.panels._common import exec_dialog, load_qt, log_to_console
 
 _ACTIVE_DIALOGS: list[Any] = []
 
@@ -34,6 +34,7 @@ def show_info(title: str, message: str, details: str | None = None) -> None:
 def open_dialog(title: str, content: Any, width: int = 720, height: int = 560) -> Any | None:
     _qtcore, _qtgui, qtwidgets = load_qt()
     if qtwidgets is None:
+        log_to_console(f"Cannot open dialog '{title}' because no Qt binding is available.", level="warning")
         return None
     dialog = qtwidgets.QDialog(_main_window())
     dialog.setWindowTitle(title)
@@ -74,9 +75,9 @@ def _discard_dialog(dialog: Any) -> None:
 def _show_message(kind: str, title: str, message: str, details: str | None = None) -> None:
     _qtcore, _qtgui, qtwidgets = load_qt()
     if qtwidgets is None:
-        print(f"{title}: {message}")
+        log_to_console(f"{title}: {message}", level="error" if kind == "critical" else "message")
         if details:
-            print(details)
+            log_to_console(details, level="error" if kind == "critical" else "message")
         return
     box_cls = qtwidgets.QMessageBox
     if kind == "critical":
@@ -85,4 +86,4 @@ def _show_message(kind: str, title: str, message: str, details: str | None = Non
         box = box_cls(box_cls.Information, title, message, parent=_main_window())
     if details:
         box.setDetailedText(details)
-    box.exec_()
+    exec_dialog(box)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ocf_freecad.gui.panels._common import load_qt, set_text, text_value
+from ocf_freecad.gui.panels._common import load_qt, set_size_policy, set_text, text_value, wrap_widget_in_scroll_area
 from ocf_freecad.gui.widgets.plugin_details import PluginDetailsWidget
 from ocf_freecad.gui.widgets.plugin_list import PluginListWidget
 from ocf_freecad.services.plugin_manager_service import PluginManagerService
@@ -207,10 +207,14 @@ def _build_form() -> dict[str, Any]:
             "plugin_details": plugin_details,
         }
 
-    widget = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(widget)
+    content = qtwidgets.QWidget()
+    layout = qtwidgets.QVBoxLayout(content)
+    set_size_policy(plugin_list.widget, horizontal="expanding", vertical="preferred")
+    set_size_policy(plugin_details.widget, horizontal="expanding", vertical="preferred")
     layout.addWidget(plugin_list.widget)
     layout.addWidget(plugin_details.widget)
+    layout.addStretch(1)
+    widget = wrap_widget_in_scroll_area(content)
     return {
         "widget": widget,
         "plugin_list": plugin_list,

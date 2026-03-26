@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ocf_freecad.commands.base import BaseCommand
-from ocf_freecad.gui.command_views import show_constraint_report_dialog
+from ocf_freecad.gui.panels._common import log_to_console
 from ocf_freecad.gui.runtime import show_error
 
 
@@ -23,7 +23,14 @@ class ValidateConstraintsCommand(BaseCommand):
             doc = App.ActiveDocument
             if doc is None:
                 raise RuntimeError("No active FreeCAD document")
-            ensure_workbench_ui(doc, focus="constraints")
-            show_constraint_report_dialog(doc)
+            panel = ensure_workbench_ui(doc, focus="constraints")
+            report = panel.constraints_panel.validate()
+            panel.set_status(
+                f"Validated layout: {report['summary']['error_count']} errors, {report['summary']['warning_count']} warnings."
+            )
+            log_to_console(
+                f"Constraint validation finished with {report['summary']['error_count']} errors and "
+                f"{report['summary']['warning_count']} warnings."
+            )
         except Exception as exc:
             show_error("Validate Constraints", exc)

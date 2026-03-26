@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from ocf_freecad.gui.panels._common import (
@@ -13,6 +14,8 @@ from ocf_freecad.gui.panels._common import (
     current_text,
     load_qt,
     set_label_text,
+    set_current_text,
+    set_value,
     set_size_policy,
     set_text,
     wrap_widget_in_scroll_area,
@@ -60,8 +63,8 @@ class LayoutPanel:
                 ]
             ),
         )
-        self.form["grid_mm"].setValue(float(settings["grid_mm"]))
         layout = context.get("layout") or {}
+        self._sync_form_defaults(layout=layout, settings=settings)
         if not layout:
             set_text(self.form["summary"], "No layout has been applied yet.")
             set_label_text(self.form["status"], "Use Auto Place after creating a template or when components need a fresh starting layout.")
@@ -82,14 +85,25 @@ class LayoutPanel:
         )
 
     def apply_auto_layout(self) -> dict[str, Any]:
-        preset = current_text(self.form["preset"]) or "grid"
-        strategy = preset if preset in {"grid", "row", "column"} else "grid"
-        self.interaction_service.set_grid(self.doc, widget_value(self.form["grid_mm"]))
-        config = {
-            "grid_mm": widget_value(self.form["grid_mm"]),
-            "spacing_mm": widget_value(self.form["spacing_mm"]),
-            "padding_mm": widget_value(self.form["padding_mm"]),
-        }
+        context = self.controller_service.get_ui_context(self.doc)
+        layout = context.get("layout") or {}
+        active_config = layout.get("config", {}) if isinstance(layout.get("config"), dict) else {}
+        preset = current_text(self.form["preset"]) or layout.get("strategy") or "grid"
+        strategy = preset if preset in {"grid", "row", "column", "zone"} else "grid"
+        grid_value = widget_value(self.form["grid_mm"])
+        spacing_value = widget_value(self.form["spacing_mm"])
+        padding_value = widget_value(self.form["padding_mm"])
+        self.interaction_service.set_grid(self.doc, grid_value)
+        config = deepcopy(active_config)
+        config.update(
+            {
+                "grid_mm": grid_value,
+                "spacing_mm": spacing_value,
+                "spacing_x_mm": spacing_value,
+                "spacing_y_mm": spacing_value,
+                "padding_mm": padding_value,
+            }
+        )
         result = self.controller_service.auto_layout(self.doc, strategy=strategy, config=config)
         set_label_text(self.form["status"], f"Applied {strategy} placement to the current components.")
         set_text(
@@ -227,13 +241,24 @@ class LayoutPanel:
         if self.on_overlay_changed is not None:
             self.on_overlay_changed()
 
+    def _sync_form_defaults(self, layout: dict[str, Any], settings: dict[str, Any]) -> None:
+        config = layout.get("config", {}) if isinstance(layout.get("config"), dict) else {}
+        strategy = layout.get("strategy") if isinstance(layout.get("strategy"), str) else None
+        set_current_text(self.form["preset"], strategy or "grid")
+        set_value(self.form["grid_mm"], float(config.get("grid_mm", settings["grid_mm"])))
+        set_value(
+            self.form["spacing_mm"],
+            float(config.get("spacing_mm", config.get("spacing_x_mm", config.get("spacing_y_mm", 24.0)))),
+        )
+        set_value(self.form["padding_mm"], float(config.get("padding_mm", 8.0)))
+
 
 def _build_form() -> dict[str, Any]:
     _qtcore, _qtgui, qtwidgets = load_qt()
     if qtwidgets is None:
         return {
             "widget": object(),
-            "preset": FallbackCombo(["grid", "row", "column"]),
+            "preset": FallbackCombo(["grid", "row", "column", "zone"]),
             "grid_mm": FallbackValue(1.0),
             "spacing_mm": FallbackValue(24.0),
             "padding_mm": FallbackValue(8.0),
@@ -256,7 +281,7 @@ def _build_form() -> dict[str, Any]:
     intro.setWordWrap(True)
     form = qtwidgets.QFormLayout()
     preset = qtwidgets.QComboBox()
-    preset.addItems(["grid", "row", "column"])
+    preset.addItems(["grid", "row", "column", "zone"])
     configure_combo_box(preset)
     grid_mm = qtwidgets.QDoubleSpinBox()
     spacing_mm = qtwidgets.QDoubleSpinBox()

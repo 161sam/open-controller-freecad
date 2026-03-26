@@ -3,12 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from ocf_freecad.gui.panels._common import (
+    configure_text_panel,
     FallbackButton,
     FallbackLabel,
     FallbackText,
     load_qt,
     set_label_text,
     set_text,
+    wrap_widget_in_scroll_area,
 )
 from ocf_freecad.services.controller_service import ControllerService
 
@@ -110,19 +112,21 @@ def _build_form() -> dict[str, Any]:
             "status": FallbackLabel(),
         }
 
-    widget = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(widget)
+    content = qtwidgets.QWidget()
+    layout = qtwidgets.QVBoxLayout(content)
     intro = qtwidgets.QLabel("Review spacing, edge distance, and placement issues before the next iteration.")
     intro.setWordWrap(True)
     validate_button = qtwidgets.QPushButton("Validate Layout")
     results = qtwidgets.QPlainTextEdit()
-    results.setReadOnly(True)
+    configure_text_panel(results, max_height=180)
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
     layout.addWidget(intro)
     layout.addWidget(validate_button)
     layout.addWidget(results)
     layout.addWidget(status)
+    layout.addStretch(1)
+    widget = wrap_widget_in_scroll_area(content)
     return {
         "widget": widget,
         "validate_button": validate_button,

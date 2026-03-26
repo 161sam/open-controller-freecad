@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from ocf_freecad.gui.panels._common import FallbackLabel, FallbackText, load_qt, set_label_text, set_text
+from ocf_freecad.gui.panels._common import (
+    FallbackLabel,
+    FallbackText,
+    configure_text_panel,
+    load_qt,
+    set_label_text,
+    set_text,
+)
 from ocf_freecad.gui.widgets.plugin_status_badge import PluginStatusBadgeWidget
 
 
@@ -61,7 +68,7 @@ def _build_widget() -> dict[str, Any]:
     layout = qtwidgets.QVBoxLayout(widget)
     title = qtwidgets.QLabel("Plugin Details")
     details = qtwidgets.QPlainTextEdit()
-    details.setReadOnly(True)
+    configure_text_panel(details, max_height=150)
     layout.addWidget(title)
     layout.addWidget(badge.widget)
     layout.addWidget(details)

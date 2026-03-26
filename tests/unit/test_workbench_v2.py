@@ -1,5 +1,6 @@
 from ocf_freecad.gui.panels.components_panel import ComponentsPanel
 from ocf_freecad.gui.panels.constraints_panel import ConstraintsPanel
+from ocf_freecad.gui.panels._common import current_text, widget_value
 from ocf_freecad.gui.panels.create_panel import CreatePanel
 from ocf_freecad.gui.panels.info_panel import InfoPanel
 from ocf_freecad.gui.panels.layout_panel import LayoutPanel
@@ -65,6 +66,19 @@ def test_layout_components_constraints_and_info_panels_share_document_state():
     assert report["summary"]["error_count"] == 0
     assert component["id"] in info_text
     assert "Components: 4" in info_text
+
+
+def test_layout_panel_reads_active_project_layout_defaults():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_from_template(doc, "pad_grid_4x4")
+
+    layout_panel = LayoutPanel(doc, controller_service=service)
+
+    assert current_text(layout_panel.form["preset"]) == "grid"
+    assert widget_value(layout_panel.form["grid_mm"]) == 1.0
+    assert widget_value(layout_panel.form["spacing_mm"]) == 36.0
+    assert widget_value(layout_panel.form["padding_mm"]) == 10.0
 
 
 def test_info_panel_updates_controller_geometry():

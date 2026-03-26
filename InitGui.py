@@ -44,8 +44,10 @@ print("OCF InitGui loaded:", repo_root)
 
 try:
     import FreeCADGui
+    from ocf_freecad.gui.panels._common import qt_self_check
     from ocf_freecad.workbench import OpenControllerWorkbench
 
+    qt_self_check()
     FreeCADGui.addWorkbench(OpenControllerWorkbench())
     print("OCF workbench registered")
 except Exception as exc:

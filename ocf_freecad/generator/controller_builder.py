@@ -119,9 +119,11 @@ class ControllerBuilder:
         result_shape = base_obj.Shape.copy() if hasattr(base_obj.Shape, "copy") else base_obj.Shape
         z_start = base_obj.Shape.BoundBox.ZMin
         cut_height = base_obj.Shape.BoundBox.ZLength
+        tool_shapes = []
 
         for component in self.resolve_components(components):
-            tool = self._create_cutout_shape(
+            tool_shapes.append(
+                self._create_cutout_shape(
                 x=component["x"],
                 y=component["y"],
                 rotation=float(component.get("rotation", 0.0) or 0.0),
@@ -129,9 +131,9 @@ class ControllerBuilder:
                 cut_height=cut_height,
                 z_start=z_start,
             )
-            result_shape = result_shape.cut(tool)
+            )
 
-        base_obj.Shape = result_shape
+        base_obj.Shape = shapes.cut_shape(result_shape, tool_shapes)
         return base_obj
 
     def build_cutout_primitives(self, components: list[Any]) -> list[dict[str, Any]]:

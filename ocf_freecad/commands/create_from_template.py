@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ocf_freecad.commands.base import BaseCommand
-from ocf_freecad.gui.command_views import show_create_controller_dialog
+from ocf_freecad.gui.panels._common import log_to_console
 from ocf_freecad.gui.runtime import show_error
 
 
@@ -22,6 +22,6 @@ class CreateFromTemplateCommand(BaseCommand):
 
             doc = App.ActiveDocument or App.newDocument("Controller")
             ensure_workbench_ui(doc, focus="create")
-            show_create_controller_dialog(doc)
+            log_to_console("Create Controller command focused the Create panel.")
         except Exception as exc:
             show_error("Create Controller", exc)

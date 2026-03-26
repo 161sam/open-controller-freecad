@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ocf_freecad.commands.base import BaseCommand
-from ocf_freecad.gui.command_views import show_add_component_dialog
+from ocf_freecad.gui.panels._common import log_to_console
 from ocf_freecad.gui.runtime import show_error
 
 
@@ -24,6 +24,6 @@ class SelectComponentCommand(BaseCommand):
             if doc is None:
                 raise RuntimeError("No active FreeCAD document")
             ensure_workbench_ui(doc, focus="components")
-            show_add_component_dialog(doc)
+            log_to_console("Component Manager command focused the Components panel.")
         except Exception as exc:
             show_error("Components", exc)

@@ -377,10 +377,8 @@ class ControllerService:
         self._set_generated_label(body, "OCF_ControllerBody")
         group_generated_object(doc, body)
         top = builder.build_top_plate(controller)
-        self._set_generated_label(top, "OCF_TopPlate")
-        group_generated_object(doc, top)
         top_cut = builder.apply_cutouts(top, components)
-        self._set_generated_label(top_cut, "OCF_TopPlateCut")
+        self._set_generated_label(top_cut, "OCF_TopPlateCut" if components else "OCF_TopPlate")
         group_generated_object(doc, top_cut)
         self._create_component_markers(doc, builder, components, controller.height)
         self._apply_selection_highlight(doc, state["meta"].get("selection"))
@@ -551,11 +549,15 @@ class ControllerService:
         strategy: str,
         config: dict[str, Any] | None = None,
         source: str | None = None,
+        placement_blocking_mode: str | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         controller = self._build_controller(state["controller"])
         components = [self._build_component(item) for item in state["components"]]
-        config_copy = deepcopy(config) if config is not None else {}
-        result = self.layout_engine.place(controller, components, strategy=strategy, config=config_copy)
+        config_copy = self._resolved_layout_config(strategy, config)
+        engine_config = deepcopy(config_copy)
+        if placement_blocking_mode:
+            engine_config["placement_blocking_mode"] = placement_blocking_mode
+        result = self.layout_engine.place(controller, components, strategy=strategy, config=engine_config)
         placements = {placement["component_id"]: placement for placement in result["placements"]}
         for component in state["components"]:
             placement = placements.get(component["id"])
@@ -601,7 +603,13 @@ class ControllerService:
                 f"Applying initial layout for template='{state['meta'].get('template_id') or '-'}' "
                 f"variant='{state['meta'].get('variant_id') or '-'}' using strategy '{strategy}'."
             )
-            state, result = self._apply_layout_to_state(state, strategy=strategy, config=config, source="template")
+            state, result = self._apply_layout_to_state(
+                state,
+                strategy=strategy,
+                config=config,
+                source="template",
+                placement_blocking_mode="cutout_surface",
+            )
             if result["unplaced_component_ids"]:
                 _log_to_console(
                     f"Initial layout left {len(result['unplaced_component_ids'])} components unplaced; "
@@ -660,6 +668,19 @@ class ControllerService:
             "spacing_x_mm": spacing_x,
             "spacing_y_mm": spacing_y,
         }
+
+    def _resolved_layout_config(self, strategy: str, config: dict[str, Any] | None) -> dict[str, Any]:
+        resolved = deepcopy(config) if config is not None else {}
+        resolved.setdefault("grid_mm", 1.0)
+        resolved.setdefault("padding_mm", 10.0)
+        spacing_mm = resolved.get("spacing_mm")
+        if spacing_mm is not None:
+            resolved.setdefault("spacing_x_mm", spacing_mm)
+            resolved.setdefault("spacing_y_mm", spacing_mm)
+        if strategy in {"row", "column", "grid", "zone"} and "spacing_mm" not in resolved:
+            if resolved.get("spacing_x_mm") == resolved.get("spacing_y_mm") and resolved.get("spacing_x_mm") is not None:
+                resolved["spacing_mm"] = resolved["spacing_x_mm"]
+        return resolved
 
     def _fill_unplaced_components(
         self,
