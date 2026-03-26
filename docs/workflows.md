@@ -107,6 +107,18 @@
 - Info-/Status-Bereiche zeigen die Größe der aktuellen Auswahl
 - Folgefeatures wie Bulk Edit, Align/Distribute oder Duplicate können dieselbe Selection-Menge später direkt wiederverwenden
 
+## Workflow 10b – Multi-Select -> Bulk Edit -> Apply
+
+- mehrere kompatible Komponenten auswählen
+- Components-Panel wechselt automatisch in den Bulk-Edit-Modus
+- gemeinsame Felder und konservativ unterstützte typbezogene Felder werden angezeigt
+- bei gemischten Werten bleibt das Feld im Mixed-Zustand, bis der Benutzer es bewusst per Apply-Schalter aktiviert
+- gewünschte Bulk-Felder aktivieren
+- Zielwerte setzen
+- `Apply Bulk Changes` ausführen
+- alle selektierten Komponenten werden in einem Sammelschritt aktualisiert
+- danach Overlay, Selection und Primary-Component-Flow bleiben konsistent
+
 ## Stage A And Stage B Compatibility
 
 - Stage A and Stage B use the same registry, template loader, and template inspector flow.

@@ -157,6 +157,28 @@ def test_add_component_uses_single_document_transaction():
     assert doc.recompute_count > before_recomputes
 
 
+def test_bulk_update_components_uses_single_document_transaction():
+    service = ControllerService()
+    doc = FakeDocument()
+
+    service.create_controller(doc, {"id": "demo"})
+    service.add_component(doc, "generic_45mm_linear_fader", component_id="f1", x=10.0, y=10.0)
+    service.add_component(doc, "generic_60mm_linear_fader", component_id="f2", x=20.0, y=10.0)
+
+    state = service.bulk_update_components(
+        doc,
+        {
+            "f1": {"rotation": 25.0, "properties": {"cap_width": 14.0}},
+            "f2": {"rotation": 25.0, "properties": {"cap_width": 14.0}},
+        },
+    )
+
+    by_id = {component["id"]: component for component in state["components"]}
+    assert by_id["f1"]["rotation"] == 25.0
+    assert by_id["f2"]["properties"]["cap_width"] == 14.0
+    assert doc.transactions[-2:] == [("open", "OCW Bulk Edit Components"), ("commit", None)]
+
+
 def test_move_component_aborts_transaction_and_restores_previous_state_when_sync_fails():
     service = ControllerService()
     doc = FakeDocument()

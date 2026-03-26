@@ -14,6 +14,7 @@ from ocw_workbench.gui.panels._common import (
     FallbackValue,
     current_text,
     load_qt,
+    set_enabled,
     set_combo_items,
     set_current_text,
     set_size_policy,
@@ -24,6 +25,7 @@ from ocw_workbench.gui.panels._common import (
     wrap_widget_in_scroll_area,
     widget_value,
 )
+from ocw_workbench.services.component_bulk_edit_service import ComponentBulkEditService
 from ocw_workbench.gui.widgets.parameter_editor import FallbackCheckBox, ParameterEditorWidget
 from ocw_workbench.services.component_property_service import ComponentPropertyService
 from ocw_workbench.services.controller_service import ControllerService
@@ -54,6 +56,7 @@ class ComponentsPanel:
         self._component_lookup: dict[str, str] = {}
         self._add_library_lookup: dict[str, str] = {}
         self._property_model: dict[str, Any] | None = None
+        self._bulk_model: dict[str, Any] | None = None
         self.form = _build_form()
         self.widget = self.form["widget"]
         self._configure_specific_editor()
@@ -82,13 +85,16 @@ class ComponentsPanel:
         if selected_id is not None:
             self._set_selected_component(selected_id)
         if labels:
-            self.load_selected_component(notify=False)
+            if len(state["meta"].get("selected_ids", [])) > 1:
+                self.load_bulk_selection(notify=False)
+            else:
+                self.load_selected_component(notify=False)
             move_mode = self.interaction_service.get_settings(self.doc).get("move_component_id")
             selection_count = len(state["meta"].get("selected_ids", []))
             suffix = f" 3D move active for {move_mode}." if move_mode else ""
             apply_status_message(
                 self.form["status"],
-                f"{len(labels)} components ready. {selection_count} selected. Adjust the primary selection below and save.{suffix}",
+                f"{len(labels)} components ready. {selection_count} selected.{suffix}",
                 level="info",
             )
         else:
@@ -123,6 +129,8 @@ class ComponentsPanel:
         component = self.controller_service.get_component(self.doc, component_id)
         if self.controller_service.get_ui_context(self.doc).get("selection") != component_id:
             self.controller_service.select_component(self.doc, component_id)
+        self._bulk_model = None
+        self._set_bulk_mode(False)
         self._property_model = self.property_service.build_property_model(component)
         values = self.property_service.reset_values(self._property_model)
         set_value(self.form["x"], float(values.get("x", 0.0)))
@@ -142,7 +150,33 @@ class ComponentsPanel:
             self.on_selection_changed(component_id)
         return component
 
+    def load_bulk_selection(self, notify: bool = True) -> list[dict[str, Any]]:
+        component_ids = self.controller_service.get_selected_component_ids(self.doc)
+        if len(component_ids) < 2:
+            raise ValueError("Bulk edit requires multiple selected components")
+        components = [self.controller_service.get_component(self.doc, component_id) for component_id in component_ids]
+        self._bulk_model = ComponentBulkEditService(self.property_service, self.library_service).build_bulk_model(components)
+        self._property_model = None
+        self._set_bulk_mode(True)
+        self._populate_bulk_fields(self._bulk_model)
+        set_text(self.form["bulk_summary"], self._bulk_model["details"])
+        set_text(
+            self.form["details"],
+            "\n".join(
+                [
+                    f"Bulk edit count: {self._bulk_model['count']}",
+                    f"Families: {', '.join(self._bulk_model['categories'])}",
+                    "Bulk edit only exposes shared, conservative fields.",
+                ]
+            ),
+        )
+        if notify and self.on_selection_changed is not None:
+            self.on_selection_changed(component_ids[0] if component_ids else None)
+        return components
+
     def update_selected_component(self) -> dict[str, Any]:
+        if len(self.controller_service.get_selected_component_ids(self.doc)) > 1:
+            return self.bulk_update_selected_components()
         component_id = self.selected_component_id()
         if component_id is None:
             raise ValueError("No component selected")
@@ -176,6 +210,26 @@ class ComponentsPanel:
             return self.controller_service.get_state(self.doc)
         self.refresh_components()
         self._publish_status(f"Applied changes to '{component_id}'. Placement and component properties are up to date.")
+        if self.on_components_changed is not None:
+            self.on_components_changed(state)
+        return state
+
+    def bulk_update_selected_components(self) -> dict[str, Any]:
+        component_ids = self.controller_service.get_selected_component_ids(self.doc)
+        if len(component_ids) < 2:
+            raise ValueError("Bulk edit requires multiple selected components")
+        service = ComponentBulkEditService(self.property_service, self.library_service)
+        components = [self.controller_service.get_component(self.doc, component_id) for component_id in component_ids]
+        model = self._bulk_model or service.build_bulk_model(components)
+        apply_fields = self._bulk_apply_fields()
+        values = self._bulk_values()
+        updates_by_component = service.build_updates(model, values, apply_fields)
+        if not updates_by_component:
+            self._publish_status("No bulk changes selected. Enable at least one bulk field to apply.")
+            return self.controller_service.get_state(self.doc)
+        state = self.controller_service.bulk_update_components(self.doc, updates_by_component)
+        self.refresh_components()
+        self._publish_status(f"Applied bulk changes to {len(component_ids)} components.")
         if self.on_components_changed is not None:
             self.on_components_changed(state)
         return state
@@ -251,8 +305,12 @@ class ComponentsPanel:
 
     def handle_reset_clicked(self) -> None:
         try:
-            self.load_selected_component(notify=False)
-            self._publish_status("Reset the editor to the current component state.")
+            if len(self.controller_service.get_selected_component_ids(self.doc)) > 1:
+                self.load_bulk_selection(notify=False)
+                self._publish_status("Reset the bulk editor to the current selection state.")
+            else:
+                self.load_selected_component(notify=False)
+                self._publish_status("Reset the editor to the current component state.")
         except Exception as exc:
             self._publish_status(_friendly_component_error("Could not reset component properties", exc))
 
@@ -289,6 +347,10 @@ class ComponentsPanel:
             self.form["snap_button"].clicked.connect(self.handle_snap_clicked)
         if hasattr(self.form["reset_button"], "clicked"):
             self.form["reset_button"].clicked.connect(self.handle_reset_clicked)
+        if hasattr(self.form["bulk_update_button"], "clicked"):
+            self.form["bulk_update_button"].clicked.connect(self.handle_update_clicked)
+        if hasattr(self.form["bulk_reset_button"], "clicked"):
+            self.form["bulk_reset_button"].clicked.connect(self.handle_reset_clicked)
         if hasattr(self.form["add_button"], "clicked"):
             self.form["add_button"].clicked.connect(self.handle_add_clicked)
 
@@ -311,6 +373,8 @@ class ComponentsPanel:
         set_tooltip(self.form["add_y"], "Initial Y position for the new component.")
         set_tooltip(self.form["add_rotation"], "Initial rotation for the new component.")
         set_tooltip(self.form["add_button"], "Insert the selected library component into the active controller.")
+        set_tooltip(self.form["bulk_update_button"], "Apply the checked bulk changes to all selected components.")
+        set_tooltip(self.form["bulk_reset_button"], "Discard unsaved bulk edits and reload the current multi-selection.")
 
     def _configure_specific_editor(self) -> None:
         preset = self.form["specific_editor"].parts.get("preset")
@@ -321,6 +385,85 @@ class ComponentsPanel:
         if hasattr(apply_button, "hide"):
             apply_button.hide()
         set_text(summary, "Type-specific properties are generated from the selected library component.")
+        self._set_bulk_mode(False)
+
+    def _set_bulk_mode(self, enabled: bool) -> None:
+        self._set_widget_visible(self.form["selector_box"], not enabled)
+        self._set_widget_visible(self.form["bulk_box"], enabled)
+
+    def _populate_bulk_fields(self, model: dict[str, Any]) -> None:
+        available = {field["id"]: field for field in model["fields"]}
+        set_text(self.form["bulk_count"], f"Selected: {model['count']}")
+        set_text(self.form["bulk_types"], f"Types: {', '.join(model['categories'])}")
+        self._set_bulk_row("rotation", available)
+        self._set_bulk_row("visible", available)
+        self._set_bulk_row("library_ref", available)
+        self._set_bulk_row("label_prefix", available)
+        self._set_bulk_row("orientation", available)
+        self._set_bulk_row("bezel", available)
+        self._set_bulk_row("cap_width", available)
+
+    def _set_bulk_row(self, field_id: str, available: dict[str, dict[str, Any]]) -> None:
+        apply_widget = self.form[f"bulk_apply_{field_id}"]
+        value_widget = self.form[f"bulk_{field_id}"]
+        label_widget = self.form[f"bulk_label_{field_id}"]
+        field = available.get(field_id)
+        enabled = field is not None and bool(field.get("editable", True))
+        self._set_widget_visible(label_widget, enabled)
+        self._set_widget_visible(apply_widget, enabled)
+        self._set_widget_visible(value_widget, enabled)
+        set_enabled(apply_widget, enabled)
+        set_enabled(value_widget, enabled)
+        if hasattr(apply_widget, "setChecked"):
+            apply_widget.setChecked(False)
+        if not enabled:
+            return
+        label = str(field["label"])
+        if field.get("mixed"):
+            label = f"{label} (mixed)"
+        set_text(label_widget, label)
+        if field_id in {"rotation", "cap_width"}:
+            set_value(value_widget, float(field.get("value", 0.0) or 0.0))
+        elif field_id in {"visible", "bezel"} and hasattr(value_widget, "setChecked"):
+            value_widget.setChecked(bool(field.get("value", False)))
+        elif field_id in {"library_ref", "orientation"}:
+            labels = [str(option["label"]) for option in field.get("options", [])]
+            set_combo_items(value_widget, labels)
+            current_value = str(field.get("value", ""))
+            for option in field.get("options", []):
+                if str(option["value"]) == current_value:
+                    set_current_text(value_widget, str(option["label"]))
+                    break
+        elif field_id == "label_prefix":
+            set_text(value_widget, "")
+
+    def _bulk_values(self) -> dict[str, Any]:
+        values: dict[str, Any] = {
+            "rotation": widget_value(self.form["bulk_rotation"]),
+            "visible": bool(self.form["bulk_visible"].isChecked()) if hasattr(self.form["bulk_visible"], "isChecked") else bool(getattr(self.form["bulk_visible"], "checked", True)),
+            "label_prefix": text_value(self.form["bulk_label_prefix"]).strip(),
+            "bezel": bool(self.form["bulk_bezel"].isChecked()) if hasattr(self.form["bulk_bezel"], "isChecked") else bool(getattr(self.form["bulk_bezel"], "checked", True)),
+            "cap_width": widget_value(self.form["bulk_cap_width"]),
+        }
+        for field_id in ("library_ref", "orientation"):
+            model_field = next((field for field in (self._bulk_model or {}).get("fields", []) if field["id"] == field_id), None)
+            if model_field is None:
+                continue
+            label = current_text(self.form[f"bulk_{field_id}"])
+            for option in model_field.get("options", []):
+                if str(option["label"]) == label:
+                    values[field_id] = option["value"]
+                    break
+        return values
+
+    def _bulk_apply_fields(self) -> set[str]:
+        field_ids = ["rotation", "visible", "library_ref", "label_prefix", "orientation", "bezel", "cap_width"]
+        return {
+            field_id
+            for field_id in field_ids
+            if hasattr(self.form[f"bulk_apply_{field_id}"], "isChecked")
+            and self.form[f"bulk_apply_{field_id}"].isChecked()
+        }
 
     def _populate_library_ref_options(self, model: dict[str, Any]) -> None:
         variant_field = next((field for field in model["fields"] if field["id"] == "library_ref"), None)
@@ -372,6 +515,7 @@ class ComponentsPanel:
 
     def _clear_component_details(self) -> None:
         self._property_model = None
+        self._bulk_model = None
         set_text(self.form["selected_id"], "ID: -")
         set_text(self.form["selected_type"], "Type: -")
         set_text(self.form["selected_library"], "Library: -")
@@ -384,6 +528,7 @@ class ComponentsPanel:
         if hasattr(self.form["visible"], "setChecked"):
             self.form["visible"].setChecked(True)
         self.form["specific_editor"].clear()
+        self._set_bulk_mode(False)
 
     def _build_details_text(self, component: dict[str, Any], model: dict[str, Any]) -> str:
         return "\n".join(
@@ -399,6 +544,15 @@ class ComponentsPanel:
             ]
         )
 
+    def _set_widget_visible(self, widget: Any, visible: bool) -> None:
+        if hasattr(widget, "setVisible"):
+            widget.setVisible(visible)
+            return
+        try:
+            widget.visible = bool(visible)
+        except Exception:
+            return
+
 
 def _build_form() -> dict[str, Any]:
     _qtcore, _qtgui, qtwidgets = load_qt()
@@ -406,6 +560,8 @@ def _build_form() -> dict[str, Any]:
     if qtwidgets is None:
         return {
             "widget": object(),
+            "selector_box": FallbackLabel(),
+            "bulk_box": FallbackLabel(),
             "component": FallbackCombo(),
             "selected_id": FallbackLabel("ID: -"),
             "selected_type": FallbackLabel("Type: -"),
@@ -422,6 +578,32 @@ def _build_form() -> dict[str, Any]:
             "arm_move_button": FallbackButton("Pick In 3D"),
             "snap_button": FallbackButton("Snap To Grid"),
             "reset_button": FallbackButton("Reset Properties"),
+            "bulk_count": FallbackLabel("Selected: 0"),
+            "bulk_types": FallbackLabel("Types: -"),
+            "bulk_summary": FallbackText(),
+            "bulk_label_rotation": FallbackLabel("Rotation"),
+            "bulk_apply_rotation": FallbackCheckBox(False),
+            "bulk_rotation": FallbackValue(0.0),
+            "bulk_label_visible": FallbackLabel("Visible"),
+            "bulk_apply_visible": FallbackCheckBox(False),
+            "bulk_visible": FallbackCheckBox(True),
+            "bulk_label_library_ref": FallbackLabel("Variant"),
+            "bulk_apply_library_ref": FallbackCheckBox(False),
+            "bulk_library_ref": FallbackCombo(),
+            "bulk_label_label_prefix": FallbackLabel("Label Prefix"),
+            "bulk_apply_label_prefix": FallbackCheckBox(False),
+            "bulk_label_prefix": FallbackText(),
+            "bulk_label_orientation": FallbackLabel("Orientation"),
+            "bulk_apply_orientation": FallbackCheckBox(False),
+            "bulk_orientation": FallbackCombo(),
+            "bulk_label_bezel": FallbackLabel("Bezel"),
+            "bulk_apply_bezel": FallbackCheckBox(False),
+            "bulk_bezel": FallbackCheckBox(True),
+            "bulk_label_cap_width": FallbackLabel("Cap Width"),
+            "bulk_apply_cap_width": FallbackCheckBox(False),
+            "bulk_cap_width": FallbackValue(10.0),
+            "bulk_update_button": FallbackButton("Apply Bulk Changes"),
+            "bulk_reset_button": FallbackButton("Reset Bulk Changes"),
             "add_category": FallbackCombo(["all"]),
             "add_component": FallbackCombo(),
             "add_x": FallbackValue(10.0),
@@ -488,6 +670,57 @@ def _build_form() -> dict[str, Any]:
     selector_layout.addRow("Visible", visible)
     selector_layout.addRow("Type-Specific", specific_editor.widget)
     selector_layout.addRow("", selector_actions)
+    bulk_box = qtwidgets.QGroupBox("Bulk Edit Selection")
+    bulk_layout = qtwidgets.QFormLayout(bulk_box)
+    bulk_count = qtwidgets.QLabel("Selected: 0")
+    bulk_types = qtwidgets.QLabel("Types: -")
+    bulk_summary = qtwidgets.QLabel("Bulk edit appears when multiple components are selected.")
+    bulk_summary.setWordWrap(True)
+    bulk_label_rotation = qtwidgets.QLabel("Rotation")
+    bulk_apply_rotation = qtwidgets.QCheckBox()
+    bulk_rotation = qtwidgets.QDoubleSpinBox()
+    bulk_label_visible = qtwidgets.QLabel("Visible")
+    bulk_apply_visible = qtwidgets.QCheckBox()
+    bulk_visible = qtwidgets.QCheckBox()
+    bulk_visible.setChecked(True)
+    bulk_label_library_ref = qtwidgets.QLabel("Variant")
+    bulk_apply_library_ref = qtwidgets.QCheckBox()
+    bulk_library_ref = qtwidgets.QComboBox()
+    configure_combo_box(bulk_library_ref)
+    bulk_label_label_prefix = qtwidgets.QLabel("Label Prefix")
+    bulk_apply_label_prefix = qtwidgets.QCheckBox()
+    bulk_label_prefix = qtwidgets.QLineEdit()
+    bulk_label_orientation = qtwidgets.QLabel("Orientation")
+    bulk_apply_orientation = qtwidgets.QCheckBox()
+    bulk_orientation = qtwidgets.QComboBox()
+    configure_combo_box(bulk_orientation)
+    bulk_label_bezel = qtwidgets.QLabel("Bezel")
+    bulk_apply_bezel = qtwidgets.QCheckBox()
+    bulk_bezel = qtwidgets.QCheckBox()
+    bulk_bezel.setChecked(True)
+    bulk_label_cap_width = qtwidgets.QLabel("Cap Width")
+    bulk_apply_cap_width = qtwidgets.QCheckBox()
+    bulk_cap_width = qtwidgets.QDoubleSpinBox()
+    for spinbox in (bulk_rotation, bulk_cap_width):
+        spinbox.setRange(-1000.0, 1000.0)
+        spinbox.setDecimals(2)
+        set_size_policy(spinbox, horizontal="expanding", vertical="preferred")
+    bulk_update_button = qtwidgets.QPushButton("Apply Bulk Changes")
+    bulk_reset_button = qtwidgets.QPushButton("Reset Bulk Changes")
+    bulk_actions = qtwidgets.QGridLayout()
+    bulk_actions.addWidget(bulk_update_button, 0, 0)
+    bulk_actions.addWidget(bulk_reset_button, 0, 1)
+    bulk_layout.addRow("", bulk_count)
+    bulk_layout.addRow("", bulk_types)
+    bulk_layout.addRow("", bulk_summary)
+    bulk_layout.addRow(bulk_label_rotation, _bulk_row_widget(qtwidgets, bulk_apply_rotation, bulk_rotation))
+    bulk_layout.addRow(bulk_label_visible, _bulk_row_widget(qtwidgets, bulk_apply_visible, bulk_visible))
+    bulk_layout.addRow(bulk_label_library_ref, _bulk_row_widget(qtwidgets, bulk_apply_library_ref, bulk_library_ref))
+    bulk_layout.addRow(bulk_label_label_prefix, _bulk_row_widget(qtwidgets, bulk_apply_label_prefix, bulk_label_prefix))
+    bulk_layout.addRow(bulk_label_orientation, _bulk_row_widget(qtwidgets, bulk_apply_orientation, bulk_orientation))
+    bulk_layout.addRow(bulk_label_bezel, _bulk_row_widget(qtwidgets, bulk_apply_bezel, bulk_bezel))
+    bulk_layout.addRow(bulk_label_cap_width, _bulk_row_widget(qtwidgets, bulk_apply_cap_width, bulk_cap_width))
+    bulk_layout.addRow("", bulk_actions)
     add_box = qtwidgets.QGroupBox("Add From Library")
     add_layout = qtwidgets.QFormLayout(add_box)
     add_category = qtwidgets.QComboBox()
@@ -520,9 +753,10 @@ def _build_form() -> dict[str, Any]:
     configure_text_panel(details, max_height=120)
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
-    for child in (selector_box, add_box, component, add_category, add_component):
+    for child in (selector_box, bulk_box, add_box, component, add_category, add_component):
         set_size_policy(child, horizontal="expanding", vertical="preferred")
     layout.addWidget(selector_box)
+    layout.addWidget(bulk_box)
     layout.addWidget(add_box)
     layout.addWidget(details)
     layout.addWidget(status)
@@ -530,6 +764,8 @@ def _build_form() -> dict[str, Any]:
     widget = wrap_widget_in_scroll_area(content)
     return {
         "widget": widget,
+        "selector_box": selector_box,
+        "bulk_box": bulk_box,
         "component": component,
         "selected_id": selected_id,
         "selected_type": selected_type,
@@ -546,6 +782,32 @@ def _build_form() -> dict[str, Any]:
         "arm_move_button": arm_move_button,
         "snap_button": snap_button,
         "reset_button": reset_button,
+        "bulk_count": bulk_count,
+        "bulk_types": bulk_types,
+        "bulk_summary": bulk_summary,
+        "bulk_label_rotation": bulk_label_rotation,
+        "bulk_apply_rotation": bulk_apply_rotation,
+        "bulk_rotation": bulk_rotation,
+        "bulk_label_visible": bulk_label_visible,
+        "bulk_apply_visible": bulk_apply_visible,
+        "bulk_visible": bulk_visible,
+        "bulk_label_library_ref": bulk_label_library_ref,
+        "bulk_apply_library_ref": bulk_apply_library_ref,
+        "bulk_library_ref": bulk_library_ref,
+        "bulk_label_label_prefix": bulk_label_label_prefix,
+        "bulk_apply_label_prefix": bulk_apply_label_prefix,
+        "bulk_label_prefix": bulk_label_prefix,
+        "bulk_label_orientation": bulk_label_orientation,
+        "bulk_apply_orientation": bulk_apply_orientation,
+        "bulk_orientation": bulk_orientation,
+        "bulk_label_bezel": bulk_label_bezel,
+        "bulk_apply_bezel": bulk_apply_bezel,
+        "bulk_bezel": bulk_bezel,
+        "bulk_label_cap_width": bulk_label_cap_width,
+        "bulk_apply_cap_width": bulk_apply_cap_width,
+        "bulk_cap_width": bulk_cap_width,
+        "bulk_update_button": bulk_update_button,
+        "bulk_reset_button": bulk_reset_button,
         "add_category": add_category,
         "add_component": add_component,
         "add_x": add_x,
@@ -582,3 +844,12 @@ def _values_equal(left: Any, right: Any) -> bool:
     if isinstance(left, float) or isinstance(right, float):
         return float(left or 0.0) == float(right or 0.0)
     return left == right
+
+
+def _bulk_row_widget(qtwidgets: Any, apply_widget: Any, value_widget: Any) -> Any:
+    row = qtwidgets.QWidget()
+    layout = qtwidgets.QHBoxLayout(row)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(apply_widget)
+    layout.addWidget(value_widget, 1)
+    return row

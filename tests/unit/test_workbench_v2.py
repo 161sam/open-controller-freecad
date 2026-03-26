@@ -396,6 +396,52 @@ def test_components_panel_can_switch_fader_variant_from_property_panel():
     assert component["library_ref"] != "generic_45mm_linear_fader"
 
 
+def test_components_panel_enters_bulk_mode_for_multi_selection():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "generic_45mm_linear_fader", component_id="f1", x=10.0, y=10.0)
+    service.add_component(doc, "generic_60mm_linear_fader", component_id="f2", x=20.0, y=10.0)
+    service.set_selected_component_ids(doc, ["f1", "f2"], primary_id="f1")
+    panel = ComponentsPanel(doc, controller_service=service)
+
+    panel.refresh_components()
+
+    assert panel.form["bulk_box"].visible is True
+    assert panel.form["selector_box"].visible is False
+    assert panel.form["bulk_count"].text == "Selected: 2"
+    assert panel.form["bulk_types"].text == "Types: fader"
+    assert "Bulk edit" in panel.form["bulk_summary"].text
+
+
+def test_components_panel_applies_bulk_changes_to_selected_components():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "generic_45mm_linear_fader", component_id="f1", x=10.0, y=10.0)
+    service.add_component(doc, "generic_60mm_linear_fader", component_id="f2", x=20.0, y=10.0)
+    service.set_selected_component_ids(doc, ["f1", "f2"], primary_id="f1")
+    panel = ComponentsPanel(doc, controller_service=service)
+
+    panel.form["bulk_apply_rotation"].setChecked(True)
+    panel.form["bulk_rotation"].setValue(30.0)
+    panel.form["bulk_apply_cap_width"].setChecked(True)
+    panel.form["bulk_cap_width"].setValue(14.0)
+    panel.form["bulk_apply_label_prefix"].setChecked(True)
+    panel.form["bulk_label_prefix"].setText("Deck")
+    panel.bulk_update_selected_components()
+
+    first = service.get_component(doc, "f1")
+    second = service.get_component(doc, "f2")
+
+    assert first["rotation"] == 30.0
+    assert second["rotation"] == 30.0
+    assert first["properties"]["cap_width"] == 14.0
+    assert second["properties"]["cap_width"] == 14.0
+    assert first["label"] == "Deck1"
+    assert second["label"] == "Deck2"
+
+
 def test_panels_expose_tooltips_for_key_workflows():
     doc = FakeDocument()
     service = ControllerService()

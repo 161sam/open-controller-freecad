@@ -127,6 +127,23 @@
 - The info and workbench status areas report the current selected component count.
 - Existing single-selection workflows remain valid because the primary selection still drives property editing, single-component move, and other current tools.
 
+## Bulk Edit
+
+- When multiple components are selected, the Components panel switches into a dedicated bulk-edit mode.
+- Bulk edit only shows shared, conservative fields that are safe to apply across the whole current selection.
+- Mixed values are shown as mixed fields and are never applied implicitly.
+- Each bulk-edit field has its own apply toggle so you can batch only the properties you really want to overwrite.
+- The current implementation supports at least:
+  - shared `Rotation`
+  - shared `Visible`
+  - `Label Prefix` with sequential labels across the current selection
+  - shared component `Variant` when the selection stays within one compatible family
+  - shared display options such as `Orientation` and `Bezel`
+  - shared fader metadata such as `Cap Width`
+- `Apply Bulk Changes` writes the checked changes to all selected components in one bulk operation.
+- `Reset Bulk Changes` reloads the current multi-selection and discards unsaved batch edits.
+- If the selection mixes incompatible families, the panel stays conservative and hides family-specific fields instead of guessing.
+
 ## Undo And Redo
 
 - Overlay previews do not open FreeCAD document transactions and do not create undo entries.

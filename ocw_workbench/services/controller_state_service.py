@@ -250,40 +250,30 @@ class ControllerStateService:
         for component in state["components"]:
             if component["id"] != component_id:
                 continue
-            if "library_ref" in updates:
-                library_ref = updates["library_ref"]
-                if not isinstance(library_ref, str) or not library_ref:
-                    raise ValueError(f"Component '{component_id}' has invalid library_ref")
-                library_component = self.library_service.get(library_ref)
-                component["library_ref"] = library_ref
-                component.setdefault("type", library_component["category"])
-            for field in ("x", "y", "rotation"):
-                if field in updates and updates[field] is not None:
-                    component[field] = float(updates[field])
-            for field in ("zone_id", "type", "io_strategy", "bus", "address"):
-                if field in updates:
-                    component[field] = updates[field]
-            if "label" in updates:
-                component["label"] = str(updates["label"] or "")
-            if "visible" in updates:
-                component["visible"] = bool(updates["visible"])
-            if "tags" in updates:
-                tags = updates["tags"]
-                if not isinstance(tags, list):
-                    raise ValueError("Component tags must be a list")
-                component["tags"] = [str(item) for item in tags if str(item).strip()]
-            if "properties" in updates:
-                properties = updates["properties"]
-                if not isinstance(properties, dict):
-                    raise ValueError("Component properties must be a mapping")
-                existing = component.get("properties", {})
-                component["properties"] = deepcopy(existing) if isinstance(existing, dict) else {}
-                component["properties"].update(deepcopy(properties))
+            self._apply_component_updates(component, component_id, updates)
             state["meta"]["selection"] = component_id
             state["meta"]["selected_ids"] = [component_id]
             self.save_state(doc, state)
             return deepcopy(state)
         raise KeyError(f"Unknown component id: {component_id}")
+
+    def bulk_update_components(
+        self,
+        doc: Any,
+        updates_by_component: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        if not isinstance(updates_by_component, dict) or not updates_by_component:
+            raise ValueError("Bulk component updates must be a non-empty mapping")
+        state = self.get_state(doc)
+        by_id = {component["id"]: component for component in state["components"]}
+        for component_id, updates in updates_by_component.items():
+            if component_id not in by_id:
+                raise KeyError(f"Unknown component id: {component_id}")
+            if not isinstance(updates, dict):
+                raise ValueError(f"Bulk updates for component '{component_id}' must be a mapping")
+            self._apply_component_updates(by_id[component_id], component_id, updates)
+        self.save_state(doc, state)
+        return deepcopy(state)
 
     def select_component(self, doc: Any, component_id: str | None) -> dict[str, Any]:
         return self.set_selected_component_ids(doc, [component_id] if component_id is not None else [], primary_id=component_id)
@@ -367,6 +357,37 @@ class ControllerStateService:
 
     def _build_component(self, component_data: dict[str, Any]) -> Component:
         return Component(**component_data)
+
+    def _apply_component_updates(self, component: dict[str, Any], component_id: str, updates: dict[str, Any]) -> None:
+        if "library_ref" in updates:
+            library_ref = updates["library_ref"]
+            if not isinstance(library_ref, str) or not library_ref:
+                raise ValueError(f"Component '{component_id}' has invalid library_ref")
+            library_component = self.library_service.get(library_ref)
+            component["library_ref"] = library_ref
+            component.setdefault("type", library_component["category"])
+        for field in ("x", "y", "rotation"):
+            if field in updates and updates[field] is not None:
+                component[field] = float(updates[field])
+        for field in ("zone_id", "type", "io_strategy", "bus", "address"):
+            if field in updates:
+                component[field] = updates[field]
+        if "label" in updates:
+            component["label"] = str(updates["label"] or "")
+        if "visible" in updates:
+            component["visible"] = bool(updates["visible"])
+        if "tags" in updates:
+            tags = updates["tags"]
+            if not isinstance(tags, list):
+                raise ValueError("Component tags must be a list")
+            component["tags"] = [str(item) for item in tags if str(item).strip()]
+        if "properties" in updates:
+            properties = updates["properties"]
+            if not isinstance(properties, dict):
+                raise ValueError("Component properties must be a mapping")
+            existing = component.get("properties", {})
+            component["properties"] = deepcopy(existing) if isinstance(existing, dict) else {}
+            component["properties"].update(deepcopy(properties))
 
     def _apply_generated_project(
         self,

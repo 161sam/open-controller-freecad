@@ -169,6 +169,26 @@ class ControllerService:
         )
         return state
 
+    def bulk_update_components(self, doc: Any, updates_by_component: dict[str, dict[str, Any]]) -> dict[str, Any]:
+        previous_state = deepcopy(self.state_service.get_state(doc))
+        combined_updates = [updates for updates in updates_by_component.values() if isinstance(updates, dict)]
+        mode = SyncMode.STATE_ONLY
+        if any(self._resolve_component_update_sync_mode(updates) == SyncMode.FULL for updates in combined_updates):
+            mode = SyncMode.FULL
+        try:
+            with document_transaction(doc, "OCW Bulk Edit Components"):
+                state = self.state_service.bulk_update_components(doc, updates_by_component)
+                self.update_document(
+                    doc,
+                    mode=mode,
+                    state=state if mode in {SyncMode.FULL, SyncMode.PARTIAL_READY} else None,
+                    selection=state["meta"].get("selection"),
+                )
+                return state
+        except Exception:
+            self.state_service.save_state(doc, previous_state)
+            raise
+
     def select_component(self, doc: Any, component_id: str | None) -> dict[str, Any]:
         state = self.state_service.select_component(doc, component_id)
         self.update_document(
