@@ -32,6 +32,9 @@ Responsibilities:
 
 This service consumes state and applies it to the document.
 
+Overlay refresh is not part of the geometry rebuild path.
+Visual overlay updates should not trigger `doc.recompute()` and should remain view-only operations.
+
 ### ControllerService
 
 Responsibilities:

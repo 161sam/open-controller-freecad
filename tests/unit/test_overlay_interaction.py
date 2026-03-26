@@ -1,4 +1,5 @@
 from ocf_freecad.gui.interaction.selection import SelectionController
+from ocf_freecad.gui.overlay.renderer import OverlayRenderer
 from ocf_freecad.gui.interaction.hit_test import hit_test_item
 from ocf_freecad.services.controller_service import ControllerService
 from ocf_freecad.services.interaction_service import InteractionService
@@ -29,6 +30,41 @@ def test_overlay_service_builds_surface_zones_components_and_keepouts():
     assert any(item_id.startswith("component:") for item_id in item_ids)
     assert any(item_id.startswith("keepout_top:") for item_id in item_ids)
     assert any(item_id.startswith("cutout:") for item_id in item_ids)
+
+
+def test_overlay_renderer_refresh_stays_visual_only_without_recompute():
+    doc = FakeDocument()
+    controller_service = ControllerService()
+    controller_service.create_from_template(doc, "encoder_module")
+    renderer = OverlayRenderer(OverlayService(controller_service=controller_service))
+    recomputes_before = doc.recompute_count
+
+    payload = renderer.refresh(doc)
+
+    assert payload["summary"]["visual_only"] is True
+    assert doc.recompute_count == recomputes_before
+
+
+def test_overlay_renderer_render_ignores_recompute_requests_for_visual_updates():
+    doc = FakeDocument()
+    renderer = OverlayRenderer()
+    recomputes_before = doc.recompute_count
+
+    payload = renderer.render(
+        doc,
+        {
+            "enabled": True,
+            "controller_height": 5.0,
+            "items": [
+                {"id": "surface", "type": "rect", "geometry": {"x": 10.0, "y": 10.0, "width": 20.0, "height": 10.0}, "style": {}},
+            ],
+            "summary": {"item_count": 1},
+        },
+        recompute=True,
+    )
+
+    assert payload["summary"]["visual_only"] is True
+    assert doc.recompute_count == recomputes_before
 
 
 def test_overlay_service_includes_constraint_feedback_items():

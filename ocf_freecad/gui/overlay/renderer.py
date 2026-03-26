@@ -19,7 +19,7 @@ class OverlayRenderer:
 
     def refresh(self, doc: Any) -> dict[str, Any]:
         payload = self.overlay_service.build_overlay(doc)
-        return self.render(doc, payload, recompute=False)
+        return self.render(doc, payload)
 
     def render(self, doc: Any, payload: dict[str, Any], recompute: bool = False) -> dict[str, Any]:
         started_at = perf_counter()
@@ -31,6 +31,7 @@ class OverlayRenderer:
             "dropped_reasons": {},
             "render_path": "disabled",
             "duration_ms": 0.0,
+            "visual_only": True,
         }
         if not payload.get("enabled", True):
             if hasattr(doc, "addObject"):
@@ -64,8 +65,8 @@ class OverlayRenderer:
         updated = self._with_render_summary(updated, stats)
         if overlay_obj is not None:
             update_overlay_object(doc, updated, stats)
-        if recompute and hasattr(doc, "recompute"):
-            doc.recompute()
+        if recompute:
+            log_to_console("Overlay render requested recompute, but overlay updates stay visual-only.", level="warning")
         stats["duration_ms"] = (perf_counter() - started_at) * 1000.0
         updated = self._with_render_summary(updated, stats)
         if overlay_obj is not None:
@@ -124,6 +125,7 @@ class OverlayRenderer:
                 "dropped_item_count": int(stats["dropped_items"]),
                 "render_path": str(stats["render_path"]),
                 "render_duration_ms": round(float(stats.get("duration_ms", 0.0)), 3),
+                "visual_only": bool(stats.get("visual_only", True)),
             }
         )
         if stats.get("dropped_reasons"):

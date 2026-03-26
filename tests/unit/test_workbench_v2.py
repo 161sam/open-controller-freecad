@@ -139,6 +139,19 @@ def test_product_workbench_panel_orchestrates_iteration_flow():
     assert "Components: 5" in info_text
 
 
+def test_workbench_overlay_toggles_do_not_add_recomputes_for_visual_updates():
+    doc = FakeDocument()
+    service = ControllerService()
+    workbench = ProductWorkbenchPanel(doc, controller_service=service)
+    recomputes_before = doc.recompute_count
+
+    workbench.toggle_overlay()
+    workbench.toggle_measurements()
+    workbench.toggle_constraint_overlay()
+
+    assert doc.recompute_count == recomputes_before
+
+
 def test_components_panel_saves_position_without_move_step():
     doc = FakeDocument()
     service = ControllerService()
