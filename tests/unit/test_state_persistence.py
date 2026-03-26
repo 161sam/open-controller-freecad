@@ -114,7 +114,7 @@ def test_write_state_creates_controller_object_with_persistent_properties():
     controller = doc.getObject(CONTROLLER_OBJECT_NAME)
 
     assert controller is not None
-    assert controller.ViewObject.Visibility is False
+    assert controller.ViewObject.Visibility is True
     assert json.loads(controller.ProjectJson)["controller"]["id"] == "demo"
     assert controller.ControllerId == "demo"
     assert controller.TemplateId == "encoder_module"
@@ -189,7 +189,7 @@ def test_generated_group_reuses_single_group_container():
     assert first.Name == GENERATED_GROUP_NAME
 
 
-def test_controller_object_uses_featurepython_proxy_and_claims_children():
+def test_controller_object_uses_featurepython_proxy_and_claims_generated_group_only():
     doc = FakeDocument()
 
     controller = get_controller_object(doc, create=True)
@@ -201,8 +201,10 @@ def test_controller_object_uses_featurepython_proxy_and_claims_children():
 
     assert controller.Proxy is not None
     assert controller.ViewObject.Proxy is not None
+    assert controller.ViewObject.Visibility is True
+    assert generated.ViewObject.Visibility is True
     assert generated in claimed
-    assert overlay in claimed
+    assert overlay not in claimed
 
 
 def test_controller_proxy_execute_syncs_properties_from_project_json():

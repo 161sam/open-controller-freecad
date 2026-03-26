@@ -168,6 +168,13 @@ def clear_generated_group(doc: Any) -> None:
             pass
 
 
+def iter_controller_tree_children(doc: Any) -> list[Any]:
+    generated = get_generated_group(doc, create=False)
+    if generated is None:
+        return []
+    return [generated]
+
+
 class ControllerProxy:
     def __init__(self, obj: Any) -> None:
         self.Object = obj
@@ -248,13 +255,7 @@ class ViewProviderController:
         doc = getattr(obj, "Document", None)
         if doc is None:
             return []
-        children = []
-        generated = get_generated_group(doc, create=False)
-        overlay = _find_object(doc, OVERLAY_OBJECT_NAME, OVERLAY_OBJECT_LABEL)
-        for child in (generated, overlay):
-            if child is not None and child not in children:
-                children.append(child)
-        return children
+        return list(iter_controller_tree_children(doc))
 
     def getDisplayModes(self, _obj: Any) -> list[str]:
         return ["Default"]
@@ -393,9 +394,6 @@ def _attach_controller_view_provider(controller: Any) -> None:
 def _style_controller_object(controller: Any) -> None:
     if hasattr(controller, "Label"):
         controller.Label = CONTROLLER_OBJECT_LABEL
-    view = getattr(controller, "ViewObject", None)
-    if view is not None and hasattr(view, "Visibility"):
-        view.Visibility = False
     if hasattr(controller, "setEditorMode"):
         for name in (PROJECT_JSON_PROPERTY,):
             try:
@@ -407,9 +405,6 @@ def _style_controller_object(controller: Any) -> None:
 def _style_generated_group(group: Any) -> None:
     if hasattr(group, "Label"):
         group.Label = GENERATED_GROUP_LABEL
-    view = getattr(group, "ViewObject", None)
-    if view is not None and hasattr(view, "Visibility"):
-        view.Visibility = False
 
 
 def _find_object(doc: Any, object_name: str, label: str) -> Any | None:
