@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 from types import ModuleType
+from typing import Callable
 
 from ocf_freecad.plugin_api.types import PluginDescriptor
 from ocf_freecad.plugins.context import PluginContext
@@ -12,10 +13,16 @@ from ocf_freecad.plugins.registry import ExtensionRegistry
 
 
 class PluginLoader:
-    def __init__(self, internal_root: str | Path | None = None, external_root: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        internal_root: str | Path | None = None,
+        external_root: str | Path | None = None,
+        enabled_resolver: Callable[[PluginDescriptor], bool] | None = None,
+    ) -> None:
         base = Path(__file__).resolve().parent
         self.internal_root = Path(internal_root or (base / "internal"))
         self.external_root = Path(external_root or (base / "external"))
+        self.enabled_resolver = enabled_resolver
         self.registry = ExtensionRegistry()
         self.warnings: list[str] = []
         self._loaded = False
@@ -33,6 +40,9 @@ class PluginLoader:
             remaining: list[PluginDescriptor] = []
             pending_ids = {descriptor.plugin_id for descriptor in pending}
             for descriptor in pending:
+                if not self._is_enabled(descriptor):
+                    progress = True
+                    continue
                 if self._dependencies_missing(descriptor, pending_ids):
                     remaining.append(descriptor)
                     continue
@@ -63,6 +73,13 @@ class PluginLoader:
 
         self._loaded = True
         return self.registry
+
+    def _is_enabled(self, descriptor: PluginDescriptor) -> bool:
+        if descriptor.non_disableable:
+            return True
+        if self.enabled_resolver is None:
+            return True
+        return bool(self.enabled_resolver(descriptor))
 
     def _discover_from_root(self, root: Path) -> list[PluginDescriptor]:
         if not root.exists():

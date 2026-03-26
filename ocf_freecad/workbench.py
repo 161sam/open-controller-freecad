@@ -20,6 +20,7 @@ from ocf_freecad.gui.panels.constraints_panel import ConstraintsPanel
 from ocf_freecad.gui.panels.create_panel import CreatePanel
 from ocf_freecad.gui.panels.info_panel import InfoPanel
 from ocf_freecad.gui.panels.layout_panel import LayoutPanel
+from ocf_freecad.gui.panels.plugin_manager_panel import PluginManagerPanel
 from ocf_freecad.services.controller_service import ControllerService
 from ocf_freecad.services.interaction_service import InteractionService
 from ocf_freecad.services.overlay_service import OverlayService
@@ -39,7 +40,11 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         from ocf_freecad.commands.add_component import AddComponentCommand
         from ocf_freecad.commands.apply_layout import ApplyLayoutCommand
         from ocf_freecad.commands.create_from_template import CreateFromTemplateCommand
+        from ocf_freecad.commands.disable_plugin import DisablePluginCommand
+        from ocf_freecad.commands.enable_plugin import EnablePluginCommand
         from ocf_freecad.commands.move_component_interactive import MoveComponentInteractiveCommand
+        from ocf_freecad.commands.open_plugin_manager import OpenPluginManagerCommand
+        from ocf_freecad.commands.reload_plugins import ReloadPluginsCommand
         from ocf_freecad.commands.select_component import SelectComponentCommand
         from ocf_freecad.commands.show_constraint_overlay import ShowConstraintOverlayCommand
         from ocf_freecad.commands.snap_to_grid import SnapToGridCommand
@@ -61,6 +66,10 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         Gui.addCommand("OCF_ToggleMeasurements", ToggleMeasurementsCommand())
         Gui.addCommand("OCF_ToggleConflictLines", ToggleConflictLinesCommand())
         Gui.addCommand("OCF_ToggleConstraintLabels", ToggleConstraintLabelsCommand())
+        Gui.addCommand("OCF_OpenPluginManager", OpenPluginManagerCommand())
+        Gui.addCommand("OCF_EnablePlugin", EnablePluginCommand())
+        Gui.addCommand("OCF_DisablePlugin", DisablePluginCommand())
+        Gui.addCommand("OCF_ReloadPlugins", ReloadPluginsCommand())
 
         create_commands = ["OCF_CreateController"]
         edit_commands = [
@@ -76,11 +85,19 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
             "OCF_ToggleConflictLines",
             "OCF_ToggleConstraintLabels",
         ]
+        plugin_commands = [
+            "OCF_OpenPluginManager",
+            "OCF_EnablePlugin",
+            "OCF_DisablePlugin",
+            "OCF_ReloadPlugins",
+        ]
         self.appendToolbar("OCF Create", create_commands)
         self.appendToolbar("OCF Edit", edit_commands)
-        self.appendMenu("OCF", create_commands + edit_commands)
+        self.appendToolbar("OCF Plugins", plugin_commands)
+        self.appendMenu("OCF", create_commands + edit_commands + plugin_commands)
         self.appendMenu("OCF/Create", create_commands)
         self.appendMenu("OCF/Edit", edit_commands)
+        self.appendMenu("OCF/Plugins", plugin_commands)
 
     def Activated(self) -> None:
         if App is None:
@@ -135,6 +152,10 @@ class ProductWorkbenchPanel:
             on_status=self.set_status,
         )
         self.info_panel = InfoPanel(doc, controller_service=self.controller_service)
+        self.plugin_manager_panel = PluginManagerPanel(
+            on_status=self.set_status,
+            on_plugins_changed=self._handle_plugins_changed,
+        )
         self._mount_panels()
         self.refresh_all()
         self.focus_panel("create")
@@ -145,6 +166,7 @@ class ProductWorkbenchPanel:
         self.components_panel.refresh()
         self.constraints_panel.refresh()
         self.info_panel.refresh()
+        self.plugin_manager_panel.refresh()
         self.refresh_overlay()
 
     def focus_panel(self, panel_name: str) -> None:
@@ -154,6 +176,7 @@ class ProductWorkbenchPanel:
             "components": self.components_panel.widget,
             "constraints": self.constraints_panel.widget,
             "info": self.info_panel.widget,
+            "plugins": self.plugin_manager_panel.widget,
         }.get(panel_name)
         if widget is not None and hasattr(widget, "setFocus"):
             widget.setFocus()
@@ -163,6 +186,7 @@ class ProductWorkbenchPanel:
             "components": "Components",
             "constraints": "Constraints",
             "info": "Info",
+            "plugins": "Plugins",
         }
         self.set_status(f"{titles.get(panel_name, 'Workbench')} panel active.")
 
@@ -230,6 +254,24 @@ class ProductWorkbenchPanel:
         self.set_status(f"Snapped '{result['component_id']}' to grid.")
         return result
 
+    def enable_selected_plugin(self) -> dict[str, Any]:
+        result = self.plugin_manager_panel.enable_selected_plugin()
+        self.refresh_all()
+        self.focus_panel("plugins")
+        return result
+
+    def disable_selected_plugin(self) -> dict[str, Any]:
+        result = self.plugin_manager_panel.disable_selected_plugin()
+        self.refresh_all()
+        self.focus_panel("plugins")
+        return result
+
+    def reload_plugins(self) -> list[dict[str, Any]]:
+        result = self.plugin_manager_panel.reload_plugins()
+        self.refresh_all()
+        self.focus_panel("plugins")
+        return result
+
     def accept(self) -> bool:
         self.refresh_all()
         return True
@@ -294,6 +336,7 @@ class ProductWorkbenchPanel:
         self.form["center_layout"].addWidget(_group_box("Layout", self.layout_panel.widget))
         self.form["center_layout"].addWidget(_group_box("Constraints", self.constraints_panel.widget))
         self.form["right_layout"].addWidget(_group_box("Components", self.components_panel.widget))
+        self.form["right_layout"].addWidget(_group_box("Plugins", self.plugin_manager_panel.widget))
 
     def _handle_created(self, _state: dict[str, Any]) -> None:
         self.components_panel.refresh()
@@ -324,6 +367,13 @@ class ProductWorkbenchPanel:
     def _handle_validated(self, _report: dict[str, Any]) -> None:
         self.info_panel.refresh()
         self.refresh_overlay()
+
+    def _handle_plugins_changed(self) -> None:
+        self.create_panel.refresh()
+        self.layout_panel.refresh()
+        self.components_panel.refresh()
+        self.constraints_panel.refresh()
+        self.info_panel.refresh()
 
     def _overlay_status_text(self, payload: dict[str, Any] | None = None) -> str:
         current = payload or getattr(self.doc, "OCFOverlayState", {})

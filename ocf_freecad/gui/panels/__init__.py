@@ -3,5 +3,6 @@ from ocf_freecad.gui.panels.constraints_panel import ConstraintsPanel
 from ocf_freecad.gui.panels.create_panel import CreatePanel
 from ocf_freecad.gui.panels.info_panel import InfoPanel
 from ocf_freecad.gui.panels.layout_panel import LayoutPanel
+from ocf_freecad.gui.panels.plugin_manager_panel import PluginManagerPanel
 
-__all__ = ["CreatePanel", "LayoutPanel", "ComponentsPanel", "ConstraintsPanel", "InfoPanel"]
+__all__ = ["CreatePanel", "LayoutPanel", "ComponentsPanel", "ConstraintsPanel", "InfoPanel", "PluginManagerPanel"]

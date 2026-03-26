@@ -4,6 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from ocf_freecad.services.plugin_service import get_plugin_service_revision
 from ocf_freecad.utils.yaml_io import load_yaml
 
 
@@ -22,6 +23,7 @@ class ComponentLibraryManager:
         self.base_path = Path(base_path) if base_path is not None else None
         self._components_by_id: dict[str, dict[str, Any]] = {}
         self._loaded = False
+        self._loaded_revision = -1
 
     def load_all(self) -> None:
         components_by_id: dict[str, dict[str, Any]] = {}
@@ -47,6 +49,7 @@ class ComponentLibraryManager:
 
         self._components_by_id = components_by_id
         self._loaded = True
+        self._loaded_revision = 0 if self.base_path is not None else get_plugin_service_revision()
 
     def _source_paths(self) -> list[Path]:
         if self.base_path is not None:
@@ -85,7 +88,8 @@ class ComponentLibraryManager:
                 )
 
     def _ensure_loaded(self) -> None:
-        if not self._loaded:
+        current_revision = 0 if self.base_path is not None else get_plugin_service_revision()
+        if not self._loaded or self._loaded_revision != current_revision:
             self.load_all()
 
     def get_component(self, component_id: str) -> dict[str, Any]:

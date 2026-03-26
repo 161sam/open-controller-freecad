@@ -4,6 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
+from ocf_freecad.services.plugin_service import get_plugin_service_revision
 from ocf_freecad.templates.loader import TemplateLoader
 
 
@@ -13,6 +14,7 @@ class TemplateRegistry:
         self.loader = loader or TemplateLoader()
         self._templates: dict[str, dict[str, Any]] = {}
         self._loaded = False
+        self._loaded_revision = -1
 
     def load_all(self) -> None:
         templates: dict[str, dict[str, Any]] = {}
@@ -25,6 +27,7 @@ class TemplateRegistry:
                 templates[template_id] = template
         self._templates = templates
         self._loaded = True
+        self._loaded_revision = 0 if self.base_path is not None else get_plugin_service_revision()
 
     def _source_paths(self) -> list[Path]:
         if self.base_path is not None:
@@ -44,7 +47,8 @@ class TemplateRegistry:
         return [fallback]
 
     def _ensure_loaded(self) -> None:
-        if not self._loaded:
+        current_revision = 0 if self.base_path is not None else get_plugin_service_revision()
+        if not self._loaded or self._loaded_revision != current_revision:
             self.load_all()
 
     def list_templates(self, category: str | None = None) -> list[dict[str, Any]]:

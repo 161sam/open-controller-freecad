@@ -66,6 +66,8 @@ def load_plugin_manifest(path: str | Path) -> PluginDescriptor:
             constraints=_optional_str(entrypoints.get("constraints")),
             module=_optional_str(entrypoints.get("module")),
         ),
+        non_disableable=bool(plugin.get("non_disableable", False)),
+        is_internal="plugins/internal" in str(file_path.parent).replace("\\", "/"),
         root_path=file_path.parent,
     )
 
