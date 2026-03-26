@@ -20,6 +20,39 @@
 3. Cutouts prüfen
 4. Export
 
+## Parameters And Presets
+
+- Templates can expose declarative parameters in the Create panel.
+- The parameter editor renders matching controls automatically:
+  - numeric input or slider for `int` and `float`
+  - select or button-style choice for `enum`
+  - toggle for `bool`
+  - text input for `string`
+- Changing a parameter in the panel only updates the staged preview first. It does not trigger a heavy document sync on every control change.
+- `Create` uses the currently selected parameter values when a new controller is generated.
+- `Apply Parameters` regenerates the current controller from the selected template or variant and writes the current parameter values into project state.
+- Parameter values are stored in project metadata together with their source:
+  - `default`
+  - `preset`
+  - `user`
+- Template presets are built into templates and can be applied before fine-tuning.
+- Saved user presets in the Presets box also persist parameter values and the selected template preset id.
+
+## Parameterized Template Examples
+
+- `pad_grid_4x4`
+  - `pad_count_x`, `pad_count_y`
+  - `case_width`, `case_depth`
+  - built-in presets such as `4x4 Pad Grid` and `8x2 Pad Grid`
+- `fader_strip`
+  - `fader_length`
+  - `case_width`, `case_depth`
+  - switches between matching 45 mm and 60 mm fader library entries
+- `display_nav_module`
+  - `display_size_inch`
+  - `knob_diameter`
+  - switches between display and encoder clearance profiles
+
 ## Component Palette
 
 - Öffne die Palette über `OCW_OpenComponentPalette`

@@ -5,10 +5,14 @@ from typing import Any
 
 from ocw_workbench.plugins.data import normalize_template_payload
 from ocw_workbench.templates.models import TemplateModel
+from ocw_workbench.templates.parameters import TemplateParameterResolver
 from ocw_workbench.utils.yaml_io import load_yaml
 
 
 class TemplateLoader:
+    def __init__(self, parameter_resolver: TemplateParameterResolver | None = None) -> None:
+        self.parameter_resolver = parameter_resolver or TemplateParameterResolver()
+
     def load(self, path: str | Path, plugin_id: str | None = None) -> TemplateModel:
         payload = load_yaml(path)
         return self.load_payload(payload, source=Path(path), plugin_id=plugin_id)
@@ -54,6 +58,9 @@ class TemplateLoader:
         firmware = payload.get("firmware", {})
         ocf = payload.get("ocf", {})
         metadata = payload.get("metadata", {})
+        parameters = payload.get("parameters")
+        parameter_presets = payload.get("parameter_presets")
+        parameter_bindings = payload.get("parameter_bindings")
         if not isinstance(zones, list):
             raise ValueError(f"Field 'zones' must be a list in {source}")
         if not isinstance(layout, dict):
@@ -68,11 +75,24 @@ class TemplateLoader:
             raise ValueError(f"Field 'ocf' must be a mapping in {source}")
         if not isinstance(metadata, dict):
             raise ValueError(f"Field 'metadata' must be a mapping in {source}")
+        if parameters is not None and not isinstance(parameters, list):
+            raise ValueError(f"Field 'parameters' must be a list in {source}")
+        if parameter_presets is not None and not isinstance(parameter_presets, list):
+            raise ValueError(f"Field 'parameter_presets' must be a list in {source}")
+        if parameter_bindings is not None and not isinstance(parameter_bindings, dict):
+            raise ValueError(f"Field 'parameter_bindings' must be a mapping in {source}")
         geometry = controller.get("geometry", {})
         if geometry is not None and not isinstance(geometry, dict):
             raise ValueError(f"Field 'controller.geometry' must be a mapping in {source}")
         if isinstance(geometry, dict):
             self._validate_geometry(geometry, source)
+        self.parameter_resolver.build_ui_model(
+            {
+                "parameters": parameters or [],
+                "parameter_presets": parameter_presets or [],
+                "parameter_bindings": parameter_bindings or {},
+            }
+        )
 
         for component in components:
             if not isinstance(component, dict):
@@ -100,6 +120,9 @@ class TemplateLoader:
             defaults=defaults,
             firmware=firmware,
             ocf=ocf,
+            parameters=parameters if isinstance(parameters, list) else None,
+            parameter_presets=parameter_presets if isinstance(parameter_presets, list) else None,
+            parameter_bindings=parameter_bindings if isinstance(parameter_bindings, dict) else None,
             metadata=metadata,
             category=template_meta.get("category"),
             tags=template_meta.get("tags"),

@@ -56,6 +56,58 @@ layout:
   config:
     spacing_x_mm: 32
     spacing_y_mm: 24
+parameters:
+  - id: "display_size_inch"
+    label: "Display Size"
+    type: "enum"
+    default: "0.96"
+    control: "select"
+    options:
+      - value: "0.96"
+        label: "0.96 inch"
+      - value: "1.3"
+        label: "1.3 inch"
+    help: "Select the display breakout size used for the status screen."
+  - id: "knob_diameter"
+    label: "Knob Diameter"
+    type: "enum"
+    default: 18
+    control: "button_group"
+    options:
+      - value: 18
+        label: "18 mm"
+      - value: 24
+        label: "24 mm"
+    unit: "mm"
+    help: "Select the encoder knob clearance profile."
+parameter_presets:
+  - id: "compact_encoder_strip"
+    name: "Compact Encoder Strip"
+    values:
+      display_size_inch: "0.96"
+      knob_diameter: 18
+  - id: "wide_large_display"
+    name: "Wide Large Display"
+    values:
+      display_size_inch: "1.3"
+      knob_diameter: 24
+parameter_bindings:
+  values:
+    - target: "components[oled_status].library_ref"
+      parameter: "display_size_inch"
+      value_map:
+        "0.96": "adafruit_oled_096_i2c_ssd1306"
+        "1.3": "adafruit_oled_130_i2c_ssd1306"
+    - target: "components[enc_left].library_ref"
+      parameter: "knob_diameter"
+      value_map:
+        "18": "generic_ec11_encoder_with_push"
+        "24": "generic_ec11_encoder_with_push_large_knob"
+    - target: "components[enc_right].library_ref"
+      parameter: "knob_diameter"
+      value_map:
+        "18": "generic_ec11_encoder_with_push"
+        "24": "generic_ec11_encoder_with_push_large_knob"
 constraints:
   profile: "default"
 defaults:

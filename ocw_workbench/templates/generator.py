@@ -46,6 +46,8 @@ class TemplateGenerator:
             project["ocf"] = deepcopy(resolved["ocf"])
         if resolved.get("variant"):
             project["variant"] = deepcopy(resolved["variant"])
+        if isinstance(resolved.get("resolved_parameters"), dict):
+            project["parameters"] = deepcopy(resolved["resolved_parameters"])
         return project
 
     def _build_controller(self, template: dict[str, Any]) -> dict[str, Any]:

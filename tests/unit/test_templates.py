@@ -86,6 +86,41 @@ def test_template_generator_preserves_pad_grid_layout_config():
     assert project["layout"]["config"]["spacing_y_mm"] == 36
 
 
+def test_parameterized_pad_grid_template_changes_component_count_and_case_size():
+    project = TemplateGenerator().generate_from_template(
+        "pad_grid_4x4",
+        overrides={"parameters": {"pad_count_x": 8, "pad_count_y": 2, "case_width": 300.0, "case_depth": 110.0}},
+    )
+
+    assert len(project["components"]) == 16
+    assert project["controller"]["width"] == 300.0
+    assert project["controller"]["depth"] == 110.0
+    assert project["layout"]["config"]["rows"] == 2
+    assert project["layout"]["config"]["cols"] == 8
+
+
+def test_parameterized_fader_template_switches_library_ref():
+    project = TemplateGenerator().generate_from_template(
+        "fader_strip",
+        overrides={"parameters": {"fader_length": 45}},
+    )
+
+    assert project["components"][0]["library_ref"] == "generic_45mm_linear_fader"
+
+
+def test_parameterized_display_template_switches_display_and_knob_profiles():
+    project = TemplateGenerator().generate_from_template(
+        "display_nav_module",
+        overrides={"parameters": {"display_size_inch": "1.3", "knob_diameter": 24}},
+    )
+
+    display = next(component for component in project["components"] if component["id"] == "oled_status")
+    left_encoder = next(component for component in project["components"] if component["id"] == "enc_left")
+
+    assert display["library_ref"] == "adafruit_oled_130_i2c_ssd1306"
+    assert left_encoder["library_ref"] == "generic_ec11_encoder_with_push_large_knob"
+
+
 def test_unknown_template_id_raises_key_error():
     generator = TemplateGenerator()
 

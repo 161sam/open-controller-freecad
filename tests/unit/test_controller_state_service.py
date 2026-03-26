@@ -42,6 +42,22 @@ def test_state_service_create_from_template_applies_layout_without_sync():
     assert doc.recompute_count == 0
 
 
+def test_state_service_persists_parameter_values_and_sources():
+    service = ControllerStateService()
+    doc = FakeDocument()
+
+    state = service.create_from_template(
+        doc,
+        "display_nav_module",
+        overrides={"parameters": {"display_size_inch": "1.3", "knob_diameter": 24}},
+    )
+    context = service.get_ui_context(doc)
+
+    assert state["meta"]["parameters"]["values"]["display_size_inch"] == "1.3"
+    assert state["meta"]["parameters"]["sources"]["display_size_inch"] == "user"
+    assert context["parameters"]["values"]["knob_diameter"] == 24
+
+
 def test_state_service_select_and_validate_touch_only_state():
     service = ControllerStateService()
     doc = FakeDocument()

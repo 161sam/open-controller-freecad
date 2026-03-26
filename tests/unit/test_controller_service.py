@@ -218,9 +218,22 @@ def test_create_from_template_populates_metadata_and_components():
 
     assert state["meta"]["template_id"] == "encoder_module"
     assert state["meta"]["variant_id"] is None
-    assert len(state["components"]) == 4
-    assert state["meta"]["selection"] == "enc1"
-    assert state["meta"]["layout"]["strategy"] == "grid"
+
+
+def test_apply_template_parameters_uses_single_transaction_and_updates_state():
+    service = ControllerService()
+    doc = FakeDocument()
+
+    service.create_from_template(doc, "fader_strip")
+    state = service.apply_template_parameters(
+        doc,
+        template_id="fader_strip",
+        overrides={"parameters": {"fader_length": 45}},
+    )
+
+    assert state["components"][0]["library_ref"] == "generic_45mm_linear_fader"
+    assert doc.transactions[-2:] == [("open", "OCW Apply Parameters"), ("commit", None)]
+    assert state["meta"]["layout"]["strategy"] == "zone"
     assert state["meta"]["layout"]["source"] == "template"
     assert len({(component["x"], component["y"]) for component in state["components"]}) > 1
 

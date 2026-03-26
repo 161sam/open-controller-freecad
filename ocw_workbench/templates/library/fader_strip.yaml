@@ -51,6 +51,62 @@ layout:
   strategy: "zone"
   config:
     spacing_mm: 24
+parameters:
+  - id: "fader_length"
+    label: "Fader Length"
+    type: "enum"
+    default: 60
+    control: "button_group"
+    options:
+      - value: 45
+        label: "45 mm"
+      - value: 60
+        label: "60 mm"
+    help: "Select the fader travel and matching component footprint."
+  - id: "case_width"
+    label: "Case Width"
+    type: "float"
+    default: 80.0
+    min: 70.0
+    max: 120.0
+    step: 5.0
+    unit: "mm"
+  - id: "case_depth"
+    label: "Case Depth"
+    type: "float"
+    default: 140.0
+    min: 110.0
+    max: 180.0
+    step: 5.0
+    unit: "mm"
+parameter_presets:
+  - id: "long_fader"
+    name: "Long Fader"
+    values:
+      fader_length: 60
+      case_width: 80.0
+      case_depth: 140.0
+  - id: "compact_fader"
+    name: "Compact Fader"
+    values:
+      fader_length: 45
+      case_width: 78.0
+      case_depth: 128.0
+parameter_bindings:
+  values:
+    - target: "controller.width"
+      parameter: "case_width"
+    - target: "controller.depth"
+      parameter: "case_depth"
+    - target: "controller.surface.width"
+      parameter: "case_width"
+    - target: "controller.surface.height"
+      parameter: "case_depth"
+    - target: "components[fader1].library_ref"
+      parameter: "fader_length"
+      value_map:
+        "45": "generic_45mm_linear_fader"
+        "60": "generic_60mm_linear_fader"
 constraints:
   profile: "default"
 defaults:

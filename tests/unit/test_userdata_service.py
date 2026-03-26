@@ -76,6 +76,20 @@ def test_preset_saves_and_loads_with_variant_reference(tmp_path: Path):
     assert reloaded.grid_mm == 2.0
 
 
+def test_preset_persists_parameter_overrides(tmp_path: Path):
+    service = _service(tmp_path)
+
+    preset = service.save_preset(
+        name="Wide Pad Grid",
+        template_id="pad_grid_4x4",
+        overrides={"parameters": {"pad_count_x": 8, "pad_count_y": 2}, "parameter_preset_id": "pad_grid_8x2"},
+    )
+    reloaded = _service(tmp_path).get_preset(preset.id)
+
+    assert reloaded.overrides["parameters"]["pad_count_x"] == 8
+    assert reloaded.overrides["parameter_preset_id"] == "pad_grid_8x2"
+
+
 def test_invalid_userdata_file_falls_back_to_defaults(tmp_path: Path):
     persistence = UserDataPersistence(base_dir=str(tmp_path))
     persistence.path.parent.mkdir(parents=True, exist_ok=True)

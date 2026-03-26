@@ -42,6 +42,37 @@ def test_create_panel_supports_template_and_variant_flow():
     assert state["meta"]["variant_id"] == "encoder_module_compact"
 
 
+def test_create_panel_renders_parameter_controls_and_uses_them_for_creation():
+    doc = FakeDocument()
+    service = ControllerService()
+    panel = CreatePanel(doc, controller_service=service)
+
+    _select_combo_by_suffix(panel.form["template"], "(fader_strip)")
+    panel.handle_template_changed()
+    panel.form["parameter_editor"].control_widget("fader_length").setCurrentIndex(0)
+    panel.handle_parameter_widget_changed()
+    state = panel.create_controller()
+
+    assert "fader_length=45" in panel.form["preview"].text
+    assert state["components"][0]["library_ref"] == "generic_45mm_linear_fader"
+
+
+def test_create_panel_can_apply_template_parameter_preset():
+    doc = FakeDocument()
+    service = ControllerService()
+    panel = CreatePanel(doc, controller_service=service)
+
+    _select_combo_by_suffix(panel.form["template"], "(pad_grid_4x4)")
+    panel.handle_template_changed()
+    panel.form["parameter_editor"].parts["preset"].setCurrentIndex(2)
+    panel.handle_apply_template_preset()
+
+    preview = panel.refresh_preview()
+
+    assert "pad_count_x=8" in preview
+    assert "preset pad_grid_8x2" in preview
+
+
 def test_create_panel_shows_active_project_state_after_creation():
     doc = FakeDocument()
     service = ControllerService()

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from copy import deepcopy
 from typing import Any
 
 from ocw_workbench.gui.panels._common import (
@@ -20,6 +21,7 @@ from ocw_workbench.gui.panels._common import (
     text_value,
     wrap_widget_in_scroll_area,
 )
+from ocw_workbench.gui.widgets.parameter_editor import ParameterEditorWidget
 from ocw_workbench.gui.widgets.favorites_list import FavoritesListWidget
 from ocw_workbench.gui.widgets.preset_list import PresetListWidget
 from ocw_workbench.gui.widgets.recent_list import RecentListWidget
@@ -28,6 +30,7 @@ from ocw_workbench.services.template_marketplace_service import TemplateMarketpl
 from ocw_workbench.services.template_service import TemplateService
 from ocw_workbench.services.userdata_service import UserDataService
 from ocw_workbench.services.variant_service import VariantService
+from ocw_workbench.templates.parameters import TemplateParameterResolver
 
 
 class CreatePanel:
@@ -62,6 +65,11 @@ class CreatePanel:
         self._variant_lookup: dict[str, dict[str, Any]] = {}
         self._marketplace_entries: list[dict[str, Any]] = []
         self._marketplace_lookup: dict[str, dict[str, Any]] = {}
+        self.parameter_resolver = TemplateParameterResolver()
+        self._parameter_template: dict[str, Any] | None = None
+        self._parameter_values: dict[str, Any] = {}
+        self._parameter_sources: dict[str, str] = {}
+        self._parameter_preset_id: str | None = None
         self.form = _build_form()
         self.widget = self.form["widget"]
         marketplace_url = self.template_marketplace_service.last_registry_url()
@@ -97,6 +105,7 @@ class CreatePanel:
             self._set_selected_template(previous_template)
         self.refresh_variants(active_variant_id=previous_variant)
         self._refresh_shortcuts()
+        self.refresh_parameters()
         self.refresh_preview()
         self.refresh_marketplace()
         self._sync_selected_context()
@@ -170,8 +179,9 @@ class CreatePanel:
         if not template_id:
             raise ValueError("No template selected")
         variant_id = self.selected_variant_id()
+        runtime_overrides = self._runtime_overrides()
         if variant_id:
-            state = self.controller_service.create_from_variant(self.doc, variant_id)
+            state = self.controller_service.create_from_variant(self.doc, variant_id, overrides=runtime_overrides)
             recent_name = f"{self.userdata_service.resolve_template_name(template_id)} / {self.userdata_service.resolve_variant_name(variant_id)}"
             self.userdata_service.record_recent(template_id=template_id, variant_id=variant_id, name=recent_name)
             self._publish_status(
@@ -179,7 +189,7 @@ class CreatePanel:
                 "Check Controller Settings, then fine-tune components if needed."
             )
         else:
-            state = self.controller_service.create_from_template(self.doc, template_id)
+            state = self.controller_service.create_from_template(self.doc, template_id, overrides=runtime_overrides)
             recent_name = self.userdata_service.resolve_template_name(template_id)
             self.userdata_service.record_recent(template_id=template_id, variant_id=None, name=recent_name)
             self._publish_status(
@@ -189,6 +199,20 @@ class CreatePanel:
         self.refresh()
         if self.on_created is not None:
             self.on_created(state)
+        return state
+
+    def apply_parameters(self) -> dict[str, Any]:
+        template_id = self.selected_template_id()
+        if not template_id:
+            raise ValueError("No template selected")
+        state = self.controller_service.apply_template_parameters(
+            self.doc,
+            template_id=template_id,
+            variant_id=self.selected_variant_id(),
+            overrides=self._runtime_overrides(),
+        )
+        self.refresh()
+        self._publish_status("Applied parameters to the current controller.")
         return state
 
     def toggle_template_favorite(self) -> None:
@@ -231,6 +255,10 @@ class CreatePanel:
             raise ValueError("No preset selected")
         preset = self.userdata_service.get_preset(entry["preset_id"])
         self._apply_selection(template_id=preset.template_id, variant_id=preset.variant_id)
+        overrides = preset.overrides if isinstance(preset.overrides, dict) else {}
+        self._parameter_values = deepcopy(overrides.get("parameters", {})) if isinstance(overrides.get("parameters"), dict) else {}
+        self._parameter_preset_id = str(overrides.get("parameter_preset_id")) if overrides.get("parameter_preset_id") else None
+        self.refresh_parameters()
         self._publish_status(f"Loaded preset '{preset.name}'.")
 
     def save_current_preset(self) -> None:
@@ -245,6 +273,15 @@ class CreatePanel:
             name=name,
             template_id=template_id,
             variant_id=self.selected_variant_id(),
+        )
+        self.userdata_service.save_preset(
+            name=name,
+            template_id=template_id,
+            variant_id=self.selected_variant_id(),
+            grid_mm=preset.grid_mm,
+            layout_strategy=preset.layout_strategy,
+            description=preset.description,
+            overrides=self._runtime_overrides(),
         )
         self.refresh()
         self._publish_status(f"Saved preset '{preset.name}'.")
@@ -272,11 +309,13 @@ class CreatePanel:
 
     def handle_template_changed(self, *_args: Any) -> None:
         self.refresh_variants()
+        self.refresh_parameters()
         self.refresh_preview()
         self._sync_selected_context()
         self._update_actions()
 
     def handle_variant_changed(self, *_args: Any) -> None:
+        self.refresh_parameters()
         self.refresh_preview()
         self._set_variant_summary()
         self._update_actions()
@@ -323,6 +362,31 @@ class CreatePanel:
         except Exception as exc:
             self._publish_status(str(exc))
 
+    def handle_apply_parameters_clicked(self) -> None:
+        try:
+            self.apply_parameters()
+        except Exception as exc:
+            self._publish_status(_friendly_create_error("Could not apply parameters", exc))
+
+    def handle_parameter_widget_changed(self, *_args: Any) -> None:
+        self._parameter_values = self.form["parameter_editor"].values()
+        self._parameter_sources = {parameter_id: "user" for parameter_id in self._parameter_values}
+        self._parameter_preset_id = self.form["parameter_editor"].selected_preset_id()
+        self.refresh_preview()
+        self._update_actions()
+
+    def handle_apply_template_preset(self) -> None:
+        self.form["parameter_editor"].apply_selected_preset()
+        self._parameter_values = self.form["parameter_editor"].values()
+        self._parameter_preset_id = self.form["parameter_editor"].selected_preset_id()
+        self._parameter_sources = {
+            parameter_id: ("preset" if self._parameter_preset_id is not None else "user")
+            for parameter_id in self._parameter_values
+        }
+        self.refresh_preview()
+        self._update_actions()
+        self._publish_status("Applied template parameter preset.")
+
     def handle_marketplace_search_changed(self, *_args: Any) -> None:
         self.refresh_marketplace()
 
@@ -359,11 +423,12 @@ class CreatePanel:
         if not template_id:
             return "Start by choosing a template to preview the controller."
         variant_id = self.selected_variant_id()
+        runtime_overrides = self._runtime_overrides()
         if variant_id:
-            project = self.variant_service.generate_from_variant(variant_id)
+            project = self.variant_service.generate_from_variant(variant_id, overrides=runtime_overrides)
             title = f"Variant: {variant_id}"
         else:
-            project = self.template_service.generate_from_template(template_id)
+            project = self.template_service.generate_from_template(template_id, overrides=runtime_overrides)
             title = f"Template: {template_id}"
         counts = Counter(component["type"] for component in project["components"])
         summary = ", ".join(f"{component_type} x{count}" for component_type, count in sorted(counts.items()))
@@ -378,6 +443,7 @@ class CreatePanel:
                 f"Surface: {shape} {width} x {height} mm",
                 f"Components: {len(project['components'])}",
                 f"Types: {summary or 'none'}",
+                _parameter_preview_line(project.get("parameters")),
                 _layout_preview_line(project.get("layout")),
             ]
         )
@@ -399,9 +465,53 @@ class CreatePanel:
         if template_id:
             self._set_selected_template(template_id)
         self.refresh_variants(active_variant_id=variant_id)
+        self.refresh_parameters()
         self.refresh_preview()
         self._sync_selected_context()
         self._update_actions()
+
+    def refresh_parameters(self) -> None:
+        template_id = self.selected_template_id()
+        if template_id is None:
+            self._parameter_template = None
+            self._parameter_values = {}
+            self._parameter_sources = {}
+            self._parameter_preset_id = None
+            self.form["parameter_editor"].clear()
+            return
+        variant_id = self.selected_variant_id()
+        template = self.variant_service.resolve_variant(variant_id) if variant_id else self.template_service.resolve_template(template_id)
+        self._parameter_template = template
+        context = self.controller_service.get_ui_context(self.doc)
+        if context.get("template_id") == template_id and context.get("variant_id") == variant_id:
+            parameter_context = context.get("parameters") or {}
+            seeded_values = deepcopy(parameter_context.get("values", {}))
+            seeded_preset_id = parameter_context.get("preset_id")
+        else:
+            seeded_values = deepcopy(self._parameter_values)
+            seeded_preset_id = self._parameter_preset_id
+        try:
+            ui_model = self.parameter_resolver.build_ui_model(template, values=seeded_values, preset_id=seeded_preset_id)
+        except KeyError:
+            ui_model = self.parameter_resolver.build_ui_model(template, values=seeded_values, preset_id=None)
+        self._parameter_values = deepcopy(ui_model["values"])
+        self._parameter_sources = deepcopy(ui_model["sources"])
+        self._parameter_preset_id = ui_model["preset_id"]
+        self.form["parameter_editor"].set_schema(
+            ui_model["definitions"],
+            ui_model["presets"],
+            ui_model["values"],
+            sources=ui_model["sources"],
+            preset_id=ui_model["preset_id"],
+        )
+
+    def _runtime_overrides(self) -> dict[str, Any]:
+        if self._parameter_template is None:
+            return {}
+        return {
+            "parameters": deepcopy(self._parameter_values),
+            "parameter_preset_id": self._parameter_preset_id,
+        }
 
     def _sync_selected_context(self) -> None:
         template_id = self.selected_template_id()
@@ -521,7 +631,14 @@ class CreatePanel:
     def _update_actions(self) -> None:
         template_selected = self.selected_template_id() is not None
         variant_selected = self.selected_variant_id() is not None
+        context = self.controller_service.get_ui_context(self.doc)
+        active_project_matches_selection = (
+            template_selected
+            and context.get("template_id") == self.selected_template_id()
+            and context.get("variant_id") == self.selected_variant_id()
+        )
         set_enabled(self.form["create_button"], template_selected)
+        set_enabled(self.form["apply_parameters_button"], bool(active_project_matches_selection))
         set_enabled(self.form["favorite_template_button"], template_selected)
         set_enabled(self.form["favorite_variant_button"], variant_selected)
         set_enabled(self.form["presets_widget"].parts["save_button"], template_selected)
@@ -549,6 +666,8 @@ class CreatePanel:
             variant.currentIndexChanged.connect(self.handle_variant_changed)
         if hasattr(self.form["create_button"], "clicked"):
             self.form["create_button"].clicked.connect(self.handle_create_clicked)
+        if hasattr(self.form["apply_parameters_button"], "clicked"):
+            self.form["apply_parameters_button"].clicked.connect(self.handle_apply_parameters_clicked)
         if hasattr(self.form["favorite_template_button"], "clicked"):
             self.form["favorite_template_button"].clicked.connect(self.handle_toggle_template_favorite)
         if hasattr(self.form["favorite_variant_button"], "clicked"):
@@ -561,6 +680,9 @@ class CreatePanel:
             self.form["presets_widget"].parts["load_button"].clicked.connect(self.handle_load_preset)
         if hasattr(self.form["presets_widget"].parts["save_button"], "clicked"):
             self.form["presets_widget"].parts["save_button"].clicked.connect(self.handle_save_preset)
+        self.form["parameter_editor"].changed.connect(self.handle_parameter_widget_changed)
+        if hasattr(self.form["parameter_editor"].parts["apply_preset_button"], "clicked"):
+            self.form["parameter_editor"].parts["apply_preset_button"].clicked.connect(self.handle_apply_template_preset)
         if hasattr(self.form["marketplace_filter"], "currentIndexChanged"):
             self.form["marketplace_filter"].currentIndexChanged.connect(self.handle_marketplace_filter_changed)
         if hasattr(self.form["marketplace_list"], "currentIndexChanged"):
@@ -581,12 +703,14 @@ def _build_form() -> dict[str, Any]:
     favorites_widget = FavoritesListWidget()
     recents_widget = RecentListWidget()
     presets_widget = PresetListWidget()
+    parameter_editor = ParameterEditorWidget()
     if qtwidgets is None:
         return {
             "widget": object(),
             "favorites_widget": favorites_widget,
             "recents_widget": recents_widget,
             "presets_widget": presets_widget,
+            "parameter_editor": parameter_editor,
             "active_project": FallbackLabel("No controller in the document yet."),
             "marketplace_registry_url": FallbackText(""),
             "marketplace_search": FallbackText(""),
@@ -606,6 +730,7 @@ def _build_form() -> dict[str, Any]:
             "favorite_variant_status": FallbackLabel(),
             "favorite_variant_button": FallbackButton("Toggle Variant Favorite"),
             "preview": FallbackText(),
+            "apply_parameters_button": FallbackButton("Apply Parameters"),
             "create_button": FallbackButton("Create New Controller"),
             "status": FallbackLabel(),
         }
@@ -661,6 +786,7 @@ def _build_form() -> dict[str, Any]:
     favorite_variant_button = qtwidgets.QPushButton("Toggle Favorite")
     preview = qtwidgets.QPlainTextEdit()
     configure_text_panel(preview, max_height=140)
+    apply_parameters_button = qtwidgets.QPushButton("Apply Parameters")
     create_button = qtwidgets.QPushButton("Create New Controller")
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
@@ -678,9 +804,11 @@ def _build_form() -> dict[str, Any]:
         favorites_widget.widget,
         recents_widget.widget,
         presets_widget.widget,
+        parameter_editor.widget,
         marketplace_box,
         template,
         variant,
+        apply_parameters_button,
         create_button,
     ):
         set_size_policy(child, horizontal="expanding", vertical="preferred")
@@ -697,8 +825,10 @@ def _build_form() -> dict[str, Any]:
     root.addLayout(shortcuts)
     root.addWidget(marketplace_box)
     root.addLayout(form)
+    root.addWidget(parameter_editor.widget)
     root.addWidget(preview)
     root.addWidget(presets_widget.widget)
+    root.addWidget(apply_parameters_button)
     root.addWidget(create_button)
     root.addWidget(status)
     root.addStretch(1)
@@ -708,6 +838,7 @@ def _build_form() -> dict[str, Any]:
         "favorites_widget": favorites_widget,
         "recents_widget": recents_widget,
         "presets_widget": presets_widget,
+        "parameter_editor": parameter_editor,
         "active_project": active_project,
         "marketplace_registry_url": marketplace_registry_url,
         "marketplace_search": marketplace_search,
@@ -727,6 +858,7 @@ def _build_form() -> dict[str, Any]:
         "favorite_variant_status": favorite_variant_status,
         "favorite_variant_button": favorite_variant_button,
         "preview": preview,
+        "apply_parameters_button": apply_parameters_button,
         "create_button": create_button,
         "status": status,
     }
@@ -757,6 +889,19 @@ def _layout_preview_line(layout: dict[str, Any] | None) -> str:
     spacing = config.get("spacing_mm", config.get("spacing_x_mm", "-"))
     padding = config.get("padding_mm", "-")
     return f"Layout: {strategy} | spacing {spacing} mm | padding {padding} mm"
+
+
+def _parameter_preview_line(parameters: dict[str, Any] | None) -> str:
+    if not isinstance(parameters, dict):
+        return "Parameters: template default"
+    values = parameters.get("values") or {}
+    if not isinstance(values, dict) or not values:
+        return "Parameters: template default"
+    summary = ", ".join(f"{key}={value}" for key, value in sorted(values.items()))
+    preset_id = parameters.get("preset_id")
+    if preset_id:
+        return f"Parameters: {summary} | preset {preset_id}"
+    return f"Parameters: {summary}"
 
 
 def _friendly_create_error(prefix: str, exc: Exception) -> str:

@@ -183,7 +183,10 @@ class UserDataService:
             variant_id=variant_id,
             grid_mm=float(ui.get("grid_mm", 1.0)),
             layout_strategy=layout.get("strategy"),
-            overrides={},
+            overrides={
+                "parameters": deepcopy((context.get("parameters") or {}).get("values", {})),
+                "parameter_preset_id": (context.get("parameters") or {}).get("preset_id"),
+            },
         )
 
     def resolve_template_name(self, template_id: str) -> str:

@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from ocw_workbench.templates.parameters import TemplateParameterResolver
 from ocw_workbench.templates.registry import TemplateRegistry
 
 
@@ -17,8 +18,13 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 
 class VariantResolver:
-    def __init__(self, template_registry: TemplateRegistry | None = None) -> None:
+    def __init__(
+        self,
+        template_registry: TemplateRegistry | None = None,
+        parameter_resolver: TemplateParameterResolver | None = None,
+    ) -> None:
         self.template_registry = template_registry or TemplateRegistry()
+        self.parameter_resolver = parameter_resolver or TemplateParameterResolver()
 
     def resolve(
         self,
@@ -39,7 +45,13 @@ class VariantResolver:
         resolved = self._apply_overrides(resolved, variant.get("overrides"), context=f"variant '{variant_id}'")
         resolved = self._apply_overrides(resolved, runtime_overrides, context=f"runtime overrides for '{variant_id}'")
         resolved["variant"] = deepcopy(variant_meta)
-        return resolved
+        runtime_values = runtime_overrides.get("parameters") if isinstance(runtime_overrides, dict) and isinstance(runtime_overrides.get("parameters"), dict) else None
+        runtime_preset_id = (
+            str(runtime_overrides.get("parameter_preset_id"))
+            if isinstance(runtime_overrides, dict) and runtime_overrides.get("parameter_preset_id") is not None
+            else None
+        )
+        return self.parameter_resolver.apply(resolved, values=runtime_values, preset_id=runtime_preset_id)
 
     def _apply_overrides(
         self,
@@ -58,6 +70,18 @@ class VariantResolver:
                 if not isinstance(overrides[field], dict):
                     raise ValueError(f"Override field '{field}' in {context} must be a mapping")
                 resolved[field] = _deep_merge(resolved.get(field, {}), overrides[field])
+
+        for field in ("parameters", "parameter_presets"):
+            if field in overrides:
+                if field == "parameters" and isinstance(overrides[field], dict):
+                    continue
+                if not isinstance(overrides[field], list):
+                    raise ValueError(f"Override field '{field}' in {context} must be a list")
+                resolved[field] = deepcopy(overrides[field])
+        if "parameter_bindings" in overrides:
+            if not isinstance(overrides["parameter_bindings"], dict):
+                raise ValueError(f"Override field 'parameter_bindings' in {context} must be a mapping")
+            resolved["parameter_bindings"] = deepcopy(overrides["parameter_bindings"])
 
         if "zones" in overrides:
             if not isinstance(overrides["zones"], list):

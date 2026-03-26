@@ -72,6 +72,24 @@ class ControllerService:
         self.update_document(doc, mode=SyncMode.FULL, state=state)
         return state
 
+    def apply_template_parameters(
+        self,
+        doc: Any,
+        *,
+        template_id: str,
+        variant_id: str | None = None,
+        overrides: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        if variant_id:
+            mutator = lambda: self.state_service.create_from_variant(doc, variant_id, overrides=overrides)
+        else:
+            mutator = lambda: self.state_service.create_from_template(doc, template_id, overrides=overrides)
+        return self._mutate_with_full_sync(
+            doc,
+            transaction_name="OCW Apply Parameters",
+            mutator=mutator,
+        )
+
     def get_state(self, doc: Any) -> dict[str, Any]:
         return self.state_service.get_state(doc)
 

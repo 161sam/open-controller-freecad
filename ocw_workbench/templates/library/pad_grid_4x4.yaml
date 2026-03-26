@@ -24,71 +24,7 @@ zones:
     width: 150
     height: 150
     strategy: "grid"
-components:
-  - id: "pad1"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad2"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad3"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad4"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad5"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad6"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad7"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad8"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad9"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad10"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad11"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad12"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad13"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad14"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad15"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
-  - id: "pad16"
-    type: "pad"
-    library_ref: "generic_mpc_pad_30mm"
-    zone: "pad_matrix"
+components: []
 layout:
   strategy: "grid"
   config:
@@ -96,6 +32,80 @@ layout:
     cols: 4
     spacing_x_mm: 36
     spacing_y_mm: 36
+parameters:
+  - id: "pad_count_x"
+    label: "Pad Count X"
+    type: "int"
+    default: 4
+    min: 2
+    max: 8
+    step: 1
+    control: "slider"
+    help: "Number of pad columns in the generated matrix."
+  - id: "pad_count_y"
+    label: "Pad Count Y"
+    type: "int"
+    default: 4
+    min: 2
+    max: 8
+    step: 1
+    control: "slider"
+    help: "Number of pad rows in the generated matrix."
+  - id: "case_width"
+    label: "Case Width"
+    type: "float"
+    default: 180.0
+    min: 120.0
+    max: 320.0
+    step: 5.0
+    unit: "mm"
+    help: "Overall controller width."
+  - id: "case_depth"
+    label: "Case Depth"
+    type: "float"
+    default: 180.0
+    min: 100.0
+    max: 260.0
+    step: 5.0
+    unit: "mm"
+    help: "Overall controller depth."
+parameter_presets:
+  - id: "pad_grid_4x4"
+    name: "4x4 Pad Grid"
+    values:
+      pad_count_x: 4
+      pad_count_y: 4
+      case_width: 180.0
+      case_depth: 180.0
+  - id: "pad_grid_8x2"
+    name: "8x2 Pad Grid"
+    values:
+      pad_count_x: 8
+      pad_count_y: 2
+      case_width: 300.0
+      case_depth: 110.0
+parameter_bindings:
+  values:
+    - target: "controller.width"
+      parameter: "case_width"
+    - target: "controller.depth"
+      parameter: "case_depth"
+    - target: "controller.surface.width"
+      parameter: "case_width"
+    - target: "controller.surface.height"
+      parameter: "case_depth"
+    - target: "layout.config.cols"
+      parameter: "pad_count_x"
+    - target: "layout.config.rows"
+      parameter: "pad_count_y"
+  component_grids:
+    - id_prefix: "pad"
+      count_x_parameter: "pad_count_x"
+      count_y_parameter: "pad_count_y"
+      component:
+        type: "pad"
+        library_ref: "generic_mpc_pad_30mm"
+        zone: "pad_matrix"
 constraints:
   profile: "default"
 defaults:

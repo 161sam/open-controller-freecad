@@ -34,6 +34,11 @@ DEFAULT_META = {
     "variant_id": None,
     "selection": None,
     "overrides": {},
+    "parameters": {
+        "values": {},
+        "sources": {},
+        "preset_id": None,
+    },
     "layout": {},
     "validation": None,
     "ui": {
@@ -146,6 +151,7 @@ class ControllerStateService:
             "variant_id": state["meta"].get("variant_id"),
             "selection": state["meta"].get("selection"),
             "overrides": deepcopy(state["meta"].get("overrides", {})),
+            "parameters": deepcopy(state["meta"].get("parameters", {})),
             "component_count": len(state["components"]),
             "component_types": self._component_type_counts(state["components"]),
             "layout": deepcopy(state["meta"].get("layout", {})),
@@ -315,6 +321,12 @@ class ControllerStateService:
         state["meta"]["template_id"] = template_id
         state["meta"]["variant_id"] = variant_id
         state["meta"]["overrides"] = deepcopy(overrides) if overrides is not None else {}
+        parameters = deepcopy(project.get("parameters", {})) if isinstance(project.get("parameters"), dict) else {}
+        state["meta"]["parameters"] = {
+            "values": deepcopy(parameters.get("values", {})) if isinstance(parameters.get("values"), dict) else {},
+            "sources": deepcopy(parameters.get("sources", {})) if isinstance(parameters.get("sources"), dict) else {},
+            "preset_id": parameters.get("preset_id"),
+        }
         if state["components"]:
             state["meta"]["selection"] = state["components"][0]["id"]
         layout_spec = deepcopy(project.get("layout", {})) if isinstance(project.get("layout"), dict) else {}

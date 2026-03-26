@@ -3,6 +3,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from ocw_workbench.templates.parameters import TemplateParameterResolver
+
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     result = deepcopy(base)
@@ -15,13 +17,16 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
 
 
 class TemplateResolver:
+    def __init__(self, parameter_resolver: TemplateParameterResolver | None = None) -> None:
+        self.parameter_resolver = parameter_resolver or TemplateParameterResolver()
+
     def resolve(self, template: dict[str, Any], overrides: dict[str, Any] | None = None) -> dict[str, Any]:
+        resolved = deepcopy(template)
         if overrides is None:
-            return deepcopy(template)
+            return self.parameter_resolver.apply(resolved)
         if not isinstance(overrides, dict):
             raise ValueError("Template overrides must be a mapping")
 
-        resolved = deepcopy(template)
         for field in ("template", "controller", "layout", "constraints", "defaults", "firmware", "ocf"):
             if field in overrides:
                 if not isinstance(overrides[field], dict):
@@ -38,7 +43,11 @@ class TemplateResolver:
                 raise ValueError("Template override field 'components' must be a mapping")
             resolved["components"] = self._merge_components(resolved["components"], overrides["components"])
 
-        return resolved
+        return self.parameter_resolver.apply(
+            resolved,
+            values=overrides.get("parameters") if isinstance(overrides.get("parameters"), dict) else None,
+            preset_id=str(overrides.get("parameter_preset_id")) if overrides.get("parameter_preset_id") is not None else None,
+        )
 
     def _merge_components(
         self,

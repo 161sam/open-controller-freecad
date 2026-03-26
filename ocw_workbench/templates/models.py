@@ -17,6 +17,9 @@ class TemplateModel:
     defaults: dict[str, Any]
     firmware: dict[str, Any]
     ocf: dict[str, Any]
+    parameters: list[dict[str, Any]] | None = None
+    parameter_presets: list[dict[str, Any]] | None = None
+    parameter_bindings: dict[str, Any] | None = None
     metadata: dict[str, Any] | None = None
     category: str | None = None
     tags: list[str] | None = None
@@ -34,7 +37,7 @@ class TemplateModel:
             template["tags"] = self.tags
         if self.version is not None:
             template["version"] = self.version
-        return {
+        payload = {
             "template": template,
             "controller": self.controller,
             "zones": self.zones,
@@ -46,3 +49,10 @@ class TemplateModel:
             "ocf": self.ocf,
             "metadata": self.metadata or {},
         }
+        if self.parameters is not None:
+            payload["parameters"] = self.parameters
+        if self.parameter_presets is not None:
+            payload["parameter_presets"] = self.parameter_presets
+        if self.parameter_bindings is not None:
+            payload["parameter_bindings"] = self.parameter_bindings
+        return payload

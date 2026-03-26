@@ -23,6 +23,7 @@
 ## Workflow 4 – UI (Ziel)
 
 - Projekt erstellen
+- Parameter anpassen
 - Komponenten platzieren
 - Constraints prüfen
 - Export
@@ -59,6 +60,17 @@
 - Template im Create Panel auswählen
 - Controller weiter verfeinern und speichern
 
+## Workflow 9 – Template -> Parameters -> Create
+
+- Template auswählen
+- optional Variant auswählen
+- Template-Preset anwenden
+- Parameter im Parameter-Editor anpassen
+- Preview prüfen
+- `Create` für neue Controller verwenden
+- `Apply Parameters` für bestehende Controller aus derselben Template-/Variant-Auswahl verwenden
+- Layout, Komponenten und Constraints danach wie gewohnt weiter bearbeiten
+
 ## Stage A And Stage B Compatibility
 
 - Stage A and Stage B use the same registry, template loader, and template inspector flow.
@@ -85,3 +97,15 @@
 - If the commit path raises an exception, the transaction is aborted and the previous project state is restored before control returns to the UI.
 - Preview errors block place and drag commit; warning-level preview feedback remains visible but does not create undo entries on its own.
 - Template Import Stage A is an external template-generation workflow: it produces a YAML file and reloads the template registry, but it does not mutate the active project document and therefore does not create a FreeCAD undo step.
+
+## Parameter Model
+
+- Parameters are declared in template YAML, not hidden in code.
+- Parameter presets are named parameter sets that templates can ship directly.
+- Runtime parameter values are applied through the template and variant resolver path before project generation.
+- Supported parameter effects in the current implementation are:
+  - direct controller or layout value binding
+  - component field switching, for example `library_ref`
+  - generated component grids, for example pad matrices
+- Project state stores resolved parameter values and their source in `meta.parameters`.
+- Pure parameter editing in the Create panel is UI-only until the user runs `Create` or `Apply Parameters`.
