@@ -80,6 +80,12 @@ class OverlayRenderer:
                 if not self._is_positive(width) or not self._is_positive(height):
                     return False, "degenerate_rect"
                 return True, None
+            if item_type == "slot":
+                width = float(geometry["width"])
+                height = float(geometry["height"])
+                if not self._is_positive(width) or not self._is_positive(height):
+                    return False, "degenerate_slot"
+                return True, None
             if item_type == "circle":
                 diameter = float(geometry["diameter"])
                 if not self._is_positive(diameter):

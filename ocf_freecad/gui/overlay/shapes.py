@@ -34,6 +34,37 @@ def rect_item(
     }
 
 
+def slot_item(
+    item_id: str,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    style: dict[str, Any],
+    rotation: float = 0.0,
+    label: str | None = None,
+    source_component_id: str | None = None,
+    severity: str | None = None,
+    source_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "id": item_id,
+        "type": "slot",
+        "geometry": {
+            "x": float(x),
+            "y": float(y),
+            "width": float(width),
+            "height": float(height),
+            "rotation": float(rotation),
+        },
+        "style": style,
+        "label": label,
+        "source_component_id": source_component_id,
+        "source_ids": list(source_ids or ([] if source_component_id is None else [source_component_id])),
+        "severity": severity,
+    }
+
+
 def circle_item(
     item_id: str,
     x: float,

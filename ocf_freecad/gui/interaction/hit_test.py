@@ -3,13 +3,23 @@ from __future__ import annotations
 from math import hypot
 from typing import Any
 
-from ocf_freecad.geometry.planar import point_in_rotated_rect
+from ocf_freecad.geometry.planar import point_in_rotated_rect, point_in_rotated_slot
 
 
 def hit_test_item(item: dict[str, Any], x: float, y: float) -> bool:
     geometry = item.get("geometry", {})
     if item.get("type") == "rect":
         return point_in_rotated_rect(
+            float(x),
+            float(y),
+            center_x=float(geometry["x"]),
+            center_y=float(geometry["y"]),
+            width=float(geometry["width"]),
+            height=float(geometry["height"]),
+            rotation_deg=float(geometry.get("rotation", 0.0) or 0.0),
+        )
+    if item.get("type") == "slot":
+        return point_in_rotated_slot(
             float(x),
             float(y),
             center_x=float(geometry["x"]),

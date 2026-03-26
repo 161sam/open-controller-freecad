@@ -191,6 +191,26 @@ def test_component_resolver_and_builder_keepouts_are_normalized():
     assert keepouts[1]["depth"] == 8.0
 
 
+def test_fader_cutout_is_normalized_as_slot():
+    component = Component(
+        id="fader1",
+        type="fader",
+        x=50,
+        y=35,
+        library_ref="generic_45mm_linear_fader",
+    )
+    component_resolver = ComponentResolver()
+    builder = ControllerBuilder(doc=None, component_resolver=component_resolver)
+
+    resolved = component_resolver.resolve(component)
+    cutouts = builder.build_cutout_primitives([component])
+
+    assert resolved["mechanical"]["cutout"]["shape"] == "slot"
+    assert cutouts[0]["shape"] == "slot"
+    assert cutouts[0]["width"] == 53.0
+    assert cutouts[0]["height"] == 2.2
+
+
 def test_rotation_is_preserved_in_resolved_components_keepouts_and_cutouts():
     component = Component(
         id="disp1",

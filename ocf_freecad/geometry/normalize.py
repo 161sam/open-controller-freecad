@@ -239,7 +239,7 @@ def _derive_fader_feature(
                 "height": window.get("height"),
             }
         return {
-            "shape": "rect",
+            "shape": "slot",
             "width": slot.get("length_mm"),
             "height": slot.get("width_mm"),
         }

@@ -8,6 +8,24 @@ def make_rect_prism_shape(width, depth, height):
     return make_box_shape(width, depth, height)
 
 
+def make_slot_prism_shape(width, depth, height):
+    major = float(max(width, depth))
+    minor = float(min(width, depth))
+    if minor <= 0.0 or major <= 0.0:
+        raise ValueError("Slot dimensions must be positive")
+    radius = minor / 2.0
+    if major <= minor + 1e-6:
+        return make_cylinder_shape(radius, height)
+    center_span = major - minor
+    core = make_rect_prism_shape(center_span, minor, height)
+    left_cap = translate_shape(make_cylinder_shape(radius, height), x=radius, y=radius, z=0.0)
+    right_cap = translate_shape(make_cylinder_shape(radius, height), x=radius + center_span, y=radius, z=0.0)
+    fused = fuse_shapes([core, left_cap, right_cap])
+    if fused is None:
+        raise ValueError("Failed to build slot prism shape")
+    return fused
+
+
 def make_surface_prism_shape(surface, height):
     shape_type = surface.shape
     if shape_type == "rectangle":

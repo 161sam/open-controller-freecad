@@ -310,6 +310,65 @@ def test_overlay_renderer_drops_degenerate_and_text_items(monkeypatch):
     }
 
 
+def test_overlay_renderer_accepts_slot_and_drops_degenerate_slot():
+    from ocf_freecad.gui.overlay.renderer import OverlayRenderer
+
+    class FakeOverlayObject:
+        def __init__(self, name: str) -> None:
+            self.Name = name
+            self.Label = name
+            self.PropertiesList = []
+            self.ViewObject = SimpleNamespace(Object=self, Proxy=None)
+
+        def addProperty(self, _type_name: str, name: str, _group: str, _doc: str) -> None:
+            if name not in self.PropertiesList:
+                self.PropertiesList.append(name)
+                setattr(self, name, "")
+
+        def setEditorMode(self, _name: str, _mode: int) -> None:
+            return
+
+    class FakeDoc:
+        def __init__(self) -> None:
+            self.Objects = []
+
+        def addObject(self, _type_name: str, name: str):
+            obj = FakeOverlayObject(name)
+            self.Objects.append(obj)
+            return obj
+
+        def getObject(self, name: str):
+            for obj in self.Objects:
+                if obj.Name == name:
+                    return obj
+            return None
+
+        def removeObject(self, name: str) -> None:
+            self.Objects = [obj for obj in self.Objects if obj.Name != name]
+
+        def recompute(self) -> None:
+            return
+
+    doc = FakeDoc()
+    renderer = OverlayRenderer()
+    payload = renderer.render(
+        doc,
+        {
+            "enabled": True,
+            "controller_height": 8.0,
+            "items": [
+                {"id": "slot", "type": "slot", "geometry": {"x": 20.0, "y": 20.0, "width": 53.0, "height": 2.2, "rotation": 90.0}, "style": {}},
+                {"id": "bad-slot", "type": "slot", "geometry": {"x": 0.0, "y": 0.0, "width": 0.0, "height": 2.2, "rotation": 0.0}, "style": {}},
+            ],
+        },
+    )
+
+    assert len(doc.Objects) == 1
+    assert payload["summary"]["render_item_count"] == 1
+    assert payload["summary"]["dropped_item_count"] == 1
+    assert payload["summary"]["dropped_reasons"] == {"degenerate_slot": 1}
+
+
 def test_overlay_renderer_rotates_rect_items(monkeypatch):
     from ocf_freecad.gui.overlay.object import _rotate_point
 

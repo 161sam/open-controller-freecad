@@ -1,4 +1,5 @@
 from ocf_freecad.gui.interaction.selection import SelectionController
+from ocf_freecad.gui.interaction.hit_test import hit_test_item
 from ocf_freecad.services.controller_service import ControllerService
 from ocf_freecad.services.interaction_service import InteractionService
 from ocf_freecad.services.overlay_service import OverlayService
@@ -105,6 +106,35 @@ def test_overlay_service_and_hit_test_respect_rect_rotation():
     component_id = selection.select_from_overlay(doc, overlay["items"], x=22.0, y=25.0)
 
     assert component_id == "btn1"
+
+
+def test_overlay_service_builds_rotated_slot_cutout_for_fader():
+    doc = FakeDocument()
+    controller_service = ControllerService()
+    controller_service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0, "top_thickness": 3.0})
+    controller_service.add_component(doc, "generic_45mm_linear_fader", component_id="fader1", x=60.0, y=40.0, rotation=90.0)
+
+    overlay = OverlayService(controller_service=controller_service).build_overlay(doc)
+    component_item = next(item for item in overlay["items"] if item["id"] == "component:fader1")
+    cutout_item = next(item for item in overlay["items"] if item["id"] == "cutout:fader1")
+
+    assert component_item["type"] == "rect"
+    assert component_item["geometry"]["rotation"] == 90.0
+    assert cutout_item["type"] == "slot"
+    assert cutout_item["geometry"]["rotation"] == 90.0
+    assert cutout_item["geometry"]["width"] == 53.0
+    assert cutout_item["geometry"]["height"] == 2.2
+
+
+def test_slot_hit_test_respects_rotation():
+    item = {
+        "id": "cutout:fader1",
+        "type": "slot",
+        "geometry": {"x": 60.0, "y": 40.0, "width": 53.0, "height": 2.2, "rotation": 90.0},
+    }
+
+    assert hit_test_item(item, x=60.0, y=50.0) is True
+    assert hit_test_item(item, x=70.0, y=40.0) is False
 
 
 def test_overlay_service_builds_large_overlay_for_pad_grid_variant_without_item_loss():

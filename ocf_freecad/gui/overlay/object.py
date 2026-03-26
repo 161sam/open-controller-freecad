@@ -223,6 +223,8 @@ class ViewProviderOverlay:
         geometry = item.get("geometry", {})
         if item_type == "rect":
             return self._rect_node(item, geometry, z)
+        if item_type == "slot":
+            return self._slot_node(item, geometry, z)
         if item_type == "circle":
             return self._circle_node(item, geometry, z)
         if item_type == "line":
@@ -261,6 +263,47 @@ class ViewProviderOverlay:
         for step in range(33):
             angle = (math.pi * 2.0 * step) / 32.0
             points.append((x + (math.cos(angle) * radius), y + (math.sin(angle) * radius), z))
+        return self._polyline_node(points, item.get("style", {}))
+
+    def _slot_node(self, item: dict[str, Any], geometry: dict[str, Any], z: float) -> Any | None:
+        width = float(geometry.get("width", 0.0) or 0.0)
+        height = float(geometry.get("height", 0.0) or 0.0)
+        if width <= 1e-6 or height <= 1e-6:
+            return None
+        x = float(geometry["x"])
+        y = float(geometry["y"])
+        rotation = float(geometry.get("rotation", 0.0) or 0.0)
+        major = max(width, height)
+        minor = min(width, height)
+        radius = minor / 2.0
+        center_offset = max(0.0, (major / 2.0) - radius)
+        points = []
+        for step in range(17):
+            angle = (math.pi / 2.0) - ((math.pi * step) / 16.0)
+            points.append(
+                _rotate_point(
+                    x + center_offset + (math.cos(angle) * radius),
+                    y + (math.sin(angle) * radius),
+                    x,
+                    y,
+                    rotation,
+                    z,
+                )
+            )
+        for step in range(17):
+            angle = (-math.pi / 2.0) - ((math.pi * step) / 16.0)
+            points.append(
+                _rotate_point(
+                    x - center_offset + (math.cos(angle) * radius),
+                    y + (math.sin(angle) * radius),
+                    x,
+                    y,
+                    rotation,
+                    z,
+                )
+            )
+        if points:
+            points.append(points[0])
         return self._polyline_node(points, item.get("style", {}))
 
     def _line_node(self, item: dict[str, Any], geometry: dict[str, Any], z: float) -> Any | None:

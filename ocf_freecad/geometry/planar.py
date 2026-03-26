@@ -81,3 +81,27 @@ def point_in_rotated_rect(
         abs(local_x - float(center_x)) <= half_width
         and abs(local_y - float(center_y)) <= half_height
     )
+
+
+def point_in_rotated_slot(
+    x: float,
+    y: float,
+    center_x: float,
+    center_y: float,
+    width: float,
+    height: float,
+    rotation_deg: float | None,
+) -> bool:
+    local_x, local_y = rotate_point(x, y, center_x, center_y, -(rotation_deg or 0.0))
+    dx = float(local_x) - float(center_x)
+    dy = float(local_y) - float(center_y)
+    major = max(float(width), float(height))
+    minor = min(float(width), float(height))
+    radius = minor / 2.0
+    half_major = major / 2.0
+    center_offset = max(0.0, half_major - radius)
+    if abs(dy) <= radius and abs(dx) <= center_offset:
+        return True
+    left_dx = dx + center_offset
+    right_dx = dx - center_offset
+    return (left_dx * left_dx) + (dy * dy) <= radius * radius or (right_dx * right_dx) + (dy * dy) <= radius * radius

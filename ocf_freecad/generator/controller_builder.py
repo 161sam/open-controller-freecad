@@ -179,8 +179,9 @@ class ControllerBuilder:
                 z=z_start,
             )
         if cutout.shape in {"rect", "slot"}:
+            shape_factory = shapes.make_rect_prism_shape if cutout.shape == "rect" else shapes.make_slot_prism_shape
             rect_shape = shapes.translate_shape(
-                shapes.make_rect_prism_shape(
+                shape_factory(
                     width=cutout.width,
                     depth=cutout.height,
                     height=cut_height,

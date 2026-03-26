@@ -400,10 +400,11 @@ class ControllerService:
     def _create_component_markers(self, doc: Any, builder: ControllerBuilder, components: list[Component], z_height: float) -> None:
         if not self._should_materialize_component_markers(doc):
             return
+        shapes_api = __import__("ocf_freecad.freecad_api.shapes", fromlist=["create_cylinder"])
         for keepout in builder.build_keepouts(components):
             name = f"OCF_{keepout['component_id']}_{keepout['feature']}"
             if keepout["shape"] == "circle":
-                marker = __import__("ocf_freecad.freecad_api.shapes", fromlist=["create_cylinder"]).create_cylinder(
+                marker = shapes_api.create_cylinder(
                     doc,
                     name,
                     radius=float(keepout["diameter"]) / 2.0,
@@ -415,16 +416,28 @@ class ControllerService:
                 self._set_generated_label(marker, name)
                 group_generated_object(doc, marker)
                 continue
-            if keepout["shape"] == "rect":
-                marker = __import__("ocf_freecad.freecad_api.shapes", fromlist=["create_rect_prism"]).create_rect_prism(
-                    doc,
-                    name,
-                    width=float(keepout["width"]),
-                    depth=float(keepout["height"]),
-                    height=1.0,
+            if keepout["shape"] in {"rect", "slot"}:
+                shape_factory = shapes_api.make_rect_prism_shape if keepout["shape"] == "rect" else shapes_api.make_slot_prism_shape
+                marker_shape = shapes_api.translate_shape(
+                    shape_factory(
+                        width=float(keepout["width"]),
+                        depth=float(keepout["height"]),
+                        height=1.0,
+                    ),
                     x=float(keepout["x"]) - (float(keepout["width"]) / 2.0),
                     y=float(keepout["y"]) - (float(keepout["height"]) / 2.0),
                     z=float(z_height),
+                )
+                if float(keepout.get("rotation", 0.0) or 0.0) != 0.0:
+                    marker_shape = shapes_api.rotate_shape(
+                        marker_shape,
+                        float(keepout["rotation"]),
+                        center=(float(keepout["x"]), float(keepout["y"]), float(z_height)),
+                    )
+                marker = shapes_api.create_feature(
+                    doc,
+                    name,
+                    marker_shape,
                 )
                 self._set_generated_label(marker, name)
                 group_generated_object(doc, marker)

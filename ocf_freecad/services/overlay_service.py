@@ -8,7 +8,7 @@ from typing import Any
 from ocf_freecad.generator.controller_builder import ControllerBuilder
 from ocf_freecad.gui.overlay.colors import overlay_style
 from ocf_freecad.gui.overlay.labels import component_label, issue_label, zone_label
-from ocf_freecad.gui.overlay.shapes import circle_item, rect_item, text_item
+from ocf_freecad.gui.overlay.shapes import circle_item, rect_item, slot_item, text_item
 from ocf_freecad.services.constraint_overlay_service import ConstraintOverlayService
 from ocf_freecad.services.constraint_service import ConstraintService
 from ocf_freecad.services.controller_service import ControllerService
@@ -251,7 +251,20 @@ class OverlayService:
                 source_component_id=source_component_id,
                 severity=severity,
             )
-        if shape_type not in {"rect", "slot"}:
+        if shape_type == "slot":
+            return slot_item(
+                item_id=f"{prefix}:{item_id}",
+                x=x,
+                y=y,
+                width=float(shape["width"]),
+                height=float(shape["height"]),
+                style=style,
+                rotation=rotation,
+                label=label,
+                source_component_id=source_component_id,
+                severity=severity,
+            )
+        if shape_type != "rect":
             LOGGER.warning(
                 "Overlay fallback: unsupported rect rotation shape '%s' for component '%s'.",
                 shape_type,
