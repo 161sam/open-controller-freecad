@@ -119,18 +119,23 @@ class ControllerBuilder:
         result_shape = base_obj.Shape.copy() if hasattr(base_obj.Shape, "copy") else base_obj.Shape
         z_start = base_obj.Shape.BoundBox.ZMin
         cut_height = base_obj.Shape.BoundBox.ZLength
+        resolved_components = self.resolve_components(components)
+        cutout_primitives = self.build_cutout_primitives(components)
+        diagnostics = self._cutout_diagnostics(cutout_primitives)
+        for diagnostic in diagnostics:
+            LOGGER.warning(diagnostic)
         tool_shapes = []
 
-        for component in self.resolve_components(components):
+        for component in resolved_components:
             tool_shapes.append(
                 self._create_cutout_shape(
-                x=component["x"],
-                y=component["y"],
-                rotation=float(component.get("rotation", 0.0) or 0.0),
-                cutout=component["resolved_mechanical"].cutout,
-                cut_height=cut_height,
-                z_start=z_start,
-            )
+                    x=component["x"],
+                    y=component["y"],
+                    rotation=float(component.get("rotation", 0.0) or 0.0),
+                    cutout=component["resolved_mechanical"].cutout,
+                    cut_height=cut_height,
+                    z_start=z_start,
+                )
             )
 
         base_obj.Shape = shapes.cut_shape(result_shape, tool_shapes)
@@ -195,6 +200,52 @@ class ControllerBuilder:
             return rect_shape
         LOGGER.warning("Unsupported cutout shape '%s'; rotation fallback not applied.", cutout.shape)
         raise ValueError(f"Unsupported cutout shape: {cutout.shape}")
+
+    def _cutout_diagnostics(self, cutouts: list[dict[str, Any]]) -> list[str]:
+        from ocf_freecad.constraints.rules import minimum_gap
+
+        diagnostics: list[str] = []
+        areas = [self._cutout_area(cutout) for cutout in cutouts]
+        for area in areas:
+            if area.shape == "circle" and (area.diameter is None or area.diameter <= self.MIN_FEATURE_SIZE):
+                diagnostics.append(
+                    f"Cutout for component '{area.component_id}' has invalid diameter {area.diameter!r} mm."
+                )
+            if area.shape != "circle" and (
+                area.width is None
+                or area.height is None
+                or area.width <= self.MIN_FEATURE_SIZE
+                or area.height <= self.MIN_FEATURE_SIZE
+            ):
+                diagnostics.append(
+                    f"Cutout for component '{area.component_id}' has invalid size "
+                    f"{area.width!r} x {area.height!r} mm."
+                )
+        for index, first in enumerate(areas):
+            for second in areas[index + 1:]:
+                gap = minimum_gap(first, second)
+                if gap < 0.0:
+                    diagnostics.append(
+                        f"Cutouts for components '{first.component_id}' and '{second.component_id}' overlap by "
+                        f"{abs(gap):.2f} mm; using a fused composite cut."
+                    )
+        return diagnostics
+
+    def _cutout_area(self, cutout: dict[str, Any]) -> ComponentArea:
+        from ocf_freecad.constraints.models import ComponentArea
+
+        return ComponentArea(
+            component_id=str(cutout["component_id"]),
+            component_type="cutout",
+            x=float(cutout["x"]),
+            y=float(cutout["y"]),
+            shape=str(cutout["shape"]),
+            rotation=float(cutout.get("rotation", 0.0) or 0.0),
+            width=float(cutout["width"]) if cutout.get("width") is not None else None,
+            height=float(cutout["height"]) if cutout.get("height") is not None else None,
+            diameter=float(cutout["diameter"]) if cutout.get("diameter") is not None else None,
+            depth=float(cutout["depth"]) if cutout.get("depth") is not None else None,
+        )
 
     def _placed_feature(
         self,

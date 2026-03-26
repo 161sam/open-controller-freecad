@@ -8,6 +8,24 @@ from ocf_freecad.generator.controller_builder import ControllerBuilder
 from ocf_freecad.userdata.persistence import _default_base_dir
 
 
+class FakeShapePrimitive:
+    def __init__(self, shape: str, diameter: float | None = None, width: float | None = None, height: float | None = None) -> None:
+        self.shape = shape
+        self.diameter = diameter
+        self.width = width
+        self.height = height
+
+    def to_dict(self) -> dict[str, float | str]:
+        data = {"shape": self.shape}
+        if self.diameter is not None:
+            data["diameter"] = self.diameter
+        if self.width is not None:
+            data["width"] = self.width
+        if self.height is not None:
+            data["height"] = self.height
+        return data
+
+
 class FakeShape:
     def __init__(self, name: str = "shape") -> None:
         self.name = name
@@ -45,14 +63,14 @@ def test_apply_cutouts_uses_in_memory_shapes(monkeypatch):
         builder,
         "resolve_components",
         lambda _components: [
-            {
-                "id": "enc1",
-                "x": 10.0,
-                "y": 20.0,
-                "resolved_mechanical": SimpleNamespace(cutout=SimpleNamespace(shape="circle", diameter=8.0)),
-            }
-        ],
-    )
+                {
+                    "id": "enc1",
+                    "x": 10.0,
+                    "y": 20.0,
+                    "resolved_mechanical": SimpleNamespace(cutout=FakeShapePrimitive(shape="circle", diameter=8.0)),
+                }
+            ],
+        )
     monkeypatch.setattr(
         "ocf_freecad.generator.controller_builder.shapes.make_cylinder_shape",
         lambda radius, height: SimpleNamespace(radius=radius, height=height, copy=lambda: SimpleNamespace(translate=lambda *_args: None)),
@@ -76,22 +94,22 @@ def test_apply_cutouts_uses_single_composite_cut(monkeypatch):
         builder,
         "resolve_components",
         lambda _components: [
-            {
-                "id": "a",
-                "x": 10.0,
-                "y": 20.0,
-                "rotation": 0.0,
-                "resolved_mechanical": SimpleNamespace(cutout=SimpleNamespace(shape="circle", diameter=8.0)),
-            },
-            {
-                "id": "b",
-                "x": 40.0,
-                "y": 50.0,
-                "rotation": 0.0,
-                "resolved_mechanical": SimpleNamespace(cutout=SimpleNamespace(shape="circle", diameter=8.0)),
-            },
-        ],
-    )
+                {
+                    "id": "a",
+                    "x": 10.0,
+                    "y": 20.0,
+                    "rotation": 0.0,
+                    "resolved_mechanical": SimpleNamespace(cutout=FakeShapePrimitive(shape="circle", diameter=8.0)),
+                },
+                {
+                    "id": "b",
+                    "x": 40.0,
+                    "y": 50.0,
+                    "rotation": 0.0,
+                    "resolved_mechanical": SimpleNamespace(cutout=FakeShapePrimitive(shape="circle", diameter=8.0)),
+                },
+            ],
+        )
     tool_shapes = [FakeShape("tool-a"), FakeShape("tool-b")]
     monkeypatch.setattr(
         builder,
@@ -106,6 +124,68 @@ def test_apply_cutouts_uses_single_composite_cut(monkeypatch):
     assert result.Shape.name == "cut-result"
     assert len(result.Shape.cut_inputs) == 1
     assert result.Shape.cut_inputs[0].name == "fuse-result"
+
+
+def test_apply_cutouts_warns_when_rect_cutouts_overlap(monkeypatch):
+    builder = ControllerBuilder(doc="doc")
+    monkeypatch.setattr(
+        builder,
+        "build_cutout_primitives",
+        lambda _components: [
+            {
+                "component_id": "pad1",
+                "feature": "cutout",
+                "shape": "rect",
+                "x": 20.0,
+                "y": 20.0,
+                "width": 30.0,
+                "height": 30.0,
+                "rotation": 0.0,
+            },
+            {
+                "component_id": "pad2",
+                "feature": "cutout",
+                "shape": "rect",
+                "x": 35.0,
+                "y": 20.0,
+                "width": 30.0,
+                "height": 30.0,
+                "rotation": 0.0,
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        builder,
+        "resolve_components",
+        lambda _components: [
+            {
+                "id": "pad1",
+                "x": 20.0,
+                "y": 20.0,
+                "rotation": 0.0,
+                "resolved_mechanical": SimpleNamespace(cutout=SimpleNamespace(shape="rect", width=30.0, height=30.0)),
+            },
+            {
+                "id": "pad2",
+                "x": 35.0,
+                "y": 20.0,
+                "rotation": 0.0,
+                "resolved_mechanical": SimpleNamespace(cutout=SimpleNamespace(shape="rect", width=30.0, height=30.0)),
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        builder,
+        "_create_cutout_shape",
+        lambda **_kwargs: FakeShape("tool"),
+    )
+    warnings = []
+    monkeypatch.setattr("ocf_freecad.generator.controller_builder.LOGGER.warning", lambda message, *args: warnings.append(message % args if args else message))
+
+    base = FakeBaseObject()
+    builder.apply_cutouts(base, components=["ignored"])
+
+    assert any("overlap" in warning for warning in warnings)
 
 
 def test_overlay_renderer_materializes_single_overlay_object(monkeypatch):
