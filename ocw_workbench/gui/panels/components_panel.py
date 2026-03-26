@@ -15,6 +15,7 @@ from ocw_workbench.gui.panels._common import (
     current_text,
     load_qt,
     set_combo_items,
+    set_current_text,
     set_size_policy,
     set_text,
     set_tooltip,
@@ -23,6 +24,8 @@ from ocw_workbench.gui.panels._common import (
     wrap_widget_in_scroll_area,
     widget_value,
 )
+from ocw_workbench.gui.widgets.parameter_editor import FallbackCheckBox, ParameterEditorWidget
+from ocw_workbench.services.component_property_service import ComponentPropertyService
 from ocw_workbench.services.controller_service import ControllerService
 from ocw_workbench.services.interaction_service import InteractionService
 from ocw_workbench.services.library_service import LibraryService
@@ -34,6 +37,7 @@ class ComponentsPanel:
         doc: Any,
         controller_service: ControllerService | None = None,
         library_service: LibraryService | None = None,
+        property_service: ComponentPropertyService | None = None,
         interaction_service: InteractionService | None = None,
         on_selection_changed: Any | None = None,
         on_components_changed: Any | None = None,
@@ -42,14 +46,17 @@ class ComponentsPanel:
         self.doc = doc
         self.controller_service = controller_service or ControllerService()
         self.library_service = library_service or LibraryService()
+        self.property_service = property_service or ComponentPropertyService(self.library_service)
         self.interaction_service = interaction_service or InteractionService(self.controller_service)
         self.on_selection_changed = on_selection_changed
         self.on_components_changed = on_components_changed
         self.on_status = on_status
         self._component_lookup: dict[str, str] = {}
         self._add_library_lookup: dict[str, str] = {}
+        self._property_model: dict[str, Any] | None = None
         self.form = _build_form()
         self.widget = self.form["widget"]
+        self._configure_specific_editor()
         self._configure_tooltips()
         self._connect_events()
         self.refresh()
@@ -84,6 +91,7 @@ class ComponentsPanel:
                 level="info",
             )
         else:
+            self._clear_component_details()
             set_text(self.form["details"], "No components in this controller yet.")
             apply_status_message(
                 self.form["status"],
@@ -114,24 +122,21 @@ class ComponentsPanel:
         component = self.controller_service.get_component(self.doc, component_id)
         if self.controller_service.get_ui_context(self.doc).get("selection") != component_id:
             self.controller_service.select_component(self.doc, component_id)
-        set_value(self.form["x"], float(component.get("x", 0.0)))
-        set_value(self.form["y"], float(component.get("y", 0.0)))
-        set_value(self.form["rotation"], float(component.get("rotation", 0.0)))
-        set_text(self.form["library_ref"], str(component.get("library_ref", "")))
-        set_text(
-            self.form["details"],
-            "\n".join(
-                [
-                    f"Component: {component['id']}",
-                    f"Type: {component['type']}",
-                    f"Library: {component.get('library_ref', '-')}",
-                    f"Rotation: {float(component.get('rotation', 0.0)):.2f} deg",
-                    f"Zone: {component.get('zone_id') or '-'}",
-                    "Normal workflow: adjust X, Y or Rotation here, then apply changes.",
-                    "Use Pick In 3D only when you want to choose the position from the view.",
-                ]
-            ),
-        )
+        self._property_model = self.property_service.build_property_model(component)
+        values = self.property_service.reset_values(self._property_model)
+        set_value(self.form["x"], float(values.get("x", 0.0)))
+        set_value(self.form["y"], float(values.get("y", 0.0)))
+        set_value(self.form["rotation"], float(values.get("rotation", 0.0)))
+        set_text(self.form["label"], str(values.get("label", "")))
+        set_text(self.form["tags"], str(values.get("tags", "")))
+        if hasattr(self.form["visible"], "setChecked"):
+            self.form["visible"].setChecked(bool(values.get("visible", True)))
+        set_text(self.form["selected_id"], f"ID: {component['id']}")
+        set_text(self.form["selected_type"], f"Type: {self._property_model['category']}")
+        set_text(self.form["selected_library"], f"Library: {self._property_model['library_label']}")
+        self._populate_library_ref_options(self._property_model)
+        self._set_specific_fields(self._property_model)
+        set_text(self.form["details"], self._build_details_text(component, self._property_model))
         if notify and self.on_selection_changed is not None:
             self.on_selection_changed(component_id)
         return component
@@ -141,13 +146,17 @@ class ComponentsPanel:
         if component_id is None:
             raise ValueError("No component selected")
         current = self.controller_service.get_component(self.doc, component_id)
-        library_ref = text_value(self.form["library_ref"]).strip()
-        target_x = widget_value(self.form["x"])
-        target_y = widget_value(self.form["y"])
-        target_rotation = widget_value(self.form["rotation"])
+        model = self._property_model or self.property_service.build_property_model(current)
+        values = self._read_form_values(model)
+        updates = self._changed_updates(model, values)
+        if not updates:
+            self._publish_status(f"No changes to apply for '{component_id}'. Adjust placement or properties first.")
+            return self.controller_service.get_state(self.doc)
+        target_x = float(values["x"])
+        target_y = float(values["y"])
         position_changed = (
-            float(current.get("x", 0.0)) != float(target_x)
-            or float(current.get("y", 0.0)) != float(target_y)
+            "x" in updates
+            or "y" in updates
         )
         state: dict[str, Any] | None = None
         if position_changed:
@@ -158,18 +167,14 @@ class ComponentsPanel:
                 target_y=target_y,
             )
             state = result["state"]
-        updates: dict[str, Any] = {}
-        if float(current.get("rotation", 0.0)) != float(target_rotation):
-            updates["rotation"] = target_rotation
-        if library_ref and library_ref != str(current.get("library_ref", "")):
-            updates["library_ref"] = library_ref
+            updates.pop("x", None)
+            updates.pop("y", None)
         if updates:
             state = self.controller_service.update_component(self.doc, component_id, updates)
         if state is None:
-            self._publish_status(f"No changes to apply for '{component_id}'. Adjust position, rotation or part first.")
             return self.controller_service.get_state(self.doc)
         self.refresh_components()
-        self._publish_status(f"Applied changes to '{component_id}'. Overlay and validation have been refreshed.")
+        self._publish_status(f"Applied changes to '{component_id}'. Placement and component properties are up to date.")
         if self.on_components_changed is not None:
             self.on_components_changed(state)
         return state
@@ -243,6 +248,13 @@ class ComponentsPanel:
         except Exception as exc:
             self._publish_status(_friendly_component_error("Could not snap component", exc))
 
+    def handle_reset_clicked(self) -> None:
+        try:
+            self.load_selected_component(notify=False)
+            self._publish_status("Reset the editor to the current component state.")
+        except Exception as exc:
+            self._publish_status(_friendly_component_error("Could not reset component properties", exc))
+
     def accept(self) -> bool:
         self.update_selected_component()
         return True
@@ -274,6 +286,8 @@ class ComponentsPanel:
             self.form["arm_move_button"].clicked.connect(self.handle_arm_move_clicked)
         if hasattr(self.form["snap_button"], "clicked"):
             self.form["snap_button"].clicked.connect(self.handle_snap_clicked)
+        if hasattr(self.form["reset_button"], "clicked"):
+            self.form["reset_button"].clicked.connect(self.handle_reset_clicked)
         if hasattr(self.form["add_button"], "clicked"):
             self.form["add_button"].clicked.connect(self.handle_add_clicked)
 
@@ -282,10 +296,14 @@ class ComponentsPanel:
         set_tooltip(self.form["x"], "Horizontal center position in millimeters.")
         set_tooltip(self.form["y"], "Vertical center position in millimeters.")
         set_tooltip(self.form["rotation"], "Rotation around the component center in degrees.")
-        set_tooltip(self.form["library_ref"], "Optional library override for the selected component.")
-        set_tooltip(self.form["update_button"], "Apply the edited position, rotation or library reference.")
+        set_tooltip(self.form["library_ref"], "Choose the component variant from the library family.")
+        set_tooltip(self.form["label"], "Human-readable label shown in exported data and inspectors.")
+        set_tooltip(self.form["tags"], "Comma-separated tags for grouping, filtering or downstream workflows.")
+        set_tooltip(self.form["visible"], "Toggle whether the component is treated as visible metadata.")
+        set_tooltip(self.form["update_button"], "Apply the edited placement and component properties.")
         set_tooltip(self.form["arm_move_button"], "Pick a new location directly in the 3D view.")
         set_tooltip(self.form["snap_button"], "Move the selected component to the current snap grid.")
+        set_tooltip(self.form["reset_button"], "Discard unsaved panel edits and reload the selected component.")
         set_tooltip(self.form["add_category"], "Filter the component library by category.")
         set_tooltip(self.form["add_component"], "Choose the library part to insert into the controller.")
         set_tooltip(self.form["add_x"], "Initial X position for the new component.")
@@ -293,20 +311,116 @@ class ComponentsPanel:
         set_tooltip(self.form["add_rotation"], "Initial rotation for the new component.")
         set_tooltip(self.form["add_button"], "Insert the selected library component into the active controller.")
 
+    def _configure_specific_editor(self) -> None:
+        preset = self.form["specific_editor"].parts.get("preset")
+        apply_button = self.form["specific_editor"].parts.get("apply_preset_button")
+        summary = self.form["specific_editor"].parts.get("summary")
+        if hasattr(preset, "hide"):
+            preset.hide()
+        if hasattr(apply_button, "hide"):
+            apply_button.hide()
+        set_text(summary, "Type-specific properties are generated from the selected library component.")
+
+    def _populate_library_ref_options(self, model: dict[str, Any]) -> None:
+        variant_field = next((field for field in model["fields"] if field["id"] == "library_ref"), None)
+        labels = [str(option["label"]) for option in variant_field.get("options", [])] if variant_field else []
+        set_combo_items(self.form["library_ref"], labels)
+        if not variant_field:
+            return
+        current_value = str(variant_field.get("value", ""))
+        for option in variant_field.get("options", []):
+            if str(option["value"]) == current_value:
+                set_current_text(self.form["library_ref"], str(option["label"]))
+                return
+
+    def _set_specific_fields(self, model: dict[str, Any]) -> None:
+        definitions = [_property_definition(field) for field in model["fields"] if field["id"] not in {"x", "y", "rotation", "label", "tags", "visible", "library_ref"}]
+        values = {definition["id"]: definition["default"] for definition in definitions}
+        self.form["specific_editor"].set_schema(definitions, [], values, sources={}, preset_id=None)
+
+    def _read_form_values(self, model: dict[str, Any]) -> dict[str, Any]:
+        values: dict[str, Any] = {
+            "x": widget_value(self.form["x"]),
+            "y": widget_value(self.form["y"]),
+            "rotation": widget_value(self.form["rotation"]),
+            "label": text_value(self.form["label"]).strip(),
+            "tags": text_value(self.form["tags"]).strip(),
+            "visible": bool(self.form["visible"].isChecked()) if hasattr(self.form["visible"], "isChecked") else bool(getattr(self.form["visible"], "checked", True)),
+        }
+        variant_field = next((field for field in model["fields"] if field["id"] == "library_ref"), None)
+        variant_label = current_text(self.form["library_ref"])
+        if variant_field:
+            variant_value = str(variant_field.get("value", ""))
+            for option in variant_field.get("options", []):
+                if str(option["label"]) == variant_label:
+                    variant_value = str(option["value"])
+                    break
+            values["library_ref"] = variant_value
+        values.update(self.form["specific_editor"].values())
+        return values
+
+    def _changed_updates(self, model: dict[str, Any], values: dict[str, Any]) -> dict[str, Any]:
+        baseline = self.property_service.reset_values(model)
+        changed: dict[str, Any] = {}
+        for field_id, current_value in values.items():
+            original = baseline.get(field_id)
+            if _values_equal(original, current_value):
+                continue
+            changed[field_id] = current_value
+        return self.property_service.normalize_updates(model, changed)
+
+    def _clear_component_details(self) -> None:
+        self._property_model = None
+        set_text(self.form["selected_id"], "ID: -")
+        set_text(self.form["selected_type"], "Type: -")
+        set_text(self.form["selected_library"], "Library: -")
+        set_value(self.form["x"], 0.0)
+        set_value(self.form["y"], 0.0)
+        set_value(self.form["rotation"], 0.0)
+        set_combo_items(self.form["library_ref"], [])
+        set_text(self.form["label"], "")
+        set_text(self.form["tags"], "")
+        if hasattr(self.form["visible"], "setChecked"):
+            self.form["visible"].setChecked(True)
+        self.form["specific_editor"].clear()
+
+    def _build_details_text(self, component: dict[str, Any], model: dict[str, Any]) -> str:
+        return "\n".join(
+            [
+                f"Component: {component['id']}",
+                f"Type: {component['type']}",
+                f"Library: {component.get('library_ref', '-')}",
+                f"Rotation: {float(component.get('rotation', 0.0)):.2f} deg",
+                f"Zone: {component.get('zone_id') or '-'}",
+                "Groups: placement, generic metadata, and type-specific properties.",
+                "Normal workflow: adjust values here, apply changes, then validate if geometry changed.",
+                model["details"],
+            ]
+        )
+
 
 def _build_form() -> dict[str, Any]:
     _qtcore, _qtgui, qtwidgets = load_qt()
+    specific_editor = ParameterEditorWidget()
     if qtwidgets is None:
         return {
             "widget": object(),
             "component": FallbackCombo(),
+            "selected_id": FallbackLabel("ID: -"),
+            "selected_type": FallbackLabel("Type: -"),
+            "selected_library": FallbackLabel("Library: -"),
             "x": FallbackValue(0.0),
             "y": FallbackValue(0.0),
             "rotation": FallbackValue(0.0),
-            "library_ref": FallbackText(),
+            "library_ref": FallbackCombo(),
+            "label": FallbackText(),
+            "tags": FallbackText(),
+            "visible": FallbackCheckBox(True),
+            "specific_editor": specific_editor,
             "update_button": FallbackButton("Apply Changes"),
             "arm_move_button": FallbackButton("Pick In 3D"),
             "snap_button": FallbackButton("Snap To Grid"),
+            "reset_button": FallbackButton("Reset Properties"),
             "add_category": FallbackCombo(["all"]),
             "add_component": FallbackCombo(),
             "add_x": FallbackValue(10.0),
@@ -323,21 +437,34 @@ def _build_form() -> dict[str, Any]:
     selector_layout = qtwidgets.QFormLayout(selector_box)
     component = qtwidgets.QComboBox()
     configure_combo_box(component)
+    selected_id = qtwidgets.QLabel("ID: -")
+    selected_type = qtwidgets.QLabel("Type: -")
+    selected_library = qtwidgets.QLabel("Library: -")
     x = qtwidgets.QDoubleSpinBox()
     y = qtwidgets.QDoubleSpinBox()
     rotation = qtwidgets.QDoubleSpinBox()
-    library_ref = qtwidgets.QLineEdit()
+    library_ref = qtwidgets.QComboBox()
+    label = qtwidgets.QLineEdit()
+    tags = qtwidgets.QLineEdit()
+    visible = qtwidgets.QCheckBox()
+    visible.setChecked(True)
     update_button = qtwidgets.QPushButton("Apply Changes")
     arm_move_button = qtwidgets.QPushButton("Pick In 3D")
     snap_button = qtwidgets.QPushButton("Snap To Grid")
+    reset_button = qtwidgets.QPushButton("Reset Properties")
+    configure_combo_box(library_ref)
     set_tooltip(component, "Select the component you want to inspect or adjust.")
     set_tooltip(x, "Horizontal center position in millimeters.")
     set_tooltip(y, "Vertical center position in millimeters.")
     set_tooltip(rotation, "Rotation around the component center in degrees.")
-    set_tooltip(library_ref, "Optional library override for the selected component.")
-    set_tooltip(update_button, "Apply the edited position, rotation or library reference.")
+    set_tooltip(library_ref, "Choose the component variant from the library family.")
+    set_tooltip(label, "Human-readable label shown in exported data and inspectors.")
+    set_tooltip(tags, "Comma-separated tags for grouping, filtering or downstream workflows.")
+    set_tooltip(visible, "Toggle whether the component is treated as visible metadata.")
+    set_tooltip(update_button, "Apply the edited placement and component properties.")
     set_tooltip(arm_move_button, "Pick a new location directly in the 3D view.")
     set_tooltip(snap_button, "Move the selected component to the current snap grid.")
+    set_tooltip(reset_button, "Discard unsaved panel edits and reload the selected component.")
     for spinbox in (x, y, rotation):
         spinbox.setRange(-1000.0, 1000.0)
         spinbox.setDecimals(2)
@@ -345,12 +472,20 @@ def _build_form() -> dict[str, Any]:
     selector_actions = qtwidgets.QGridLayout()
     selector_actions.addWidget(update_button, 0, 0)
     selector_actions.addWidget(arm_move_button, 0, 1)
-    selector_actions.addWidget(snap_button, 1, 0, 1, 2)
+    selector_actions.addWidget(snap_button, 1, 0)
+    selector_actions.addWidget(reset_button, 1, 1)
     selector_layout.addRow("Component", component)
+    selector_layout.addRow("", selected_id)
+    selector_layout.addRow("", selected_type)
+    selector_layout.addRow("", selected_library)
     selector_layout.addRow("X (mm)", x)
     selector_layout.addRow("Y (mm)", y)
     selector_layout.addRow("Rotation", rotation)
-    selector_layout.addRow("Library Ref", library_ref)
+    selector_layout.addRow("Variant", library_ref)
+    selector_layout.addRow("Label", label)
+    selector_layout.addRow("Tags", tags)
+    selector_layout.addRow("Visible", visible)
+    selector_layout.addRow("Type-Specific", specific_editor.widget)
     selector_layout.addRow("", selector_actions)
     add_box = qtwidgets.QGroupBox("Add From Library")
     add_layout = qtwidgets.QFormLayout(add_box)
@@ -395,13 +530,21 @@ def _build_form() -> dict[str, Any]:
     return {
         "widget": widget,
         "component": component,
+        "selected_id": selected_id,
+        "selected_type": selected_type,
+        "selected_library": selected_library,
         "x": x,
         "y": y,
         "rotation": rotation,
         "library_ref": library_ref,
+        "label": label,
+        "tags": tags,
+        "visible": visible,
+        "specific_editor": specific_editor,
         "update_button": update_button,
         "arm_move_button": arm_move_button,
         "snap_button": snap_button,
+        "reset_button": reset_button,
         "add_category": add_category,
         "add_component": add_component,
         "add_x": add_x,
@@ -418,3 +561,23 @@ def _friendly_component_error(prefix: str, exc: Exception) -> str:
     if "unknown component id" in message:
         return f"{prefix}. The selected component is no longer available. Refresh the list and try again."
     return friendly_ui_error(prefix, exc)
+
+
+def _property_definition(field: dict[str, Any]) -> dict[str, Any]:
+    field_type = str(field["type"])
+    return {
+        "id": str(field["id"]),
+        "label": str(field["label"]),
+        "type": field_type,
+        "default": field.get("value"),
+        "control": "select" if field_type == "enum" else "input",
+        "unit": field.get("unit"),
+        "options": list(field.get("options", [])),
+        "help": field.get("help"),
+    }
+
+
+def _values_equal(left: Any, right: Any) -> bool:
+    if isinstance(left, float) or isinstance(right, float):
+        return float(left or 0.0) == float(right or 0.0)
+    return left == right

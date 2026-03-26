@@ -72,3 +72,29 @@ def test_state_service_select_and_validate_touch_only_state():
     assert context["selection"] == "btn1"
     assert isinstance(context["validation"], dict)
     assert doc.recompute_count == 0
+
+
+def test_state_service_updates_component_metadata_and_properties():
+    service = ControllerStateService()
+    doc = FakeDocument()
+
+    service.create_controller(doc, {"id": "demo", "width": 180.0, "depth": 100.0})
+    service.add_component(doc, "adafruit_oled_096_i2c_ssd1306", component_id="disp1", x=30.0, y=20.0)
+    service.update_component(
+        doc,
+        "disp1",
+        {
+            "label": "Main Display",
+            "tags": ["ui", "primary"],
+            "visible": False,
+            "properties": {"orientation": "landscape", "bezel": False},
+        },
+    )
+
+    component = service.get_component(doc, "disp1")
+
+    assert component["label"] == "Main Display"
+    assert component["tags"] == ["ui", "primary"]
+    assert component["visible"] is False
+    assert component["properties"] == {"orientation": "landscape", "bezel": False}
+    assert doc.recompute_count == 0

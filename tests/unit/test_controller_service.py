@@ -116,6 +116,35 @@ def test_move_component_updates_state():
     assert doc.transactions[-2:] == [("open", "OCW Drag Move Component"), ("commit", None)]
 
 
+def test_update_component_metadata_uses_state_only_sync():
+    service = ControllerService()
+    doc = FakeDocument()
+
+    service.create_controller(doc, {"id": "demo"})
+    service.add_component(doc, "generic_45mm_linear_fader", component_id="f1", x=10.0, y=10.0)
+    recomputes_before = doc.recompute_count
+
+    state = service.update_component(
+        doc,
+        "f1",
+        {
+            "label": "Deck A",
+            "tags": ["mix", "lead"],
+            "visible": False,
+            "properties": {"cap_width": 14.0},
+        },
+    )
+
+    component = next(item for item in state["components"] if item["id"] == "f1")
+    assert component["label"] == "Deck A"
+    assert component["tags"] == ["mix", "lead"]
+    assert component["visible"] is False
+    assert component["properties"]["cap_width"] == 14.0
+    assert doc.recompute_count == recomputes_before
+    assert doc.OCWLastSync["sync_mode"] == SyncMode.STATE_ONLY
+    assert doc.OCWLastSync["requested_sync_mode"] == SyncMode.STATE_ONLY
+
+
 def test_add_component_uses_single_document_transaction():
     service = ControllerService()
     doc = FakeDocument()

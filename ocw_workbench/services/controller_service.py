@@ -160,7 +160,13 @@ class ControllerService:
 
     def update_component(self, doc: Any, component_id: str, updates: dict[str, Any]) -> dict[str, Any]:
         state = self.state_service.update_component(doc, component_id, updates)
-        self.update_document(doc, mode=SyncMode.FULL, state=state)
+        mode = self._resolve_component_update_sync_mode(updates)
+        self.update_document(
+            doc,
+            mode=mode,
+            state=state if mode in {SyncMode.FULL, SyncMode.PARTIAL_READY} else None,
+            selection=state["meta"].get("selection"),
+        )
         return state
 
     def select_component(self, doc: Any, component_id: str | None) -> dict[str, Any]:
@@ -232,3 +238,9 @@ class ControllerService:
         except Exception:
             self.state_service.save_state(doc, previous_state)
             raise
+
+    def _resolve_component_update_sync_mode(self, updates: dict[str, Any]) -> str:
+        geometry_fields = {"x", "y", "rotation", "library_ref", "zone_id", "type"}
+        if any(field in geometry_fields for field in updates):
+            return SyncMode.FULL
+        return SyncMode.STATE_ONLY

@@ -232,7 +232,70 @@ def test_components_panel_uses_clearer_action_labels_and_details():
 
     assert panel.form["update_button"].text == "Apply Changes"
     assert panel.form["arm_move_button"].text == "Pick In 3D"
-    assert "Normal workflow: adjust X, Y or Rotation here, then apply changes." in details
+    assert "Groups: placement, generic metadata, and type-specific properties." in details
+
+
+def test_components_panel_maps_selection_to_component_specific_editor():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "adafruit_oled_096_i2c_ssd1306", component_id="disp1", x=10.0, y=10.0)
+    panel = ComponentsPanel(doc, controller_service=service)
+
+    component = panel.load_selected_component()
+
+    assert component["id"] == "disp1"
+    assert panel.form["selected_id"].text == "ID: disp1"
+    assert panel.form["selected_type"].text == "Type: display"
+    assert panel.form["specific_editor"].control_widget("orientation").currentText() == "Portrait"
+
+
+def test_components_panel_applies_component_metadata_and_reset():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "adafruit_oled_096_i2c_ssd1306", component_id="disp1", x=10.0, y=10.0)
+    panel = ComponentsPanel(doc, controller_service=service)
+
+    panel.form["label"].setText("Main Display")
+    panel.form["tags"].setText("ui, primary")
+    panel.form["visible"].setChecked(False)
+    panel.form["specific_editor"].control_widget("orientation").setCurrentIndex(1)
+    panel.form["specific_editor"].control_widget("bezel").setChecked(False)
+    panel.update_selected_component()
+
+    component = service.get_component(doc, "disp1")
+    assert component["label"] == "Main Display"
+    assert component["tags"] == ["ui", "primary"]
+    assert component["visible"] is False
+    assert component["properties"]["orientation"] == "landscape"
+    assert component["properties"]["bezel"] is False
+
+    panel.form["label"].setText("Temp Label")
+    panel.form["specific_editor"].control_widget("bezel").setChecked(True)
+    panel.handle_reset_clicked()
+
+    assert panel.form["label"].text == "Main Display"
+    assert panel.form["specific_editor"].control_widget("bezel").isChecked() is False
+
+
+def test_components_panel_can_switch_fader_variant_from_property_panel():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "generic_45mm_linear_fader", component_id="f1", x=10.0, y=10.0)
+    panel = ComponentsPanel(doc, controller_service=service)
+
+    current_label = current_text(panel.form["library_ref"])
+    for index, label in enumerate(panel.form["library_ref"].items):
+        if label != current_label:
+            panel.form["library_ref"].setCurrentIndex(index)
+            break
+    panel.update_selected_component()
+
+    component = service.get_component(doc, "f1")
+
+    assert component["library_ref"] != "generic_45mm_linear_fader"
 
 
 def test_panels_expose_tooltips_for_key_workflows():

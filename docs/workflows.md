@@ -74,6 +74,17 @@
 - `Apply Parameters` für bestehende Controller aus derselben Template-/Variant-Auswahl verwenden
 - Layout, Komponenten und Constraints danach wie gewohnt weiter bearbeiten
 
+## Workflow 10 – Select -> Edit -> Apply -> Validate
+
+- Komponente im 3D-View oder in der Components-Liste auswählen
+- Components-Panel liest die selektierte Komponente und ihr Library-Metadatenmodell
+- Placement-Felder, generische Metadaten und typabhängige Property-Sektion werden aufgebaut
+- Werte im Panel anpassen
+- `Apply Changes` schreibt die Änderungen in den Project State
+- placements- oder variant-relevante Änderungen laufen über den normalen Geometrie-/Sync-Pfad
+- reine Metadatenänderungen bleiben state-only und vermeiden unnötige Voll-Rebuilds
+- bei Bedarf Constraints erneut validieren oder Overlay-/Preview-Feedback prüfen
+
 ## Stage A And Stage B Compatibility
 
 - Stage A and Stage B use the same registry, template loader, and template inspector flow.
@@ -112,3 +123,13 @@
   - generated component grids, for example pad matrices
 - Project state stores resolved parameter values and their source in `meta.parameters`.
 - Pure parameter editing in the Create panel is UI-only until the user runs `Create` or `Apply Parameters`.
+
+## Component Property Resolution
+
+- Component property editing follows the same separation as the rest of the workbench:
+  - selection chooses the active component
+  - library metadata defines which fields are shown
+  - the property panel maps UI values into component updates
+  - state services persist the updates
+  - sync services choose between full rebuild and state-only refresh
+- The current panel keeps generic placement and metadata fields stable across all component families and adds a type-specific subsection for fader, display, encoder, and pad-like components.

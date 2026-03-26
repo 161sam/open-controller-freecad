@@ -46,6 +46,9 @@ class DocumentSyncService:
         selection: str | None = None,
         recompute: bool = False,
     ) -> None:
+        if mode == SyncMode.STATE_ONLY:
+            self._perform_state_only_update(doc, selection=selection)
+            return
         if mode == SyncMode.VISUAL_ONLY:
             self._perform_visual_refresh(doc, selection=selection, recompute=recompute)
             return
@@ -61,6 +64,24 @@ class DocumentSyncService:
             self._perform_full_sync(doc, state, requested_mode=SyncMode.FULL)
             return
         raise ValueError(f"Unsupported sync mode '{mode}'")
+
+    def _perform_state_only_update(
+        self,
+        doc: Any,
+        selection: str | None,
+    ) -> None:
+        started_at = perf_counter()
+        self._set_last_sync(
+            doc,
+            {
+                "requested_sync_mode": SyncMode.STATE_ONLY,
+                "selection": selection,
+                "sync_mode": SyncMode.STATE_ONLY,
+            },
+        )
+        duration_ms = round((perf_counter() - started_at) * 1000.0, 3)
+        self._set_last_sync(doc, {"sync_duration_ms": duration_ms})
+        record_profile_metric(doc, "sync", "state_only_refresh", duration_ms, details={"mode": SyncMode.STATE_ONLY})
 
     def _perform_full_sync(self, doc: Any, state: dict[str, Any], requested_mode: str) -> None:
         started_at = perf_counter()

@@ -86,6 +86,26 @@
 - If an interaction update or commit raises an exception, the session is cleaned up and the workbench reports `Interaction error`.
 - Invalid preview states block commit until the component is moved back to an allowed position.
 
+## Component Property Panel
+
+- Selecting a component updates the Components panel into a context-sensitive property editor.
+- The panel always shows:
+  - selected component `ID`
+  - component `Type`
+  - active library `Variant`
+  - placement fields `X`, `Y`, and `Rotation`
+  - generic metadata such as `Label`, `Tags`, and `Visible`
+- Type-specific fields are generated from the selected library component:
+  - pad-like buttons show variant and pad size context
+  - faders show variant, travel-related information, and editable cap width metadata
+  - displays show variant, orientation, and bezel metadata
+  - encoders show variant plus mounting-related dimensions
+- `Apply Changes` writes the edited values back into project state.
+- Placement-affecting changes, such as `X`, `Y`, `Rotation`, or a variant switch, trigger the normal geometry sync path.
+- Metadata-only edits, such as `Label`, `Tags`, `Visible`, or component-specific metadata fields, stay lightweight and do not force a full rebuild on their own.
+- `Reset Properties` reloads the selected component from current project state and discards unsaved panel edits.
+- If no component is selected, the panel falls back to a neutral empty state.
+
 ## Undo And Redo
 
 - Overlay previews do not open FreeCAD document transactions and do not create undo entries.

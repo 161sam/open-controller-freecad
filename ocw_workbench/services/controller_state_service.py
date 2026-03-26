@@ -259,6 +259,22 @@ class ControllerStateService:
             for field in ("zone_id", "type", "io_strategy", "bus", "address"):
                 if field in updates:
                     component[field] = updates[field]
+            if "label" in updates:
+                component["label"] = str(updates["label"] or "")
+            if "visible" in updates:
+                component["visible"] = bool(updates["visible"])
+            if "tags" in updates:
+                tags = updates["tags"]
+                if not isinstance(tags, list):
+                    raise ValueError("Component tags must be a list")
+                component["tags"] = [str(item) for item in tags if str(item).strip()]
+            if "properties" in updates:
+                properties = updates["properties"]
+                if not isinstance(properties, dict):
+                    raise ValueError("Component properties must be a mapping")
+                existing = component.get("properties", {})
+                component["properties"] = deepcopy(existing) if isinstance(existing, dict) else {}
+                component["properties"].update(deepcopy(properties))
             state["meta"]["selection"] = component_id
             self.save_state(doc, state)
             return deepcopy(state)
