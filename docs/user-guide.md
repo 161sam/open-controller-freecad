@@ -121,11 +121,23 @@
   - `Offset X`, `Offset Y`
   - rudimentäre `Zones`
   - `Mounting Holes`
+- Der Inspector zeigt zusätzlich:
+  - `Surface / Geometry`
+  - deklarierte `Parameters`
+  - verfügbare Template-Presets
+  - `Resolved Parameters`
+  - `Resolved Preview`
 - `Source Metadata` zeigt die importierte FCStd-Herkunft an und dient als Referenz
+- Der Parameter-Editor rendert passende Controls direkt aus dem Template-Schema
+- `Apply Template Preset` belegt Parameterwerte vor und erlaubt danach manuelle Overrides
+- `Apply` aktualisiert nur die Inspector-Vorschau im Speicher und speichert noch nichts
+- `Reset All` setzt die Parameter auf die aktuell im Template gespeicherten Defaults zurück
 - `Validate` prüft offensichtliche Feldfehler und zeigt Fehler oder Warnungen ohne Speichern an
+- `Save Template` schreibt zurück in dieselbe User-Template-Datei
 - `Save As User Template` schreibt ein validiertes User-Template in den User-Templates-Ordner
 - Existiert bereits ein User-Template mit derselben ID, ist ein Overwrite nur mit aktivierter Overwrite-Option erlaubt
 - Nach dem Speichern wird die Template Registry neu geladen, damit das bearbeitete Template direkt im Create-Flow verfügbar ist
+- Wichtig: Inspector-Parameteränderungen werden beim Speichern als neue Template-Defaults gesichert. Sie sind nicht dasselbe wie projektspezifische Parameterwerte in einem konkreten Controller-Dokument.
 
 ## FCStd Stage A Vs Stage B
 

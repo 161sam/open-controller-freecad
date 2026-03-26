@@ -157,6 +157,17 @@ overrides:
   - `sources`
   - `preset_id`
 
+## Inspector Editing
+
+The Template Inspector uses the same parameter schema.
+
+- It renders controls from `parameters`
+- it offers template presets from `parameter_presets`
+- it shows the currently resolved parameter values and their source
+- saving from the inspector writes the current editor values back as the template parameter `default` values
+
+This keeps template-level defaults separate from project-specific runtime parameter overrides.
+
 ## Compatibility
 
 - Templates without parameter fields remain valid and unchanged.

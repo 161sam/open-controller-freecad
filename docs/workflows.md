@@ -53,10 +53,13 @@
 - `Stage A`: YAML Template importieren
 - `Stage B`: YAML Template mit `custom_fcstd` Base-Geometry-Referenz importieren
 - rohes Template im Template Inspector prüfen
+- Parameter und Template-Presets im Inspector prüfen
+- Preset anwenden oder Parameter manuell überschreiben
+- `Apply` für resolved Preview ohne Speichern
 - ID, Name, Maße, Rotation und Origin-Offsets korrigieren
 - Zonen und Mounting-Holes bei Bedarf ergänzen oder bereinigen
 - Template validieren
-- als User-Template speichern
+- Template direkt speichern oder als User-Template sichern
 - Template im Create Panel auswählen
 - Controller weiter verfeinern und speichern
 

@@ -8,6 +8,7 @@ from typing import Any
 import yaml
 
 from ocw_workbench.templates.loader import TemplateLoader
+from ocw_workbench.templates.parameters import TemplateParameterResolver
 from ocw_workbench.templates.registry import TemplateRegistry
 from ocw_workbench.userdata.persistence import UserDataPersistence
 from ocw_workbench.utils.yaml_io import dump_yaml, load_yaml
@@ -19,10 +20,12 @@ class TemplateEditorService:
     def __init__(
         self,
         loader: TemplateLoader | None = None,
+        parameter_resolver: TemplateParameterResolver | None = None,
         registry: TemplateRegistry | None = None,
         userdata: UserDataPersistence | None = None,
     ) -> None:
         self.loader = loader or TemplateLoader()
+        self.parameter_resolver = parameter_resolver or TemplateParameterResolver()
         self.registry = registry or TemplateRegistry()
         self.userdata = userdata or UserDataPersistence()
 
@@ -37,6 +40,85 @@ class TemplateEditorService:
             "is_user_template": self._is_user_template_path(file_path),
         }
         return normalized
+
+    def build_parameter_editor_model(
+        self,
+        payload: dict[str, Any],
+        *,
+        values: dict[str, Any] | None = None,
+        preset_id: str | None = None,
+    ) -> dict[str, Any]:
+        normalized = self.normalize_payload(payload)
+        return self.parameter_resolver.build_ui_model(normalized, values=values, preset_id=preset_id)
+
+    def apply_parameter_defaults(
+        self,
+        payload: dict[str, Any],
+        *,
+        values: dict[str, Any] | None = None,
+        preset_id: str | None = None,
+    ) -> dict[str, Any]:
+        normalized = self.normalize_payload(payload)
+        ui_model = self.build_parameter_editor_model(normalized, values=values, preset_id=preset_id)
+        definitions = {item["id"]: item for item in ui_model["definitions"]}
+        updated_parameters: list[dict[str, Any]] = []
+        for item in normalized.get("parameters", []):
+            if not isinstance(item, dict):
+                continue
+            parameter_id = str(item.get("id") or "")
+            updated = deepcopy(item)
+            if parameter_id in ui_model["values"]:
+                updated["default"] = deepcopy(ui_model["values"][parameter_id])
+            if parameter_id in ui_model["sources"]:
+                updated.setdefault("ui", {})
+            updated_parameters.append(updated)
+        if updated_parameters:
+            normalized["parameters"] = updated_parameters
+        normalized.setdefault("metadata", {})
+        editor = normalized["metadata"].setdefault("editor", {})
+        if isinstance(editor, dict):
+            editor["parameter_preset_id"] = ui_model["preset_id"]
+            editor["parameter_sources"] = deepcopy(ui_model["sources"])
+        return normalized
+
+    def resolve_template_payload(
+        self,
+        payload: dict[str, Any],
+        *,
+        values: dict[str, Any] | None = None,
+        preset_id: str | None = None,
+    ) -> dict[str, Any]:
+        normalized = self.normalize_payload(payload)
+        return self.parameter_resolver.apply(normalized, values=values, preset_id=preset_id)
+
+    def inspector_preview_payload(
+        self,
+        payload: dict[str, Any],
+        *,
+        values: dict[str, Any] | None = None,
+        preset_id: str | None = None,
+    ) -> dict[str, Any]:
+        normalized = self.apply_parameter_defaults(payload, values=values, preset_id=preset_id)
+        return self.resolve_template_payload(normalized)
+
+    def inspector_preview_text(
+        self,
+        payload: dict[str, Any],
+        *,
+        values: dict[str, Any] | None = None,
+        preset_id: str | None = None,
+    ) -> str:
+        preview = self.inspector_preview_payload(payload, values=values, preset_id=preset_id)
+        controller = preview.get("controller", {})
+        surface = controller.get("surface", {}) if isinstance(controller.get("surface"), dict) else {}
+        components = preview.get("components", [])
+        lines = [
+            f"Controller: {controller.get('width', '-')} x {controller.get('depth', '-')} x {controller.get('height', '-')} mm",
+            f"Surface: {surface.get('shape') or surface.get('type') or 'rectangle'}",
+            f"Components: {len(components) if isinstance(components, list) else 0}",
+            f"Preset: {preview.get('resolved_parameters', {}).get('preset_id') or '-'}",
+        ]
+        return "\n".join(lines)
 
     def validate_template(self, payload: dict[str, Any]) -> dict[str, Any]:
         normalized = self.normalize_payload(payload)
@@ -144,6 +226,30 @@ class TemplateEditorService:
         self.registry.load_all()
         return output_path
 
+    def save_template_to_path(
+        self,
+        payload: dict[str, Any],
+        output_path: str | Path,
+        *,
+        overwrite: bool = False,
+        require_user_template_path: bool = True,
+    ) -> Path:
+        destination = Path(output_path)
+        if require_user_template_path and not self._is_user_template_path(destination):
+            raise PermissionError("Save Template only writes to user template files. Use Save As User Template instead.")
+        validation = self.validate_template(payload)
+        if not validation["valid"]:
+            raise ValueError(validation["errors"][0])
+        normalized = validation["payload"]
+        if destination.exists() and not overwrite:
+            raise FileExistsError(f"Template file '{destination.name}' already exists. Enable overwrite to replace it.")
+        normalized["metadata"].setdefault("editor", {})
+        normalized["metadata"]["editor"]["validated"] = True
+        normalized["metadata"]["editor"]["status"] = "edited"
+        dump_yaml(destination, normalized)
+        self.registry.load_all()
+        return destination
+
     def parse_yaml_list(self, content: str, field_name: str) -> list[dict[str, Any]]:
         text = str(content or "").strip()
         if not text:
@@ -161,6 +267,11 @@ class TemplateEditorService:
     def dump_yaml_block(self, value: list[dict[str, Any]]) -> str:
         if not value:
             return "[]\n"
+        return yaml.safe_dump(value, sort_keys=False, allow_unicode=True, default_flow_style=False)
+
+    def dump_yaml_mapping(self, value: dict[str, Any]) -> str:
+        if not value:
+            return "{}\n"
         return yaml.safe_dump(value, sort_keys=False, allow_unicode=True, default_flow_style=False)
 
     def _normalize_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
