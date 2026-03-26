@@ -43,8 +43,14 @@ Keine Runtime. Kein OCF-Core.
 
 ### 7. Services
 - controller_service.py
+- controller_state_service.py
+- document_sync_service.py
 - layout_service.py
 - constraint_service.py
+
+`ControllerService` is a compatibility facade.
+State mutations live in `ControllerStateService`.
+FreeCAD document rebuild and visual refresh live in `DocumentSyncService`.
 
 ### 7a. Project State
 - freecad_api/model.py
