@@ -20,6 +20,10 @@ class UserDataPersistence:
     def path(self) -> Path:
         return self.base_dir / self.filename
 
+    @property
+    def templates_dir(self) -> Path:
+        return self.base_dir / "templates"
+
     def load(self) -> UserDataStore:
         try:
             content = self.path.read_text(encoding="utf-8")

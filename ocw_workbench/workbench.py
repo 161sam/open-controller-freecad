@@ -135,6 +135,7 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         from ocw_workbench.commands.disable_plugin import DisablePluginCommand
         from ocw_workbench.commands.drag_move_component import DragMoveComponentCommand
         from ocw_workbench.commands.enable_plugin import EnablePluginCommand
+        from ocw_workbench.commands.import_template_from_fcstd import ImportTemplateFromFCStdCommand
         from ocw_workbench.commands.move_component_interactive import MoveComponentInteractiveCommand
         from ocw_workbench.commands.open_plugin_manager import OpenPluginManagerCommand
         from ocw_workbench.commands.open_component_palette import OpenComponentPaletteCommand
@@ -150,6 +151,7 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
 
         Gui.addCommand("OCW_CreateController", _LoggedCommand("OCW_CreateController", CreateFromTemplateCommand()))
         Gui.addCommand("OCW_AddComponent", _LoggedCommand("OCW_AddComponent", AddComponentCommand()))
+        Gui.addCommand("OCW_ImportTemplateFromFCStd", _LoggedCommand("OCW_ImportTemplateFromFCStd", ImportTemplateFromFCStdCommand()))
         Gui.addCommand("OCW_ApplyLayout", _LoggedCommand("OCW_ApplyLayout", ApplyLayoutCommand()))
         Gui.addCommand("OCW_SelectComponent", _LoggedCommand("OCW_SelectComponent", SelectComponentCommand()))
         Gui.addCommand("OCW_ValidateConstraints", _LoggedCommand("OCW_ValidateConstraints", ValidateConstraintsCommand()))
@@ -172,7 +174,7 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
             _LoggedCommand(_FAVORITE_MORE_COMMAND_ID, OpenComponentPaletteCommand()),
         )
 
-        project_commands = ["OCW_CreateController"]
+        project_commands = ["OCW_CreateController", "OCW_ImportTemplateFromFCStd"]
         component_commands = [
             "OCW_AddComponent",
             "OCW_SelectComponent",

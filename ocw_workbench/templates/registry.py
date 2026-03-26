@@ -8,6 +8,7 @@ from ocw_workbench.plugins.data import alias_candidates
 from ocw_workbench.plugins.registry import PluginSource
 from ocw_workbench.services.plugin_service import get_plugin_service_revision
 from ocw_workbench.templates.loader import TemplateLoader
+from ocw_workbench.userdata.persistence import UserDataPersistence
 
 
 class TemplateRegistry:
@@ -42,7 +43,7 @@ class TemplateRegistry:
         self._templates = templates
         self._aliases = aliases
         self._loaded = True
-        self._loaded_revision = 0 if self.base_path is not None else get_plugin_service_revision()
+        self._loaded_revision = self._current_revision()
 
     def _source_entries(self) -> list[PluginSource]:
         if self.base_path is not None:
@@ -52,17 +53,41 @@ class TemplateRegistry:
 
         from ocw_workbench.services.plugin_service import get_plugin_service
 
-        sources = get_plugin_service().registry().source_entries("templates")
-        if sources:
-            return sources
+        sources = list(get_plugin_service().registry().source_entries("templates"))
+        if not sources:
+            fallback = Path(__file__).resolve().parent / "library"
+            if not fallback.exists():
+                raise FileNotFoundError(f"Template library path not found: {fallback}")
+            sources = [PluginSource(plugin_id=None, path=fallback)]
+        user_path = UserDataPersistence().templates_dir
+        if user_path.exists():
+            sources.append(PluginSource(plugin_id=None, path=user_path))
+        deduped: list[PluginSource] = []
+        seen: set[tuple[str | None, str]] = set()
+        for source in sources:
+            key = (source.plugin_id, str(source.path))
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(source)
+        return deduped
 
-        fallback = Path(__file__).resolve().parent / "library"
-        if not fallback.exists():
-            raise FileNotFoundError(f"Template library path not found: {fallback}")
-        return [PluginSource(plugin_id=None, path=fallback)]
+    def _current_revision(self) -> Any:
+        if self.base_path is not None:
+            return 0
+        return (get_plugin_service_revision(), self._user_templates_revision())
+
+    def _user_templates_revision(self) -> tuple[int, tuple[str, ...], tuple[float, ...]]:
+        user_path = UserDataPersistence().templates_dir
+        if not user_path.exists():
+            return (0, (), ())
+        files = sorted(user_path.glob("*.yaml"))
+        names = tuple(file.name for file in files)
+        mtimes = tuple(file.stat().st_mtime for file in files)
+        return (len(files), names, mtimes)
 
     def _ensure_loaded(self) -> None:
-        current_revision = 0 if self.base_path is not None else get_plugin_service_revision()
+        current_revision = self._current_revision()
         if not self._loaded or self._loaded_revision != current_revision:
             self.load_all()
 

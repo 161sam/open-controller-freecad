@@ -6,6 +6,7 @@ from ocw_workbench.commands.add_component import AddComponentCommand
 from ocw_workbench.commands.apply_layout import ApplyLayoutCommand
 from ocw_workbench.commands.create_from_template import CreateFromTemplateCommand
 from ocw_workbench.commands.drag_move_component import DragMoveComponentCommand
+from ocw_workbench.commands.import_template_from_fcstd import ImportTemplateFromFCStdCommand
 from ocw_workbench.commands.open_component_palette import OpenComponentPaletteCommand
 from ocw_workbench.commands.open_plugin_manager import OpenPluginManagerCommand
 from ocw_workbench.commands.toggle_overlay import ToggleOverlayCommand
@@ -23,6 +24,7 @@ def test_registered_command_resources_include_existing_pixmaps() -> None:
         OpenPluginManagerCommand(),
         OpenComponentPaletteCommand(),
         DragMoveComponentCommand(),
+        ImportTemplateFromFCStdCommand(),
     ]
 
     for command in commands:

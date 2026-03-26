@@ -43,3 +43,11 @@
 - fehlende Daten
 - Kollisionen
 - Constraints
+
+## Workflow 8 – Import FCStd -> refine -> save
+
+- FCStd Datei wählen
+- Top Surface Referenz wählen
+- YAML Template importieren
+- Template im Create Panel auswählen
+- Controller weiter verfeinern und speichern

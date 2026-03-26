@@ -36,6 +36,14 @@
 - Klicke eine vorhandene Komponente im 3D-View an, ziehe sie und lasse los zum Commit
 - Während des Ziehens bleibt das Modell unverändert; nur das Overlay-Ghost wird aktualisiert
 
+## Import Template From FCStd
+
+- Starte `OCW_ImportTemplateFromFCStd`
+- Wähle eine `.FCStd` Datei und lade die importierbaren Objekte oder Flächen
+- Wähle die Referenzfläche für die Top Surface und optional einen Origin-Vertex
+- Passe Offsets, Rotation und optional die Höhe an
+- Der Import erzeugt ein YAML-Template im User-Templates-Ordner und macht es anschließend in der Template-Auswahl sichtbar
+
 ## Begriffe
 
 - Controller
