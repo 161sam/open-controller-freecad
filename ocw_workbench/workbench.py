@@ -30,6 +30,7 @@ from ocw_workbench.gui.panels.plugin_manager_panel import PluginManagerPanel
 from ocw_workbench.gui.runtime import component_icon_path, icon_path
 from ocw_workbench.freecad_api.metadata import get_document_data
 from ocw_workbench.freecad_api.state import has_persisted_state
+from ocw_workbench.services.alignment_service import AlignmentService
 from ocw_workbench.services.controller_service import ControllerService
 from ocw_workbench.services.interaction_service import InteractionService
 from ocw_workbench.services.overlay_service import OverlayService
@@ -129,6 +130,7 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         if Gui is None:
             return
         from ocw_workbench.commands.add_component import AddComponentCommand
+        from ocw_workbench.commands.align_distribute import SelectionArrangeCommand
         from ocw_workbench.commands.apply_layout import ApplyLayoutCommand
         from ocw_workbench.commands.create_from_template import CreateFromTemplateCommand
         from ocw_workbench.commands.disable_plugin import DisablePluginCommand
@@ -159,6 +161,20 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         Gui.addCommand("OCW_MoveComponentInteractive", _LoggedCommand("OCW_MoveComponentInteractive", MoveComponentInteractiveCommand()))
         Gui.addCommand("OCW_DragMoveComponent", _LoggedCommand("OCW_DragMoveComponent", DragMoveComponentCommand()))
         Gui.addCommand("OCW_SnapToGrid", _LoggedCommand("OCW_SnapToGrid", SnapToGridCommand()))
+        Gui.addCommand("OCW_AlignLeft", _LoggedCommand("OCW_AlignLeft", SelectionArrangeCommand("align_left")))
+        Gui.addCommand("OCW_AlignCenterX", _LoggedCommand("OCW_AlignCenterX", SelectionArrangeCommand("align_center_x")))
+        Gui.addCommand("OCW_AlignRight", _LoggedCommand("OCW_AlignRight", SelectionArrangeCommand("align_right")))
+        Gui.addCommand("OCW_AlignTop", _LoggedCommand("OCW_AlignTop", SelectionArrangeCommand("align_top")))
+        Gui.addCommand("OCW_AlignCenterY", _LoggedCommand("OCW_AlignCenterY", SelectionArrangeCommand("align_center_y")))
+        Gui.addCommand("OCW_AlignBottom", _LoggedCommand("OCW_AlignBottom", SelectionArrangeCommand("align_bottom")))
+        Gui.addCommand(
+            "OCW_DistributeHorizontally",
+            _LoggedCommand("OCW_DistributeHorizontally", SelectionArrangeCommand("distribute_horizontal")),
+        )
+        Gui.addCommand(
+            "OCW_DistributeVertically",
+            _LoggedCommand("OCW_DistributeVertically", SelectionArrangeCommand("distribute_vertical")),
+        )
         Gui.addCommand("OCW_ToggleMeasurements", _LoggedCommand("OCW_ToggleMeasurements", ToggleMeasurementsCommand()))
         Gui.addCommand("OCW_ToggleConflictLines", _LoggedCommand("OCW_ToggleConflictLines", ToggleConflictLinesCommand()))
         Gui.addCommand("OCW_ToggleConstraintLabels", _LoggedCommand("OCW_ToggleConstraintLabels", ToggleConstraintLabelsCommand()))
@@ -184,6 +200,14 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
             "OCW_MoveComponentInteractive",
             "OCW_DragMoveComponent",
             "OCW_SnapToGrid",
+            "OCW_AlignLeft",
+            "OCW_AlignCenterX",
+            "OCW_AlignRight",
+            "OCW_AlignTop",
+            "OCW_AlignCenterY",
+            "OCW_AlignBottom",
+            "OCW_DistributeHorizontally",
+            "OCW_DistributeVertically",
         ]
         validate_commands = [
             "OCW_ValidateConstraints",
@@ -239,6 +263,7 @@ class ProductWorkbenchPanel:
         self.doc = doc
         self.controller_service = controller_service or ControllerService()
         self.interaction_service = InteractionService(self.controller_service)
+        self.alignment_service = AlignmentService()
         self.overlay_service = OverlayService(self.controller_service)
         self.overlay_renderer = OverlayRenderer(self.overlay_service)
         self.interaction_manager = InteractionSessionManager()
@@ -466,6 +491,33 @@ class ProductWorkbenchPanel:
         self.set_status(f"Snapped '{result['component_id']}' to the current grid. Review the overlay for the updated placement.")
         return result
 
+    def apply_selection_arrangement(self, operation: str) -> dict[str, Any]:
+        state = self.controller_service.get_state(self.doc)
+        selected_ids = self.controller_service.get_selected_component_ids(self.doc)
+        selected_components = [component for component in state["components"] if component["id"] in selected_ids]
+        plan = self.alignment_service.build_updates(selected_components, operation)
+        if plan["updates_by_component"]:
+            self.controller_service.bulk_update_components(
+                self.doc,
+                plan["updates_by_component"],
+                transaction_name=plan["transaction_name"],
+            )
+            self.refresh_context_panels(refresh_components=True)
+            self.refresh_overlay()
+        self.focus_panel("components")
+        count = len(selected_components)
+        moved_count = int(plan.get("moved_count", 0))
+        if moved_count <= 0:
+            self.set_status(f"{self._arrangement_label(operation)} left {count} selected components unchanged.")
+        else:
+            self.set_status(f"{self._arrangement_label(operation)} applied to {count} selected components.")
+        return {
+            "operation": operation,
+            "selected_count": count,
+            "moved_count": moved_count,
+            "plan": plan,
+        }
+
     def enable_selected_plugin(self) -> dict[str, Any]:
         result = self.plugin_manager_panel.enable_selected_plugin()
         self.refresh_all()
@@ -632,6 +684,19 @@ class ProductWorkbenchPanel:
 
     def _handle_interaction_finished(self, controller: Any) -> None:
         self.interaction_manager.clear(controller.cancel)
+
+    def _arrangement_label(self, operation: str) -> str:
+        labels = {
+            "align_left": "Align left",
+            "align_center_x": "Align center X",
+            "align_right": "Align right",
+            "align_top": "Align top",
+            "align_center_y": "Align center Y",
+            "align_bottom": "Align bottom",
+            "distribute_horizontal": "Distribute horizontally",
+            "distribute_vertical": "Distribute vertically",
+        }
+        return labels.get(operation, "Arrange selection")
 
     def _overlay_status_text(self, payload: dict[str, Any] | None = None) -> str:
         current = payload or get_document_data(self.doc, "OCWOverlayState", {})

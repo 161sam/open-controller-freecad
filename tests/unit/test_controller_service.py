@@ -179,6 +179,26 @@ def test_bulk_update_components_uses_single_document_transaction():
     assert doc.transactions[-2:] == [("open", "OCW Bulk Edit Components"), ("commit", None)]
 
 
+def test_bulk_update_components_accepts_custom_transaction_name():
+    service = ControllerService()
+    doc = FakeDocument()
+
+    service.create_controller(doc, {"id": "demo"})
+    service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=10.0, y=10.0)
+    service.add_component(doc, "omron_b3f_1000", component_id="btn2", x=20.0, y=10.0)
+
+    service.bulk_update_components(
+        doc,
+        {
+            "btn1": {"x": 15.0},
+            "btn2": {"x": 15.0},
+        },
+        transaction_name="OCW Align Left",
+    )
+
+    assert doc.transactions[-2:] == [("open", "OCW Align Left"), ("commit", None)]
+
+
 def test_move_component_aborts_transaction_and_restores_previous_state_when_sync_fails():
     service = ControllerService()
     doc = FakeDocument()

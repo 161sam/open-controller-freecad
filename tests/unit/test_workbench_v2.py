@@ -12,9 +12,19 @@ class FakeDocument:
     def __init__(self) -> None:
         self.Objects = []
         self.recompute_count = 0
+        self.transactions: list[tuple[str, str | None]] = []
 
     def recompute(self) -> None:
         self.recompute_count += 1
+
+    def openTransaction(self, label: str) -> None:
+        self.transactions.append(("open", label))
+
+    def commitTransaction(self) -> None:
+        self.transactions.append(("commit", None))
+
+    def abortTransaction(self) -> None:
+        self.transactions.append(("abort", None))
 
 
 def _select_combo_by_suffix(combo, suffix: str) -> None:
@@ -440,6 +450,48 @@ def test_components_panel_applies_bulk_changes_to_selected_components():
     assert second["properties"]["cap_width"] == 14.0
     assert first["label"] == "Deck1"
     assert second["label"] == "Deck2"
+
+
+def test_product_workbench_panel_aligns_multi_selection_with_single_operation():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=10.0, y=10.0)
+    service.add_component(doc, "omron_b3f_1000", component_id="btn2", x=25.0, y=20.0)
+    service.add_component(doc, "omron_b3f_1000", component_id="btn3", x=40.0, y=30.0)
+    service.set_selected_component_ids(doc, ["btn1", "btn2", "btn3"], primary_id="btn2")
+    workbench = ProductWorkbenchPanel(doc, controller_service=service)
+
+    result = workbench.apply_selection_arrangement("align_center_x")
+
+    assert result["selected_count"] == 3
+    assert result["moved_count"] == 2
+    state = service.get_state(doc)
+    assert {component["x"] for component in state["components"]} == {25.0}
+    assert doc.transactions[-2:] == [("open", "OCW Align Center X"), ("commit", None)]
+
+
+def test_product_workbench_panel_distributes_multi_selection_horizontally():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=10.0, y=10.0)
+    service.add_component(doc, "omron_b3f_1000", component_id="btn2", x=20.0, y=10.0)
+    service.add_component(doc, "omron_b3f_1000", component_id="btn3", x=50.0, y=10.0)
+    service.add_component(doc, "omron_b3f_1000", component_id="btn4", x=100.0, y=10.0)
+    service.set_selected_component_ids(doc, ["btn1", "btn2", "btn3", "btn4"], primary_id="btn1")
+    workbench = ProductWorkbenchPanel(doc, controller_service=service)
+
+    result = workbench.apply_selection_arrangement("distribute_horizontal")
+
+    assert result["selected_count"] == 4
+    state = service.get_state(doc)
+    by_id = {component["id"]: component for component in state["components"]}
+    assert by_id["btn1"]["x"] == 10.0
+    assert by_id["btn2"]["x"] == 40.0
+    assert by_id["btn3"]["x"] == 70.0
+    assert by_id["btn4"]["x"] == 100.0
+    assert doc.transactions[-2:] == [("open", "OCW Distribute Horizontally"), ("commit", None)]
 
 
 def test_panels_expose_tooltips_for_key_workflows():

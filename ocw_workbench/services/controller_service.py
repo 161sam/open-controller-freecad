@@ -169,14 +169,19 @@ class ControllerService:
         )
         return state
 
-    def bulk_update_components(self, doc: Any, updates_by_component: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    def bulk_update_components(
+        self,
+        doc: Any,
+        updates_by_component: dict[str, dict[str, Any]],
+        transaction_name: str = "OCW Bulk Edit Components",
+    ) -> dict[str, Any]:
         previous_state = deepcopy(self.state_service.get_state(doc))
         combined_updates = [updates for updates in updates_by_component.values() if isinstance(updates, dict)]
         mode = SyncMode.STATE_ONLY
         if any(self._resolve_component_update_sync_mode(updates) == SyncMode.FULL for updates in combined_updates):
             mode = SyncMode.FULL
         try:
-            with document_transaction(doc, "OCW Bulk Edit Components"):
+            with document_transaction(doc, transaction_name):
                 state = self.state_service.bulk_update_components(doc, updates_by_component)
                 self.update_document(
                     doc,

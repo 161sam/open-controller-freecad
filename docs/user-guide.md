@@ -144,6 +144,20 @@
 - `Reset Bulk Changes` reloads the current multi-selection and discards unsaved batch edits.
 - If the selection mixes incompatible families, the panel stays conservative and hides family-specific fields instead of guessing.
 
+## Align And Distribute
+
+- The layout commands `Align Left`, `Align Center X`, `Align Right`, `Align Top`, `Align Center Y`, `Align Bottom`, `Distribute Horizontally`, and `Distribute Vertically` work on the current multi-selection.
+- The current implementation uses component placement centers (`x`, `y`) as anchors.
+- Align commands use the selected center span as reference:
+  - left and top use the minimum selected center on that axis
+  - right and bottom use the maximum selected center on that axis
+  - center commands use the midpoint between the minimum and maximum selected centers
+- Distribute commands sort the selection by `x` or `y`, keep the outer-most selected components fixed, and space the inner component centers evenly between them.
+- `Align` requires at least 2 selected components.
+- `Distribute` requires at least 3 selected components.
+- Each align or distribute action runs as one document operation, so Undo reverts the whole arrangement in one step.
+- The current rule is intentionally center-based and does not use keepout or physical body extents.
+
 ## Undo And Redo
 
 - Overlay previews do not open FreeCAD document transactions and do not create undo entries.

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ocw_workbench.commands.add_component import AddComponentCommand
+from ocw_workbench.commands.align_distribute import SelectionArrangeCommand
 from ocw_workbench.commands.apply_layout import ApplyLayoutCommand
 from ocw_workbench.commands.create_from_template import CreateFromTemplateCommand
 from ocw_workbench.commands.drag_move_component import DragMoveComponentCommand
@@ -24,6 +25,8 @@ def test_registered_command_resources_include_existing_pixmaps() -> None:
         OpenPluginManagerCommand(),
         OpenComponentPaletteCommand(),
         DragMoveComponentCommand(),
+        SelectionArrangeCommand("align_left"),
+        SelectionArrangeCommand("distribute_horizontal"),
         ImportTemplateFromFCStdCommand(),
     ]
 

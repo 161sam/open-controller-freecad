@@ -119,6 +119,20 @@
 - alle selektierten Komponenten werden in einem Sammelschritt aktualisiert
 - danach Overlay, Selection und Primary-Component-Flow bleiben konsistent
 
+## Workflow 10c – Multi-Select -> Align / Distribute
+
+- mehrere Komponenten auswählen
+- `OCW/Layout` oder die Layout-Toolbar für `Align` und `Distribute` verwenden
+- Align arbeitet auf Komponenten-Zentren, nicht auf Keepout- oder Gehäusekanten
+- die Referenz ist die aktuelle Selection-Spanne:
+  - links, oben: minimale selektierte Achskoordinate
+  - rechts, unten: maximale selektierte Achskoordinate
+  - center X/Y: Mittelpunkt der Selection-Spanne
+- Distribute sortiert die Auswahl nach `x` oder `y`
+- die äußeren selektierten Komponenten bleiben fix
+- die inneren Komponenten werden gleichmäßig dazwischen verteilt
+- jede Aktion läuft als eine gemeinsame Positionsoperation und ist mit einem Undo vollständig rückgängig machbar
+
 ## Stage A And Stage B Compatibility
 
 - Stage A and Stage B use the same registry, template loader, and template inspector flow.
@@ -179,6 +193,7 @@
   - `set_selected_component_ids(...)`
   - `clear_selection()`
   - `toggle_selection(...)`
+- Align and distribute consume that same ordered selection input and keep the primary selection unchanged.
 
 ## Project Parameter Roundtrip
 
