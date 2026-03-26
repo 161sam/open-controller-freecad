@@ -10,6 +10,8 @@ GENERATED_GROUP_NAME = "OCF_Generated"
 GENERATED_GROUP_LABEL = "OCF Generated"
 MODEL_GROUP_NAME = "OpenController"
 PROJECT_JSON_PROPERTY = "ProjectJson"
+OVERLAY_OBJECT_NAME = "OCF_Overlay"
+OVERLAY_OBJECT_LABEL = "OCF Overlay"
 
 _STRING_PROPERTIES = {
     "ControllerId": "Controller id",
@@ -37,9 +39,16 @@ def get_controller_object(doc: Any, create: bool = True) -> Any | None:
         return None
     existing = _find_object(doc, CONTROLLER_OBJECT_NAME, CONTROLLER_OBJECT_LABEL)
     if existing is not None or not create:
+        if existing is not None:
+            _ensure_controller_properties(existing)
+            _attach_controller_proxy(existing)
+            _attach_controller_view_provider(existing)
+            _style_controller_object(existing)
         return existing
     controller = _create_object(doc, CONTROLLER_OBJECT_NAME, ("App::FeaturePython", "App::Feature"))
     _ensure_controller_properties(controller)
+    _attach_controller_proxy(controller)
+    _attach_controller_view_provider(controller)
     _style_controller_object(controller)
     return controller
 
@@ -145,6 +154,71 @@ def clear_generated_group(doc: Any) -> None:
             pass
 
 
+class ControllerProxy:
+    def __init__(self, obj: Any) -> None:
+        self.Object = obj
+        obj.Proxy = self
+
+    def execute(self, _obj: Any) -> None:
+        return
+
+    def onDocumentRestored(self, obj: Any) -> None:
+        self.Object = obj
+        _ensure_controller_properties(obj)
+        _attach_controller_view_provider(obj)
+
+    def __getstate__(self) -> dict[str, Any]:
+        return {}
+
+    def __setstate__(self, _state: dict[str, Any]) -> None:
+        return
+
+
+class ViewProviderController:
+    def __init__(self, view_object: Any) -> None:
+        self.ViewObject = view_object
+        self.Object = getattr(view_object, "Object", None)
+        view_object.Proxy = self
+
+    def attach(self, view_object: Any) -> None:
+        self.ViewObject = view_object
+        self.Object = getattr(view_object, "Object", self.Object)
+
+    def claimChildren(self) -> list[Any]:
+        obj = self.Object or getattr(self.ViewObject, "Object", None)
+        doc = getattr(obj, "Document", None)
+        if doc is None:
+            return []
+        children = []
+        generated = get_generated_group(doc, create=False)
+        overlay = _find_object(doc, OVERLAY_OBJECT_NAME, OVERLAY_OBJECT_LABEL)
+        for child in (generated, overlay):
+            if child is not None and child not in children:
+                children.append(child)
+        return children
+
+    def getDisplayModes(self, _obj: Any) -> list[str]:
+        return ["Default"]
+
+    def getDefaultDisplayMode(self) -> str:
+        return "Default"
+
+    def setDisplayMode(self, mode: str) -> str:
+        return mode
+
+    def onChanged(self, _vp: Any, _prop: str) -> None:
+        return
+
+    def updateData(self, _obj: Any, _prop: str) -> None:
+        return
+
+    def __getstate__(self) -> dict[str, Any]:
+        return {}
+
+    def __setstate__(self, _state: dict[str, Any]) -> None:
+        return
+
+
 def _sync_controller_properties(controller: Any, state: dict[str, Any]) -> None:
     controller_state = state.get("controller", {})
     meta = state.get("meta", {})
@@ -175,6 +249,33 @@ def _ensure_controller_properties(controller: Any) -> None:
     for name, description in _FLOAT_PROPERTIES.items():
         if name not in properties and hasattr(controller, "addProperty"):
             controller.addProperty("App::PropertyFloat", name, MODEL_GROUP_NAME, description)
+
+
+def _attach_controller_proxy(controller: Any) -> None:
+    proxy = getattr(controller, "Proxy", None)
+    if isinstance(proxy, ControllerProxy):
+        proxy.Object = controller
+        return
+    ControllerProxy(controller)
+
+
+def _attach_controller_view_provider(controller: Any) -> None:
+    view = getattr(controller, "ViewObject", None)
+    if view is None:
+        return
+    if getattr(view, "Object", None) is None:
+        try:
+            view.Object = controller
+        except Exception:
+            pass
+    proxy = getattr(view, "Proxy", None)
+    if isinstance(proxy, ViewProviderController):
+        proxy.attach(view)
+        return
+    try:
+        ViewProviderController(view)
+    except Exception:
+        return
 
 
 def _style_controller_object(controller: Any) -> None:

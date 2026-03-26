@@ -2,8 +2,16 @@ from __future__ import annotations
 
 import json
 
-from ocf_freecad.freecad_api.model import CONTROLLER_OBJECT_NAME, GENERATED_GROUP_NAME, get_generated_group
+from ocf_freecad.freecad_api.model import (
+    CONTROLLER_OBJECT_NAME,
+    GENERATED_GROUP_NAME,
+    OVERLAY_OBJECT_NAME,
+    get_controller_object,
+    get_generated_group,
+)
 from ocf_freecad.freecad_api.state import (
+    STATE_CACHE_JSON_KEY,
+    STATE_CACHE_KEY,
     STATE_PROPERTY_NAME,
     get_state_container,
     has_persisted_state,
@@ -15,17 +23,22 @@ from ocf_freecad.freecad_api.state import (
 class FakeViewObject:
     def __init__(self) -> None:
         self.Visibility = True
+        self.Object = None
+        self.Proxy = None
 
 
 class FakeDocumentObject:
-    def __init__(self, type_name: str, name: str) -> None:
+    def __init__(self, document, type_name: str, name: str) -> None:
+        self.Document = document
         self.TypeId = type_name
         self.Name = name
         self.Label = name
         self.PropertiesList: list[str] = []
         self.ViewObject = FakeViewObject()
+        self.ViewObject.Object = self
         self.editor_modes: dict[str, int] = {}
         self.Group: list[FakeDocumentObject] = []
+        self.Proxy = None
 
     def addProperty(self, _type_name: str, name: str, _group: str, _doc: str) -> None:
         if name not in self.PropertiesList:
@@ -45,7 +58,7 @@ class FakeDocument:
         self.Objects: list[FakeDocumentObject] = []
 
     def addObject(self, type_name: str, name: str) -> FakeDocumentObject:
-        obj = FakeDocumentObject(type_name, name)
+        obj = FakeDocumentObject(self, type_name, name)
         self.Objects.append(obj)
         return obj
 
@@ -136,3 +149,34 @@ def test_generated_group_reuses_single_group_container():
 
     assert first is second
     assert first.Name == GENERATED_GROUP_NAME
+
+
+def test_controller_object_uses_featurepython_proxy_and_claims_children():
+    doc = FakeDocument()
+
+    controller = get_controller_object(doc, create=True)
+    generated = get_generated_group(doc, create=True)
+    overlay = doc.addObject("App::FeaturePython", OVERLAY_OBJECT_NAME)
+    overlay.Label = "OCF Overlay"
+
+    claimed = controller.ViewObject.Proxy.claimChildren()
+
+    assert controller.Proxy is not None
+    assert controller.ViewObject.Proxy is not None
+    assert generated in claimed
+    assert overlay in claimed
+
+
+def test_write_state_uses_controller_as_primary_store_and_cache_as_fallback():
+    doc = FakeDocument()
+
+    write_state(doc, {"controller": {"id": "primary"}, "components": [], "meta": {}})
+
+    controller = doc.getObject(CONTROLLER_OBJECT_NAME)
+
+    assert controller is not None
+    assert json.loads(controller.ProjectJson)["controller"]["id"] == "primary"
+    assert getattr(doc, STATE_CACHE_KEY)["controller"]["id"] == "primary"
+    assert json.loads(getattr(doc, STATE_CACHE_JSON_KEY))["controller"]["id"] == "primary"
+    assert not hasattr(doc, "OCFState")
+    assert not hasattr(doc, "OCF_State_JSON")

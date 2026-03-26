@@ -11,6 +11,10 @@ STATE_CONTAINER_NAME = "OCF_State"
 STATE_CONTAINER_LABEL = "OCF State"
 STATE_PROPERTY_NAME = "StateJson"
 STATE_GROUP_NAME = "OpenController"
+STATE_CACHE_KEY = "OCFStateCache"
+STATE_CACHE_JSON_KEY = "OCFStateCacheJson"
+LEGACY_STATE_KEY = "OCFState"
+LEGACY_STATE_JSON_KEY = "OCF_State_JSON"
 
 
 def get_state_container(doc: Any, create: bool = True) -> Any | None:
@@ -29,7 +33,7 @@ def has_persisted_state(doc: Any) -> bool:
     migrate_legacy_state(doc)
     if has_project_state(doc):
         return True
-    return has_document_data(doc, "OCFState") or has_document_data(doc, "OCF_State_JSON")
+    return has_document_data(doc, STATE_CACHE_KEY) or has_document_data(doc, STATE_CACHE_JSON_KEY)
 
 
 def read_state(doc: Any) -> dict[str, Any] | None:
@@ -37,10 +41,10 @@ def read_state(doc: Any) -> dict[str, Any] | None:
     state = read_project_state(doc)
     if isinstance(state, dict):
         return deepcopy(state)
-    state = get_document_data(doc, "OCFState")
+    state = get_document_data(doc, STATE_CACHE_KEY)
     if isinstance(state, dict):
         return deepcopy(state)
-    payload = get_document_data(doc, "OCF_State_JSON")
+    payload = get_document_data(doc, STATE_CACHE_JSON_KEY)
     if isinstance(payload, str) and payload.strip():
         return _load_json(payload)
     return None
@@ -49,9 +53,12 @@ def read_state(doc: Any) -> dict[str, Any] | None:
 def write_state(doc: Any, state: dict[str, Any]) -> None:
     normalized = deepcopy(state)
     payload = json.dumps(normalized, sort_keys=True)
-    write_project_state(doc, normalized)
-    set_document_data(doc, "OCFState", normalized)
-    set_document_data(doc, "OCF_State_JSON", payload)
+    controller = write_project_state(doc, normalized)
+    set_document_data(doc, STATE_CACHE_KEY, normalized)
+    set_document_data(doc, STATE_CACHE_JSON_KEY, payload)
+    if controller is None:
+        set_document_data(doc, LEGACY_STATE_KEY, normalized)
+        set_document_data(doc, LEGACY_STATE_JSON_KEY, payload)
 
 
 def migrate_legacy_state(doc: Any) -> None:
@@ -65,11 +72,11 @@ def migrate_legacy_state(doc: Any) -> None:
         except ValueError:
             return
         return
-    state = get_document_data(doc, "OCFState")
+    state = get_document_data(doc, LEGACY_STATE_KEY)
     if isinstance(state, dict):
         write_state(doc, state)
         return
-    payload = get_document_data(doc, "OCF_State_JSON")
+    payload = get_document_data(doc, LEGACY_STATE_JSON_KEY)
     if isinstance(payload, str) and payload.strip():
         try:
             write_state(doc, _load_json(payload))
