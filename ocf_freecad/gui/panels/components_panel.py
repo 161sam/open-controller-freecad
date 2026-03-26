@@ -117,7 +117,8 @@ class ComponentsPanel:
                     f"Library: {component.get('library_ref', '-')}",
                     f"Rotation: {float(component.get('rotation', 0.0)):.2f} deg",
                     f"Zone: {component.get('zone_id') or '-'}",
-                    "Use Save Changes for normal edits. Enable 3D Move only if you want to pick positions visually.",
+                    "Normal workflow: adjust X, Y or Rotation here, then apply changes.",
+                    "Use Pick In 3D only when you want to choose the position from the view.",
                 ]
             ),
         )
@@ -155,10 +156,10 @@ class ComponentsPanel:
         if updates:
             state = self.controller_service.update_component(self.doc, component_id, updates)
         if state is None:
-            self._publish_status(f"No changes to apply for '{component_id}'.")
+            self._publish_status(f"No changes to apply for '{component_id}'. Adjust position, rotation or part first.")
             return self.controller_service.get_state(self.doc)
         self.refresh_components()
-        self._publish_status(f"Saved component '{component_id}'.")
+        self._publish_status(f"Applied changes to '{component_id}'. Overlay and validation have been refreshed.")
         if self.on_components_changed is not None:
             self.on_components_changed(state)
         return state
@@ -175,7 +176,7 @@ class ComponentsPanel:
             rotation=widget_value(self.form["add_rotation"]),
         )
         self.refresh_components()
-        self._publish_status(f"Added library component '{library_ref}'.")
+        self._publish_status(f"Added '{library_ref}'. Review its position below and adjust if needed.")
         if self.on_components_changed is not None:
             self.on_components_changed(state)
         return state
@@ -185,13 +186,16 @@ class ComponentsPanel:
         if component_id is None:
             raise ValueError("No component selected")
         settings = self.interaction_service.arm_move(self.doc, component_id)
-        self._publish_status(f"3D move is active for '{component_id}'. Use the view to pick a new location or return here to type coordinates.")
+        self._publish_status(
+            f"Pick In 3D is active for '{component_id}'. Click in the view to choose a new location, "
+            "or return here and edit X/Y directly."
+        )
         return settings
 
     def snap_selected_component(self) -> dict[str, Any]:
         result = self.interaction_service.snap_selected_component(self.doc)
         self.refresh_components()
-        self._publish_status(f"Snapped '{result['component_id']}' to grid.")
+        self._publish_status(f"Snapped '{result['component_id']}' to the current grid.")
         if self.on_components_changed is not None:
             self.on_components_changed(result["state"])
         return result
@@ -200,7 +204,7 @@ class ComponentsPanel:
         try:
             self.load_selected_component()
         except Exception as exc:
-            self._publish_status(f"Could not load component details: {exc}")
+            self._publish_status(_friendly_component_error("Could not load component details", exc))
 
     def handle_category_changed(self, *_args: Any) -> None:
         self.populate_add_library_components()
@@ -209,25 +213,25 @@ class ComponentsPanel:
         try:
             self.update_selected_component()
         except Exception as exc:
-            self._publish_status(f"Could not save component changes: {exc}")
+            self._publish_status(_friendly_component_error("Could not apply component changes", exc))
 
     def handle_add_clicked(self) -> None:
         try:
             self.add_component()
         except Exception as exc:
-            self._publish_status(f"Could not add component: {exc}")
+            self._publish_status(_friendly_component_error("Could not add component", exc))
 
     def handle_arm_move_clicked(self) -> None:
         try:
             self.arm_move_for_selected()
         except Exception as exc:
-            self._publish_status(f"Could not enable 3D move: {exc}")
+            self._publish_status(_friendly_component_error("Could not enable Pick In 3D", exc))
 
     def handle_snap_clicked(self) -> None:
         try:
             self.snap_selected_component()
         except Exception as exc:
-            self._publish_status(f"Could not snap component: {exc}")
+            self._publish_status(_friendly_component_error("Could not snap component", exc))
 
     def accept(self) -> bool:
         self.update_selected_component()
@@ -273,8 +277,8 @@ def _build_form() -> dict[str, Any]:
             "y": FallbackValue(0.0),
             "rotation": FallbackValue(0.0),
             "library_ref": FallbackText(),
-            "update_button": FallbackButton("Save Changes"),
-            "arm_move_button": FallbackButton("Enable 3D Move"),
+            "update_button": FallbackButton("Apply Changes"),
+            "arm_move_button": FallbackButton("Pick In 3D"),
             "snap_button": FallbackButton("Snap To Grid"),
             "add_category": FallbackCombo(["all"]),
             "add_component": FallbackCombo(),
@@ -288,7 +292,7 @@ def _build_form() -> dict[str, Any]:
 
     content = qtwidgets.QWidget()
     layout = qtwidgets.QVBoxLayout(content)
-    selector_box = qtwidgets.QGroupBox("Selected Component")
+    selector_box = qtwidgets.QGroupBox("Adjust Selected Component")
     selector_layout = qtwidgets.QFormLayout(selector_box)
     component = qtwidgets.QComboBox()
     configure_combo_box(component)
@@ -296,8 +300,8 @@ def _build_form() -> dict[str, Any]:
     y = qtwidgets.QDoubleSpinBox()
     rotation = qtwidgets.QDoubleSpinBox()
     library_ref = qtwidgets.QLineEdit()
-    update_button = qtwidgets.QPushButton("Save Changes")
-    arm_move_button = qtwidgets.QPushButton("Enable 3D Move")
+    update_button = qtwidgets.QPushButton("Apply Changes")
+    arm_move_button = qtwidgets.QPushButton("Pick In 3D")
     snap_button = qtwidgets.QPushButton("Snap To Grid")
     for spinbox in (x, y, rotation):
         spinbox.setRange(-1000.0, 1000.0)
@@ -366,3 +370,15 @@ def _build_form() -> dict[str, Any]:
         "details": details,
         "status": status,
     }
+
+
+def _friendly_component_error(prefix: str, exc: Exception) -> str:
+    message = str(exc).strip() or exc.__class__.__name__
+    lowered = message.lower()
+    if "no component selected" in lowered:
+        return f"{prefix}. Select a component first."
+    if "unknown component id" in lowered:
+        return f"{prefix}. The selected component is no longer available. Refresh the list and try again."
+    if "part::" in lowered or "shape" in lowered or "cutout" in lowered:
+        return f"{prefix}. The component geometry could not be updated. Check its size, rotation and placement."
+    return f"{prefix}. {message}"

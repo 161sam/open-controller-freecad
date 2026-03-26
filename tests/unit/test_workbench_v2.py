@@ -42,6 +42,22 @@ def test_create_panel_supports_template_and_variant_flow():
     assert state["meta"]["variant_id"] == "encoder_module_compact"
 
 
+def test_create_panel_shows_active_project_state_after_creation():
+    doc = FakeDocument()
+    service = ControllerService()
+    panel = CreatePanel(doc, controller_service=service)
+
+    _select_combo_by_suffix(panel.form["template"], "(pad_grid_4x4)")
+    panel.handle_template_changed()
+    panel.create_controller()
+
+    active_project = panel.form["active_project"].text
+
+    assert "template pad_grid_4x4" in active_project
+    assert "16 components" in active_project
+    assert "layout grid" in active_project
+
+
 def test_layout_components_constraints_and_info_panels_share_document_state():
     doc = FakeDocument()
     service = ControllerService()
@@ -140,3 +156,17 @@ def test_components_panel_saves_position_without_move_step():
     assert component["x"] == 42.0
     assert component["y"] == 26.0
     assert component["rotation"] == 15.0
+
+
+def test_components_panel_uses_clearer_action_labels_and_details():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=10.0, y=10.0)
+    panel = ComponentsPanel(doc, controller_service=service)
+
+    details = panel.form["details"].text
+
+    assert panel.form["update_button"].text == "Apply Changes"
+    assert panel.form["arm_move_button"].text == "Pick In 3D"
+    assert "Normal workflow: adjust X, Y or Rotation here, then apply changes." in details

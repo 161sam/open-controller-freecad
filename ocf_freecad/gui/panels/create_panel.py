@@ -100,6 +100,7 @@ class CreatePanel:
         self.refresh_preview()
         self.refresh_marketplace()
         self._sync_selected_context()
+        self._sync_active_project(context)
         self._update_actions()
 
     def refresh_variants(self, active_variant_id: str | None = None) -> None:
@@ -173,12 +174,18 @@ class CreatePanel:
             state = self.controller_service.create_from_variant(self.doc, variant_id)
             recent_name = f"{self.userdata_service.resolve_template_name(template_id)} / {self.userdata_service.resolve_variant_name(variant_id)}"
             self.userdata_service.record_recent(template_id=template_id, variant_id=variant_id, name=recent_name)
-            self._publish_status(f"Created controller from variant '{variant_id}'. Review the setup below, then place components.")
+            self._publish_status(
+                f"Created '{variant_id}'. The controller is ready to review below. "
+                "Check Controller Settings, then fine-tune components if needed."
+            )
         else:
             state = self.controller_service.create_from_template(self.doc, template_id)
             recent_name = self.userdata_service.resolve_template_name(template_id)
             self.userdata_service.record_recent(template_id=template_id, variant_id=None, name=recent_name)
-            self._publish_status(f"Created controller from template '{template_id}'. Review the setup below, then place components.")
+            self._publish_status(
+                f"Created '{template_id}'. The controller is ready to review below. "
+                "Check Controller Settings, then fine-tune components if needed."
+            )
         self.refresh()
         if self.on_created is not None:
             self.on_created(state)
@@ -278,7 +285,7 @@ class CreatePanel:
         try:
             self.create_controller()
         except Exception as exc:
-            self._publish_status(f"Could not create controller: {exc}")
+            self._publish_status(_friendly_create_error("Could not create controller", exc))
 
     def handle_toggle_template_favorite(self) -> None:
         try:
@@ -329,19 +336,19 @@ class CreatePanel:
         try:
             self.refresh_marketplace(refresh_remote=True)
         except Exception as exc:
-            self._publish_status(str(exc))
+            self._publish_status(_friendly_create_error("Could not refresh marketplace", exc))
 
     def handle_marketplace_apply(self) -> None:
         try:
             self.apply_selected_marketplace_template()
         except Exception as exc:
-            self._publish_status(str(exc))
+            self._publish_status(_friendly_create_error("Could not apply marketplace template", exc))
 
     def handle_marketplace_details(self) -> None:
         try:
             self.show_selected_marketplace_details()
         except Exception as exc:
-            self._publish_status(str(exc))
+            self._publish_status(_friendly_create_error("Could not load marketplace details", exc))
 
     def accept(self) -> bool:
         self.create_controller()
@@ -371,6 +378,7 @@ class CreatePanel:
                 f"Surface: {shape} {width} x {height} mm",
                 f"Components: {len(project['components'])}",
                 f"Types: {summary or 'none'}",
+                _layout_preview_line(project.get("layout")),
             ]
         )
 
@@ -408,6 +416,29 @@ class CreatePanel:
         set_label_text(
             self.form["favorite_template_status"],
             f"Favorite: {'yes' if is_favorite else 'no'}",
+        )
+
+    def _sync_active_project(self, context: dict[str, Any]) -> None:
+        layout = context.get("layout") or {}
+        validation = context.get("validation") or {}
+        validation_summary = validation.get("summary", {}) if isinstance(validation, dict) else {}
+        if not context.get("template_id") and not context.get("variant_id") and context.get("component_count", 0) == 0:
+            set_label_text(self.form["active_project"], "No controller in the document yet. Choose a template, then create a new controller.")
+            return
+        layout_text = layout.get("strategy", "not placed")
+        validation_text = (
+            f"{validation_summary.get('error_count', 0)} errors / {validation_summary.get('warning_count', 0)} warnings"
+            if validation_summary
+            else "validation not run"
+        )
+        set_label_text(
+            self.form["active_project"],
+            "Current document: "
+            f"template {context.get('template_id') or '-'} | "
+            f"variant {context.get('variant_id') or 'template default'} | "
+            f"{context.get('component_count', 0)} components | "
+            f"layout {layout_text} | "
+            f"{validation_text}"
         )
 
     def _set_variant_summary(self) -> None:
@@ -494,6 +525,15 @@ class CreatePanel:
         set_enabled(self.form["favorite_template_button"], template_selected)
         set_enabled(self.form["favorite_variant_button"], variant_selected)
         set_enabled(self.form["presets_widget"].parts["save_button"], template_selected)
+        if template_selected:
+            template_id = self.selected_template_id()
+            variant_id = self.selected_variant_id()
+            if variant_id:
+                set_label_text(self.form["create_button"], f"Create From Variant ({variant_id})")
+            elif template_id:
+                set_label_text(self.form["create_button"], f"Create From Template ({template_id})")
+        else:
+            set_label_text(self.form["create_button"], "Create New Controller")
 
     def _publish_status(self, message: str) -> None:
         set_label_text(self.form["status"], message)
@@ -547,6 +587,7 @@ def _build_form() -> dict[str, Any]:
             "favorites_widget": favorites_widget,
             "recents_widget": recents_widget,
             "presets_widget": presets_widget,
+            "active_project": FallbackLabel("No controller in the document yet."),
             "marketplace_registry_url": FallbackText(""),
             "marketplace_search": FallbackText(""),
             "marketplace_filter": FallbackCombo(["all", "local", "remote"]),
@@ -565,7 +606,7 @@ def _build_form() -> dict[str, Any]:
             "favorite_variant_status": FallbackLabel(),
             "favorite_variant_button": FallbackButton("Toggle Variant Favorite"),
             "preview": FallbackText(),
-            "create_button": FallbackButton("Create Controller From Selection"),
+            "create_button": FallbackButton("Create New Controller"),
             "status": FallbackLabel(),
         }
 
@@ -573,6 +614,8 @@ def _build_form() -> dict[str, Any]:
     root = qtwidgets.QVBoxLayout(content)
     header = qtwidgets.QLabel("1. Choose a template. 2. Optionally choose a variant. 3. Create the controller and continue with setup below.")
     header.setWordWrap(True)
+    active_project = qtwidgets.QLabel("No controller in the document yet. Choose a template, then create a new controller.")
+    active_project.setWordWrap(True)
     shortcuts = qtwidgets.QVBoxLayout()
     shortcuts.addWidget(favorites_widget.widget)
     shortcuts.addWidget(recents_widget.widget)
@@ -618,7 +661,7 @@ def _build_form() -> dict[str, Any]:
     favorite_variant_button = qtwidgets.QPushButton("Toggle Favorite")
     preview = qtwidgets.QPlainTextEdit()
     configure_text_panel(preview, max_height=140)
-    create_button = qtwidgets.QPushButton("Create Controller From Selection")
+    create_button = qtwidgets.QPushButton("Create New Controller")
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
     for combo in (
@@ -650,6 +693,7 @@ def _build_form() -> dict[str, Any]:
     form.addRow("", favorite_variant_status)
     form.addRow("", favorite_variant_button)
     root.addWidget(header)
+    root.addWidget(active_project)
     root.addLayout(shortcuts)
     root.addWidget(marketplace_box)
     root.addLayout(form)
@@ -664,6 +708,7 @@ def _build_form() -> dict[str, Any]:
         "favorites_widget": favorites_widget,
         "recents_widget": recents_widget,
         "presets_widget": presets_widget,
+        "active_project": active_project,
         "marketplace_registry_url": marketplace_registry_url,
         "marketplace_search": marketplace_search,
         "marketplace_filter": marketplace_filter,
@@ -702,3 +747,27 @@ def _variant_label(item: dict[str, Any], favorite: bool = False) -> str:
 def _marketplace_label(item: dict[str, Any]) -> str:
     source = "remote" if item.get("source") == "remote" else "local"
     return f"[{source}] {item['name']} ({item.get('template_id') or item['entry_id']})"
+
+
+def _layout_preview_line(layout: dict[str, Any] | None) -> str:
+    if not isinstance(layout, dict) or not layout:
+        return "Layout: template default"
+    strategy = layout.get("strategy") or "template default"
+    config = layout.get("config") or {}
+    spacing = config.get("spacing_mm", config.get("spacing_x_mm", "-"))
+    padding = config.get("padding_mm", "-")
+    return f"Layout: {strategy} | spacing {spacing} mm | padding {padding} mm"
+
+
+def _friendly_create_error(prefix: str, exc: Exception) -> str:
+    message = str(exc).strip() or exc.__class__.__name__
+    lowered = message.lower()
+    if "no template selected" in lowered:
+        return f"{prefix}. Choose a template first."
+    if "variant" in lowered and "no variant selected" in lowered:
+        return f"{prefix}. Choose a variant or switch back to Template Default."
+    if "registry" in lowered or "marketplace" in lowered:
+        return f"{prefix}. Check the registry URL or filter settings, then try again."
+    if "shape" in lowered or "cutout" in lowered or "part::" in lowered:
+        return f"{prefix}. The template data produced invalid geometry. Try the template default or review the controller settings after creation."
+    return f"{prefix}. {message}"
