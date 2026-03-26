@@ -11,7 +11,15 @@ from ocf_freecad.utils.yaml_io import load_yaml
 class TemplateLoader:
     def load(self, path: str | Path, plugin_id: str | None = None) -> TemplateModel:
         payload = load_yaml(path)
-        return self._parse_template(payload, Path(path), plugin_id=plugin_id)
+        return self.load_payload(payload, source=Path(path), plugin_id=plugin_id)
+
+    def load_payload(
+        self,
+        payload: dict[str, Any],
+        source: str | Path,
+        plugin_id: str | None = None,
+    ) -> TemplateModel:
+        return self._parse_template(payload, Path(source), plugin_id=plugin_id)
 
     def _parse_template(self, payload: dict[str, Any], source: Path, plugin_id: str | None = None) -> TemplateModel:
         if "template" not in payload:

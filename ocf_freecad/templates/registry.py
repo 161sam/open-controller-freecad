@@ -30,6 +30,7 @@ class TemplateRegistry:
                     if source_entry.plugin_id is not None:
                         continue
                     raise
+                template["source_plugin_id"] = source_entry.plugin_id
                 template_id = template["template"]["id"]
                 if template_id in templates:
                     if source_entry.plugin_id is not None:

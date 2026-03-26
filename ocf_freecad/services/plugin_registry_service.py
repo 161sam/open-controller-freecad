@@ -102,6 +102,14 @@ class PluginRegistryService:
             "output_path": str(destination),
         }
 
+    def get_registry_entry(self, url: str, plugin_id: str) -> dict[str, Any]:
+        return self._entry_for_plugin(url.strip(), plugin_id).to_dict()
+
+    def read_plugin_archive(self, url: str, plugin_id: str) -> bytes:
+        entry = self._entry_for_plugin(url.strip(), plugin_id)
+        _validate_url(entry.download_url)
+        return self._downloader(entry.download_url)
+
     def _entry_for_plugin(self, url: str, plugin_id: str) -> RemotePluginRegistryEntry:
         cached = self.load_cached_registry(url)
         if not cached["entries"]:

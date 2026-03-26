@@ -20,6 +20,7 @@ from ocf_freecad.gui.widgets.favorites_list import FavoritesListWidget
 from ocf_freecad.gui.widgets.preset_list import PresetListWidget
 from ocf_freecad.gui.widgets.recent_list import RecentListWidget
 from ocf_freecad.services.controller_service import ControllerService
+from ocf_freecad.services.template_marketplace_service import TemplateMarketplaceService
 from ocf_freecad.services.template_service import TemplateService
 from ocf_freecad.services.userdata_service import UserDataService
 from ocf_freecad.services.variant_service import VariantService
@@ -31,6 +32,7 @@ class CreatePanel:
         doc: Any,
         controller_service: ControllerService | None = None,
         template_service: TemplateService | None = None,
+        template_marketplace_service: TemplateMarketplaceService | None = None,
         variant_service: VariantService | None = None,
         userdata_service: UserDataService | None = None,
         on_created: Any | None = None,
@@ -40,6 +42,9 @@ class CreatePanel:
         self.controller_service = controller_service or ControllerService()
         self.template_service = template_service or TemplateService()
         self.variant_service = variant_service or VariantService()
+        self.template_marketplace_service = template_marketplace_service or TemplateMarketplaceService(
+            template_service=self.template_service
+        )
         self.userdata_service = userdata_service or UserDataService(
             template_service=self.template_service,
             variant_service=self.variant_service,
@@ -51,8 +56,13 @@ class CreatePanel:
         self._variants: list[dict[str, Any]] = []
         self._template_lookup: dict[str, dict[str, Any]] = {}
         self._variant_lookup: dict[str, dict[str, Any]] = {}
+        self._marketplace_entries: list[dict[str, Any]] = []
+        self._marketplace_lookup: dict[str, dict[str, Any]] = {}
         self.form = _build_form()
         self.widget = self.form["widget"]
+        marketplace_url = self.template_marketplace_service.last_registry_url()
+        if marketplace_url:
+            set_text(self.form["marketplace_registry_url"], marketplace_url)
         self._connect_events()
         self.refresh()
 
@@ -84,6 +94,7 @@ class CreatePanel:
         self.refresh_variants(active_variant_id=previous_variant)
         self._refresh_shortcuts()
         self.refresh_preview()
+        self.refresh_marketplace()
         self._sync_selected_context()
         self._update_actions()
 
@@ -127,6 +138,27 @@ class CreatePanel:
         preview = self._build_preview()
         set_text(self.form["preview"], preview)
         return preview
+
+    def refresh_marketplace(self, refresh_remote: bool = False) -> list[dict[str, Any]]:
+        registry_url = text_value(self.form["marketplace_registry_url"]).strip()
+        search = text_value(self.form["marketplace_search"]).strip()
+        filter_by = current_text(self.form["marketplace_filter"]) or "all"
+        result = self.template_marketplace_service.list_entries(
+            search=search,
+            filter_by=filter_by,
+            remote_registry_url=registry_url,
+            refresh_remote=refresh_remote,
+        )
+        labels = [_marketplace_label(item) for item in result["entries"]]
+        self._marketplace_entries = result["entries"]
+        self._marketplace_lookup = {label: item for label, item in zip(labels, result["entries"])}
+        set_combo_items(self.form["marketplace_list"], labels)
+        if result["remote_url"] and result["remote_url"] != registry_url:
+            set_text(self.form["marketplace_registry_url"], result["remote_url"])
+        self._sync_marketplace_selection()
+        if result["warnings"]:
+            self._publish_status(result["warnings"][0])
+        return result["entries"]
 
     def create_controller(self) -> dict[str, Any]:
         template_id = self.selected_template_id()
@@ -206,6 +238,27 @@ class CreatePanel:
         self.refresh()
         self._publish_status(f"Saved preset '{preset.name}'.")
 
+    def selected_marketplace_entry(self) -> dict[str, Any] | None:
+        return self._marketplace_lookup.get(current_text(self.form["marketplace_list"]))
+
+    def apply_selected_marketplace_template(self) -> dict[str, Any]:
+        entry = self.selected_marketplace_entry()
+        if entry is None:
+            raise ValueError("No marketplace template selected")
+        result = self.template_marketplace_service.apply_entry(entry)
+        self._apply_selection(template_id=result["template_id"], variant_id=None)
+        self._publish_status(f"Applied marketplace template '{result['template_id']}'.")
+        return result
+
+    def show_selected_marketplace_details(self) -> str:
+        entry = self.selected_marketplace_entry()
+        if entry is None:
+            raise ValueError("No marketplace template selected")
+        details = self.template_marketplace_service.details_text(entry)
+        set_text(self.form["marketplace_details"], details)
+        self._publish_status(f"Showing details for '{entry['name']}'.")
+        return details
+
     def handle_template_changed(self, *_args: Any) -> None:
         self.refresh_variants()
         self.refresh_preview()
@@ -256,6 +309,33 @@ class CreatePanel:
     def handle_save_preset(self) -> None:
         try:
             self.save_current_preset()
+        except Exception as exc:
+            self._publish_status(str(exc))
+
+    def handle_marketplace_search_changed(self, *_args: Any) -> None:
+        self.refresh_marketplace()
+
+    def handle_marketplace_filter_changed(self, *_args: Any) -> None:
+        self.refresh_marketplace()
+
+    def handle_marketplace_selection_changed(self, *_args: Any) -> None:
+        self._sync_marketplace_selection()
+
+    def handle_marketplace_refresh(self) -> None:
+        try:
+            self.refresh_marketplace(refresh_remote=True)
+        except Exception as exc:
+            self._publish_status(str(exc))
+
+    def handle_marketplace_apply(self) -> None:
+        try:
+            self.apply_selected_marketplace_template()
+        except Exception as exc:
+            self._publish_status(str(exc))
+
+    def handle_marketplace_details(self) -> None:
+        try:
+            self.show_selected_marketplace_details()
         except Exception as exc:
             self._publish_status(str(exc))
 
@@ -387,6 +467,22 @@ class CreatePanel:
         self.form["recents_widget"].set_entries(recents)
         self.form["presets_widget"].set_entries(presets)
 
+    def _sync_marketplace_selection(self) -> None:
+        entry = self.selected_marketplace_entry()
+        if entry is None:
+            set_label_text(self.form["marketplace_summary"], "No marketplace template selected.")
+            set_text(self.form["marketplace_details"], "Use search or filters to inspect local and remote templates.")
+            set_enabled(self.form["marketplace_apply_button"], False)
+            set_enabled(self.form["marketplace_details_button"], False)
+            return
+        set_label_text(
+            self.form["marketplace_summary"],
+            f"{entry['name']} | {entry['component_count']} components | {entry.get('plugin_name') or entry.get('plugin_id') or '-'}",
+        )
+        set_text(self.form["marketplace_details"], self.template_marketplace_service.details_text(entry))
+        set_enabled(self.form["marketplace_apply_button"], self.template_marketplace_service.can_apply(entry))
+        set_enabled(self.form["marketplace_details_button"], True)
+
     def _update_actions(self) -> None:
         template_selected = self.selected_template_id() is not None
         variant_selected = self.selected_variant_id() is not None
@@ -421,6 +517,19 @@ class CreatePanel:
             self.form["presets_widget"].parts["load_button"].clicked.connect(self.handle_load_preset)
         if hasattr(self.form["presets_widget"].parts["save_button"], "clicked"):
             self.form["presets_widget"].parts["save_button"].clicked.connect(self.handle_save_preset)
+        if hasattr(self.form["marketplace_filter"], "currentIndexChanged"):
+            self.form["marketplace_filter"].currentIndexChanged.connect(self.handle_marketplace_filter_changed)
+        if hasattr(self.form["marketplace_list"], "currentIndexChanged"):
+            self.form["marketplace_list"].currentIndexChanged.connect(self.handle_marketplace_selection_changed)
+        if hasattr(self.form["marketplace_refresh_button"], "clicked"):
+            self.form["marketplace_refresh_button"].clicked.connect(self.handle_marketplace_refresh)
+        if hasattr(self.form["marketplace_apply_button"], "clicked"):
+            self.form["marketplace_apply_button"].clicked.connect(self.handle_marketplace_apply)
+        if hasattr(self.form["marketplace_details_button"], "clicked"):
+            self.form["marketplace_details_button"].clicked.connect(self.handle_marketplace_details)
+        search_widget = self.form["marketplace_search"]
+        if hasattr(search_widget, "textChanged"):
+            search_widget.textChanged.connect(self.handle_marketplace_search_changed)
 
 
 def _build_form() -> dict[str, Any]:
@@ -434,6 +543,15 @@ def _build_form() -> dict[str, Any]:
             "favorites_widget": favorites_widget,
             "recents_widget": recents_widget,
             "presets_widget": presets_widget,
+            "marketplace_registry_url": FallbackText(""),
+            "marketplace_search": FallbackText(""),
+            "marketplace_filter": FallbackCombo(["all", "local", "remote"]),
+            "marketplace_refresh_button": FallbackButton("Refresh Marketplace"),
+            "marketplace_list": FallbackCombo(),
+            "marketplace_summary": FallbackLabel("No marketplace template selected."),
+            "marketplace_details": FallbackText("Use search or filters to inspect local and remote templates."),
+            "marketplace_apply_button": FallbackButton("Apply Template"),
+            "marketplace_details_button": FallbackButton("Show Details"),
             "template": FallbackCombo(),
             "template_summary": FallbackLabel(),
             "favorite_template_status": FallbackLabel(),
@@ -454,6 +572,39 @@ def _build_form() -> dict[str, Any]:
     shortcuts = qtwidgets.QHBoxLayout()
     shortcuts.addWidget(favorites_widget.widget)
     shortcuts.addWidget(recents_widget.widget)
+    marketplace_box = qtwidgets.QGroupBox("Template Marketplace")
+    marketplace_layout = qtwidgets.QVBoxLayout(marketplace_box)
+    marketplace_registry_row = qtwidgets.QHBoxLayout()
+    marketplace_registry_url = qtwidgets.QLineEdit()
+    marketplace_refresh_button = qtwidgets.QPushButton("Refresh")
+    marketplace_registry_row.addWidget(qtwidgets.QLabel("Registry"))
+    marketplace_registry_row.addWidget(marketplace_registry_url, 1)
+    marketplace_registry_row.addWidget(marketplace_refresh_button)
+    marketplace_controls = qtwidgets.QHBoxLayout()
+    marketplace_search = qtwidgets.QLineEdit()
+    marketplace_filter = qtwidgets.QComboBox()
+    marketplace_filter.addItems(["all", "local", "remote"])
+    marketplace_controls.addWidget(qtwidgets.QLabel("Search"))
+    marketplace_controls.addWidget(marketplace_search, 1)
+    marketplace_controls.addWidget(qtwidgets.QLabel("Filter"))
+    marketplace_controls.addWidget(marketplace_filter)
+    marketplace_list = qtwidgets.QComboBox()
+    marketplace_summary = qtwidgets.QLabel("No marketplace template selected.")
+    marketplace_summary.setWordWrap(True)
+    marketplace_details = qtwidgets.QPlainTextEdit()
+    marketplace_details.setReadOnly(True)
+    marketplace_details.setMaximumHeight(140)
+    marketplace_actions = qtwidgets.QHBoxLayout()
+    marketplace_apply_button = qtwidgets.QPushButton("Apply")
+    marketplace_details_button = qtwidgets.QPushButton("Details")
+    marketplace_actions.addWidget(marketplace_apply_button)
+    marketplace_actions.addWidget(marketplace_details_button)
+    marketplace_layout.addLayout(marketplace_registry_row)
+    marketplace_layout.addLayout(marketplace_controls)
+    marketplace_layout.addWidget(marketplace_list)
+    marketplace_layout.addWidget(marketplace_summary)
+    marketplace_layout.addWidget(marketplace_details)
+    marketplace_layout.addLayout(marketplace_actions)
     form = qtwidgets.QFormLayout()
     template = qtwidgets.QComboBox()
     template_summary = qtwidgets.QLabel()
@@ -482,6 +633,7 @@ def _build_form() -> dict[str, Any]:
     form.addRow("", favorite_variant_button)
     root.addWidget(header)
     root.addLayout(shortcuts)
+    root.addWidget(marketplace_box)
     root.addLayout(form)
     root.addWidget(preview)
     root.addWidget(presets_widget.widget)
@@ -492,6 +644,15 @@ def _build_form() -> dict[str, Any]:
         "favorites_widget": favorites_widget,
         "recents_widget": recents_widget,
         "presets_widget": presets_widget,
+        "marketplace_registry_url": marketplace_registry_url,
+        "marketplace_search": marketplace_search,
+        "marketplace_filter": marketplace_filter,
+        "marketplace_refresh_button": marketplace_refresh_button,
+        "marketplace_list": marketplace_list,
+        "marketplace_summary": marketplace_summary,
+        "marketplace_details": marketplace_details,
+        "marketplace_apply_button": marketplace_apply_button,
+        "marketplace_details_button": marketplace_details_button,
         "template": template,
         "template_summary": template_summary,
         "favorite_template_status": favorite_template_status,
@@ -516,3 +677,8 @@ def _variant_label(item: dict[str, Any], favorite: bool = False) -> str:
     variant = item["variant"]
     prefix = "★ " if favorite else ""
     return f"{prefix}{variant['name']} ({variant['id']})"
+
+
+def _marketplace_label(item: dict[str, Any]) -> str:
+    source = "remote" if item.get("source") == "remote" else "local"
+    return f"[{source}] {item['name']} ({item.get('template_id') or item['entry_id']})"
