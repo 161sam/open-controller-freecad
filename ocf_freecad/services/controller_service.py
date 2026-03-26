@@ -343,6 +343,8 @@ class ControllerService:
         )
 
     def _create_component_markers(self, doc: Any, builder: ControllerBuilder, components: list[Component], z_height: float) -> None:
+        if not self._should_materialize_component_markers(doc):
+            return
         for keepout in builder.build_keepouts(components):
             name = f"OCF_{keepout['component_id']}_{keepout['feature']}"
             if keepout["shape"] == "circle":
@@ -602,6 +604,12 @@ class ControllerService:
         if isinstance(state.get("meta"), dict):
             normalized["meta"].update(deepcopy(state["meta"]))
         return normalized
+
+    def _should_materialize_component_markers(self, doc: Any) -> bool:
+        debug_ui = get_document_data(doc, "OCFDebugUI", {})
+        if isinstance(debug_ui, dict):
+            return bool(debug_ui.get("materialize_component_markers", False))
+        return False
 
     def _component_type_counts(self, components: list[dict[str, Any]]) -> dict[str, int]:
         counts: dict[str, int] = {}

@@ -3,10 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from ocf_freecad.freecad_api import shapes
+from ocf_freecad.freecad_api.metadata import set_document_data
 from ocf_freecad.services.overlay_service import OverlayService
 
 
 class OverlayRenderer:
+    OVERLAY_OBJECT_NAME = "OCF_Overlay"
+
     def __init__(self, overlay_service: OverlayService | None = None) -> None:
         self.overlay_service = overlay_service or OverlayService()
 
@@ -16,58 +19,24 @@ class OverlayRenderer:
         return payload
 
     def render(self, doc: Any, payload: dict[str, Any]) -> None:
-        setattr(doc, "OCFOverlayState", payload)
+        set_document_data(doc, "OCFOverlayState", payload)
         self._clear_overlay(doc)
         if not payload.get("enabled", True):
             return
         if not hasattr(doc, "addObject"):
             return
         z_base = float(payload.get("controller_height", 0.0)) + 0.25
+        overlay_parts = []
         for index, item in enumerate(payload.get("items", [])):
-            geometry = item["geometry"]
-            name = self._object_name(item["id"])
-            z = z_base + (index * 0.02)
-            if item["type"] == "rect":
-                obj = shapes.create_rect_prism(
-                    doc,
-                    name,
-                    width=float(geometry["width"]),
-                    depth=float(geometry["height"]),
-                    height=0.15,
-                    x=float(geometry["x"]) - (float(geometry["width"]) / 2.0),
-                    y=float(geometry["y"]) - (float(geometry["height"]) / 2.0),
-                    z=z,
-                )
-            elif item["type"] == "circle":
-                obj = shapes.create_cylinder(
-                    doc,
-                    name,
-                    radius=float(geometry["diameter"]) / 2.0,
-                    height=0.15,
-                    x=float(geometry["x"]),
-                    y=float(geometry["y"]),
-                    z=z,
-                )
-            elif item["type"] == "line":
-                obj = shapes.create_line(
-                    doc,
-                    name,
-                    start=(float(geometry["start_x"]), float(geometry["start_y"])),
-                    end=(float(geometry["end_x"]), float(geometry["end_y"])),
-                    z=z,
-                )
-            else:
-                obj = shapes.create_cylinder(
-                    doc,
-                    name,
-                    radius=0.8,
-                    height=0.25,
-                    x=float(geometry["x"]),
-                    y=float(geometry["y"]),
-                    z=z,
-                )
-            obj.Label = self._object_label(item)
-            self._apply_style(obj, item["style"])
+            shape = self._item_shape(item, z_base + (index * 0.005))
+            if shape is not None:
+                overlay_parts.append(shape)
+        compound = shapes.make_compound_shape(overlay_parts)
+        if compound is None:
+            return
+        obj = shapes.create_feature(doc, self.OVERLAY_OBJECT_NAME, compound)
+        obj.Label = self.OVERLAY_OBJECT_NAME
+        self._apply_style(obj, self._overlay_style())
         if hasattr(doc, "recompute"):
             doc.recompute()
 
@@ -77,8 +46,47 @@ class OverlayRenderer:
         for obj in list(doc.Objects):
             name = str(getattr(obj, "Name", ""))
             label = str(getattr(obj, "Label", ""))
-            if name.startswith("OCF_OVERLAY_") or label.startswith("OCF_OVERLAY_"):
+            if name.startswith("OCF_OVERLAY_") or label.startswith("OCF_OVERLAY_") or name == self.OVERLAY_OBJECT_NAME or label == self.OVERLAY_OBJECT_NAME:
                 doc.removeObject(name)
+
+    def _item_shape(self, item: dict[str, Any], z: float) -> Any | None:
+        geometry = item["geometry"]
+        if item["type"] == "rect":
+            return shapes.translate_shape(
+                shapes.make_rect_prism_shape(
+                    width=float(geometry["width"]),
+                    depth=float(geometry["height"]),
+                    height=0.15,
+                ),
+                x=float(geometry["x"]) - (float(geometry["width"]) / 2.0),
+                y=float(geometry["y"]) - (float(geometry["height"]) / 2.0),
+                z=z,
+            )
+        if item["type"] == "circle":
+            return shapes.translate_shape(
+                shapes.make_cylinder_shape(
+                    radius=float(geometry["diameter"]) / 2.0,
+                    height=0.15,
+                ),
+                x=float(geometry["x"]),
+                y=float(geometry["y"]),
+                z=z,
+            )
+        if item["type"] == "line":
+            return shapes.make_line_shape(
+                start=(float(geometry["start_x"]), float(geometry["start_y"])),
+                end=(float(geometry["end_x"]), float(geometry["end_y"])),
+                z=z,
+            )
+        return None
+
+    def _overlay_style(self) -> dict[str, Any]:
+        return {
+            "rgb": (0.2, 0.8, 0.7),
+            "line_rgb": (0.1, 0.45, 0.4),
+            "line_width": 2,
+            "transparency": 82,
+        }
 
     def _apply_style(self, obj: Any, style: dict[str, Any]) -> None:
         view = getattr(obj, "ViewObject", None)
@@ -99,11 +107,3 @@ class OverlayRenderer:
         draw_style = style.get("draw_style")
         if draw_style is not None and hasattr(view, "DrawStyle"):
             view.DrawStyle = draw_style
-
-    def _object_name(self, item_id: str) -> str:
-        sanitized = item_id.replace(":", "_").replace("/", "_").replace(" ", "_")
-        return f"OCF_OVERLAY_{sanitized}"
-
-    def _object_label(self, item: dict[str, Any]) -> str:
-        label = item.get("label") or item["id"]
-        return f"OCF_OVERLAY_{label}"

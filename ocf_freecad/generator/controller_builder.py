@@ -98,22 +98,22 @@ class ControllerBuilder:
         return keepouts
 
     def apply_cutouts(self, base_obj, components):
-        result = base_obj
+        result_shape = base_obj.Shape.copy() if hasattr(base_obj.Shape, "copy") else base_obj.Shape
         z_start = base_obj.Shape.BoundBox.ZMin
         cut_height = base_obj.Shape.BoundBox.ZLength
 
         for component in self.resolve_components(components):
-            tool = self._create_cutout_tool(
-                component_id=component["id"],
+            tool = self._create_cutout_shape(
                 x=component["x"],
                 y=component["y"],
                 cutout=component["resolved_mechanical"].cutout,
                 cut_height=cut_height,
                 z_start=z_start,
             )
-            result = shapes.cut(result, tool, name=f"{base_obj.Name}_{component['id']}_cut")
+            result_shape = result_shape.cut(tool)
 
-        return result
+        base_obj.Shape = result_shape
+        return base_obj
 
     def build_cutout_primitives(self, components: list[Any]) -> list[dict[str, Any]]:
         cutouts: list[dict[str, Any]] = []
@@ -132,35 +132,31 @@ class ControllerBuilder:
             )
         return cutouts
 
-    def _create_cutout_tool(
+    def _create_cutout_shape(
         self,
-        component_id: str,
         x: float,
         y: float,
         cutout: ShapePrimitive,
         cut_height: float,
         z_start: float,
     ):
-        if self.doc is None:
-            raise ValueError("ControllerBuilder requires a document to create FreeCAD cutouts")
-
         if cutout.shape == "circle":
-            return shapes.create_cylinder(
-                self.doc,
-                f"cutout_{component_id}",
-                radius=cutout.diameter / 2.0,
-                height=cut_height,
+            return shapes.translate_shape(
+                shapes.make_cylinder_shape(
+                    radius=cutout.diameter / 2.0,
+                    height=cut_height,
+                ),
                 x=x,
                 y=y,
                 z=z_start,
             )
         if cutout.shape == "rect":
-            return shapes.create_rect_prism(
-                self.doc,
-                f"cutout_{component_id}",
-                width=cutout.width,
-                depth=cutout.height,
-                height=cut_height,
+            return shapes.translate_shape(
+                shapes.make_rect_prism_shape(
+                    width=cutout.width,
+                    depth=cutout.height,
+                    height=cut_height,
+                ),
                 x=x - (cutout.width / 2.0),
                 y=y - (cutout.height / 2.0),
                 z=z_start,
