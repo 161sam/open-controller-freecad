@@ -18,6 +18,12 @@ def _service(tmp_path: Path, internal_root: Path | None = None) -> PluginManager
     )
 
 
+@pytest.fixture(autouse=True)
+def _reset_plugin_service_after_test():
+    yield
+    reset_plugin_service()
+
+
 def test_plugin_manager_lists_internal_plugins() -> None:
     reset_plugin_service()
     service = PluginManagerService()

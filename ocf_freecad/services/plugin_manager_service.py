@@ -79,6 +79,9 @@ class PluginManagerService:
             "non_disableable": bool(raw_plugin.get("non_disableable", False)),
             "warnings": [],
             "errors": [],
+            "plugin_dir": str(plugin_dir),
+            "manifest_path": str(manifest_path),
+            "is_data_plugin": False,
         }
 
         if not manifest_path.exists():
@@ -110,6 +113,7 @@ class PluginManagerService:
                 "is_internal": descriptor.is_internal,
                 "non_disableable": descriptor.non_disableable,
                 "enabled": descriptor.non_disableable or self.is_enabled(descriptor.plugin_id, default=True),
+                "is_data_plugin": _is_data_plugin(plugin_dir, descriptor.entrypoints.to_dict()),
             }
         )
         item["warnings"] = _warnings_for_plugin(descriptor.plugin_id, warnings)
@@ -184,3 +188,17 @@ class PluginManagerService:
 
 def _warnings_for_plugin(plugin_id: str, warnings: list[str]) -> list[str]:
     return [message for message in warnings if f"'{plugin_id}'" in message or plugin_id in message]
+
+
+def _is_data_plugin(plugin_dir: Path, entrypoints: dict[str, Any]) -> bool:
+    if entrypoints.get("module") not in {None, ""}:
+        return False
+    blocked_suffixes = {".py", ".pyc", ".so", ".dll", ".dylib", ".exe", ".sh", ".bat"}
+    for file_path in plugin_dir.rglob("*"):
+        if not file_path.is_file():
+            continue
+        if file_path.name == "__pycache__":
+            continue
+        if file_path.suffix.lower() in blocked_suffixes:
+            return False
+    return True

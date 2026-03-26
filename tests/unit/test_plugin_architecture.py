@@ -13,6 +13,12 @@ from ocf_freecad.utils.yaml_io import dump_yaml
 from ocf_freecad.variants.registry import VariantRegistry
 
 
+@pytest.fixture(autouse=True)
+def _reset_plugin_service_after_test():
+    yield
+    reset_plugin_service()
+
+
 def test_plugin_manifest_loads_internal_template_pack() -> None:
     manifest = load_plugin_manifest("ocf_freecad/plugins/internal/default_templates/manifest.yaml")
 

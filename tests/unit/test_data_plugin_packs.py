@@ -2,11 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from ocf_freecad.library.manager import ComponentLibraryManager
 from ocf_freecad.services.plugin_service import reset_plugin_service
 from ocf_freecad.templates.generator import TemplateGenerator
 from ocf_freecad.utils.yaml_io import dump_yaml
 from ocf_freecad.variants.generator import VariantGenerator
+
+
+@pytest.fixture(autouse=True)
+def _reset_plugin_service_after_test():
+    yield
+    reset_plugin_service()
 
 
 def test_data_plugin_component_is_namespaced_and_available_by_alias():
