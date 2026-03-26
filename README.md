@@ -10,7 +10,7 @@ Dieses Repository ist als FreeCAD-Modulroot aufgebaut. FreeCAD soll den gesamten
 Die relevante Struktur ist:
 
 ```text
-open-controller-workbench/
+open-controler-workbench/
 ├── Init.py
 ├── InitGui.py
 ├── ocw_workbench/
@@ -31,8 +31,8 @@ Wichtig:
 1. Repository klonen:
 
 ```bash
-git clone https://github.com/161sam/open-controller-workbench.git
-cd open-controller-workbench
+git clone https://github.com/161sam/open-controler-workbench.git
+cd open-controler-workbench
 ```
 
 2. Python-Abhängigkeiten für lokale Entwicklung installieren:

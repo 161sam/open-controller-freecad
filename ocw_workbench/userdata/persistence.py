@@ -62,7 +62,7 @@ def _default_base_dir() -> str:
         return str(freecad_dir)
     xdg = os.environ.get("XDG_STATE_HOME")
     if xdg:
-        return str(Path(xdg) / "open-controller-workbench")
+        return str(Path(xdg) / "open-controler-workbench")
     return str(_home_state_dir())
 
 
@@ -90,8 +90,8 @@ def _freecad_userdata_dir() -> Path | None:
 
 
 def _home_state_dir() -> Path:
-    return Path.home() / ".local" / "state" / "open-controller-workbench"
+    return Path.home() / ".local" / "state" / "open-controler-workbench"
 
 
 def _runtime_temp_dir() -> Path:
-    return Path(tempfile.gettempdir()) / "open-controller-workbench"
+    return Path(tempfile.gettempdir()) / "open-controler-workbench"

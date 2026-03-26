@@ -4,8 +4,8 @@
 ## Setup
 
 ```bash
-git clone https://github.com/161sam/open-controller-workbench.git
-cd open-controller-workbench
+git clone https://github.com/161sam/open-controler-workbench.git
+cd open-controler-workbench
 pip install -e .
 ```
 
@@ -19,7 +19,7 @@ ln -s "$(pwd)" ~/.local/share/FreeCAD/Mod/OpenControllerWorkbench
 ## FreeCAD-Modulstruktur
 
 ```text
-open-controller-workbench/
+open-controler-workbench/
 ├── Init.py
 ├── InitGui.py
 ├── ocw_workbench/

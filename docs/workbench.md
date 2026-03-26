@@ -14,7 +14,7 @@ Parametrischer Controller-Builder in FreeCAD.
 ## Nutzung
 
 1. FreeCAD starten
-2. Workbench „Open Controller“
+2. Workbench „Open Controller Workbench“
 3. Command ausführen
 
 ## Ziel-Workflow

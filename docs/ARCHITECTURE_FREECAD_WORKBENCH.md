@@ -1,8 +1,8 @@
-# Open Controller Workbench Workbench Architecture
+# Open Controller Workbench Architecture
 
 ## Purpose
 
-This document defines the target architecture for the Open Controller Workbench workbench.
+This document defines the target architecture for the Open Controller Workbench.
 It is intended as the reference for ongoing refactors and should stay aligned with the
 real repository state.
 

@@ -26,8 +26,8 @@ Deshalb muss der Symlink immer auf den Repository-Root zeigen.
 ## Dev-Setup unter Linux
 
 ```bash
-git clone https://github.com/161sam/open-controller-workbench.git
-cd open-controller-workbench
+git clone https://github.com/161sam/open-controler-workbench.git
+cd open-controler-workbench
 pip install -e .
 mkdir -p ~/.local/share/FreeCAD/Mod
 ln -s "$(pwd)" ~/.local/share/FreeCAD/Mod/OpenControllerWorkbench
@@ -36,8 +36,8 @@ ln -s "$(pwd)" ~/.local/share/FreeCAD/Mod/OpenControllerWorkbench
 ## Dev-Setup für Snap-FreeCAD
 
 ```bash
-git clone https://github.com/161sam/open-controller-workbench.git
-cd open-controller-workbench
+git clone https://github.com/161sam/open-controler-workbench.git
+cd open-controler-workbench
 pip install -e .
 mkdir -p ~/snap/freecad/common/Mod
 ln -s "$(pwd)" ~/snap/freecad/common/Mod/OpenControllerWorkbench
@@ -51,7 +51,7 @@ freecad
 
 Dann:
 - FreeCAD öffnen
-- Workbench `Open Controller` auswählen
+- Workbench `Open Controller Workbench` auswählen
 
 ## Prüfung
 

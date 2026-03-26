@@ -498,4 +498,4 @@ def test_userdata_base_dir_uses_home_fallback(monkeypatch, tmp_path):
 
     base_dir = _default_base_dir()
 
-    assert base_dir == str(tmp_path / ".local" / "state" / "open-controller-workbench")
+    assert base_dir == str(tmp_path / ".local" / "state" / "open-controler-workbench")
