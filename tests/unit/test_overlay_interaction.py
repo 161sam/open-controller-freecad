@@ -84,3 +84,24 @@ def test_selection_controller_can_select_component_from_overlay_hit_test():
 
     assert component_id == "btn1"
     assert controller_service.get_ui_context(doc)["selection"] == "btn1"
+
+
+def test_overlay_service_and_hit_test_respect_rect_rotation():
+    doc = FakeDocument()
+    controller_service = ControllerService()
+    controller_service.create_controller(doc, {"id": "demo", "width": 120.0, "depth": 80.0, "height": 30.0, "top_thickness": 3.0})
+    controller_service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=25.0, y=25.0, rotation=90.0)
+
+    overlay = OverlayService(controller_service=controller_service).build_overlay(doc)
+    component_item = next(item for item in overlay["items"] if item["id"] == "component:btn1")
+    keepout_item = next(item for item in overlay["items"] if item["id"] == "keepout_top:btn1")
+    cutout_item = next(item for item in overlay["items"] if item["id"] == "cutout:btn1")
+
+    assert component_item["geometry"]["rotation"] == 90.0
+    assert keepout_item["geometry"]["rotation"] == 90.0
+    assert cutout_item["geometry"]["rotation"] == 90.0
+
+    selection = SelectionController(controller_service)
+    component_id = selection.select_from_overlay(doc, overlay["items"], x=22.0, y=25.0)
+
+    assert component_id == "btn1"

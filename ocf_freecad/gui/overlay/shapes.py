@@ -10,6 +10,7 @@ def rect_item(
     width: float,
     height: float,
     style: dict[str, Any],
+    rotation: float = 0.0,
     label: str | None = None,
     source_component_id: str | None = None,
     severity: str | None = None,
@@ -18,7 +19,13 @@ def rect_item(
     return {
         "id": item_id,
         "type": "rect",
-        "geometry": {"x": float(x), "y": float(y), "width": float(width), "height": float(height)},
+        "geometry": {
+            "x": float(x),
+            "y": float(y),
+            "width": float(width),
+            "height": float(height),
+            "rotation": float(rotation),
+        },
         "style": style,
         "label": label,
         "source_component_id": source_component_id,

@@ -448,6 +448,7 @@ def _clearance_boundary(
         width=float(shape["width"]),
         height=float(shape["height"]),
         style=overlay_style(style_kind),
+        rotation=float(component.get("rotation", 0.0) or 0.0),
         source_ids=source_ids,
         severity=severity,
     )

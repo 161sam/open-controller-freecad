@@ -33,6 +33,7 @@ class ComponentArea:
     x: float
     y: float
     shape: str
+    rotation: float = 0.0
     width: float | None = None
     height: float | None = None
     diameter: float | None = None
@@ -45,6 +46,7 @@ class ComponentArea:
             "x": self.x,
             "y": self.y,
             "shape": self.shape,
+            "rotation": self.rotation,
         }
         if self.width is not None:
             data["width"] = self.width

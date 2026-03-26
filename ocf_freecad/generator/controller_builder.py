@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import logging
 from typing import Any
 
 from ocf_freecad.freecad_api import shapes
 from ocf_freecad.generator.component_resolver import ComponentResolver
 from ocf_freecad.geometry.primitives import Cutout, ResolvedMechanical, ShapePrimitive, SurfacePrimitive
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ControllerBuilder:
@@ -91,13 +94,21 @@ class ControllerBuilder:
         for component in self.resolve_components(components):
             mechanical = component["resolved_mechanical"]
             keepouts.append(
-                self._placed_feature(component["id"], component["x"], component["y"], mechanical.keepout_top, "top")
+                self._placed_feature(
+                    component["id"],
+                    component["x"],
+                    component["y"],
+                    float(component.get("rotation", 0.0) or 0.0),
+                    mechanical.keepout_top,
+                    "top",
+                )
             )
             keepouts.append(
                 self._placed_feature(
                     component["id"],
                     component["x"],
                     component["y"],
+                    float(component.get("rotation", 0.0) or 0.0),
                     mechanical.keepout_bottom,
                     "bottom",
                 )
@@ -113,6 +124,7 @@ class ControllerBuilder:
             tool = self._create_cutout_shape(
                 x=component["x"],
                 y=component["y"],
+                rotation=float(component.get("rotation", 0.0) or 0.0),
                 cutout=component["resolved_mechanical"].cutout,
                 cut_height=cut_height,
                 z_start=z_start,
@@ -134,6 +146,7 @@ class ControllerBuilder:
                 {
                     "component_id": component["id"],
                     "feature": "cutout",
+                    "rotation": float(component.get("rotation", 0.0) or 0.0),
                     **placed.to_dict(),
                 }
             )
@@ -143,6 +156,7 @@ class ControllerBuilder:
         self,
         x: float,
         y: float,
+        rotation: float,
         cutout: ShapePrimitive,
         cut_height: float,
         z_start: float,
@@ -157,8 +171,8 @@ class ControllerBuilder:
                 y=y,
                 z=z_start,
             )
-        if cutout.shape == "rect":
-            return shapes.translate_shape(
+        if cutout.shape in {"rect", "slot"}:
+            rect_shape = shapes.translate_shape(
                 shapes.make_rect_prism_shape(
                     width=cutout.width,
                     depth=cutout.height,
@@ -168,6 +182,16 @@ class ControllerBuilder:
                 y=y - (cutout.height / 2.0),
                 z=z_start,
             )
+            if float(rotation or 0.0) != 0.0:
+                LOGGER.info(
+                    "Applying %s degree rotation to cutout at (%.2f, %.2f).",
+                    float(rotation),
+                    float(x),
+                    float(y),
+                )
+                return shapes.rotate_shape(rect_shape, rotation, center=(x, y, z_start))
+            return rect_shape
+        LOGGER.warning("Unsupported cutout shape '%s'; rotation fallback not applied.", cutout.shape)
         raise ValueError(f"Unsupported cutout shape: {cutout.shape}")
 
     def _placed_feature(
@@ -175,6 +199,7 @@ class ControllerBuilder:
         component_id: str,
         x: float,
         y: float,
+        rotation: float,
         shape: ResolvedMechanical | ShapePrimitive,
         layer: str,
     ) -> dict[str, Any]:
@@ -185,6 +210,7 @@ class ControllerBuilder:
             "feature": f"keepout_{layer}",
             "x": x,
             "y": y,
+            "rotation": float(rotation or 0.0),
             **shape.to_dict(),
         }
 

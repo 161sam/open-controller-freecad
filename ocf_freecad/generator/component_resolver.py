@@ -18,6 +18,7 @@ class ComponentResolver:
             "type": component_data["type"],
             "x": component_data["x"],
             "y": component_data["y"],
+            "rotation": float(component_data.get("rotation", 0.0) or 0.0),
             "library_ref": component_data.get("library_ref"),
             "mechanical": resolved_mechanical.to_dict(),
             "resolved_mechanical": resolved_mechanical,

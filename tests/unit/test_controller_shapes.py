@@ -151,6 +151,31 @@ def test_cutouts_remain_relative_to_controller_coordinates():
     assert cutouts[0]["shape"] == "circle"
 
 
+def test_rect_cutout_shape_rotates_around_component_center(monkeypatch):
+    monkeypatch.setitem(__import__("sys").modules, "FreeCAD", SimpleNamespace(Vector=FakeVector))
+    rotate_calls = []
+    builder = ControllerBuilder(doc=None)
+
+    monkeypatch.setattr("ocf_freecad.generator.controller_builder.shapes.make_rect_prism_shape", lambda width, depth, height: FakeShape("rect_cutout", width=width, depth=depth, height=height))
+    monkeypatch.setattr("ocf_freecad.generator.controller_builder.shapes.translate_shape", lambda shape, x=0, y=0, z=0: FakeShape("translated", shape=shape, x=x, y=y, z=z))
+    monkeypatch.setattr(
+        "ocf_freecad.generator.controller_builder.shapes.rotate_shape",
+        lambda shape, angle_deg, center=(0, 0, 0), axis=(0, 0, 1): rotate_calls.append((angle_deg, center, axis)) or FakeShape("rotated", shape=shape, angle=angle_deg, center=center),
+    )
+
+    shape = builder._create_cutout_shape(
+        x=40.0,
+        y=30.0,
+        rotation=90.0,
+        cutout=SimpleNamespace(shape="rect", width=12.0, height=8.0),
+        cut_height=3.0,
+        z_start=27.0,
+    )
+
+    assert shape.kind == "rotated"
+    assert rotate_calls == [(90.0, (40.0, 30.0, 27.0), (0, 0, 1))]
+
+
 def test_polygon_surface_falls_back_to_solid_prism(monkeypatch):
     monkeypatch.setitem(__import__("sys").modules, "FreeCAD", SimpleNamespace(Vector=FakeVector))
     monkeypatch.setattr("ocf_freecad.generator.controller_builder.shapes.make_surface_prism_shape", _fake_make_surface_prism_shape)

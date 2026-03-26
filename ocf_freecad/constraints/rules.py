@@ -5,6 +5,7 @@ from math import hypot
 from typing import Any
 
 from ocf_freecad.constraints.models import ComponentArea, ConstraintFinding
+from ocf_freecad.geometry.planar import rotated_rect_bounding_box, rotated_rect_points
 from ocf_freecad.geometry.primitives import SurfacePrimitive
 
 DEFAULT_CONSTRAINTS = {
@@ -182,24 +183,31 @@ def _bounding_box(area: ComponentArea) -> dict[str, float]:
             "bottom": area.y - radius,
             "top": area.y + radius,
         }
-    half_width = (area.width or 0.0) / 2.0
-    half_height = (area.height or 0.0) / 2.0
-    return {
-        "left": area.x - half_width,
-        "right": area.x + half_width,
-        "bottom": area.y - half_height,
-        "top": area.y + half_height,
-    }
+    return rotated_rect_bounding_box(
+        center_x=area.x,
+        center_y=area.y,
+        width=float(area.width or 0.0),
+        height=float(area.height or 0.0),
+        rotation_deg=area.rotation,
+    )
 
 
 def _feature_points(area: ComponentArea) -> list[tuple[float, float]]:
-    box = _bounding_box(area)
-    return [
-        (box["left"], box["bottom"]),
-        (box["left"], box["top"]),
-        (box["right"], box["bottom"]),
-        (box["right"], box["top"]),
-    ]
+    if area.shape == "circle":
+        box = _bounding_box(area)
+        return [
+            (box["left"], box["bottom"]),
+            (box["left"], box["top"]),
+            (box["right"], box["bottom"]),
+            (box["right"], box["top"]),
+        ]
+    return rotated_rect_points(
+        center_x=area.x,
+        center_y=area.y,
+        width=float(area.width or 0.0),
+        height=float(area.height or 0.0),
+        rotation_deg=area.rotation,
+    )
 
 
 def _distance_to_polygon_edges(x: float, y: float, points: tuple[tuple[float, float], ...]) -> float:

@@ -40,6 +40,7 @@ class ConstraintValidator:
                 component_type=item["type"],
                 x=item["x"],
                 y=item["y"],
+                rotation=float(item.get("rotation", 0.0) or 0.0),
                 shape=item["resolved_mechanical"].keepout_top,
             )
             for item in resolved_components
@@ -162,19 +163,21 @@ class ConstraintValidator:
             x=float(feature["x"]),
             y=float(feature["y"]),
             shape=str(feature["shape"]),
+            rotation=float(feature.get("rotation", 0.0) or 0.0),
             width=_optional_float(feature.get("width")),
             height=_optional_float(feature.get("height")),
             diameter=_optional_float(feature.get("diameter")),
             depth=_optional_float(feature.get("depth")),
         )
 
-    def _area_from_shape(self, component_id: str, component_type: str, x: float, y: float, shape: Any) -> ComponentArea:
+    def _area_from_shape(self, component_id: str, component_type: str, x: float, y: float, rotation: float, shape: Any) -> ComponentArea:
         return ComponentArea(
             component_id=component_id,
             component_type=component_type,
             x=float(x),
             y=float(y),
             shape=shape.shape,
+            rotation=float(rotation or 0.0),
             width=shape.width,
             height=shape.height,
             diameter=shape.diameter,

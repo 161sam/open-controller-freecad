@@ -70,3 +70,15 @@ def test_ergonomic_warning_for_close_placement():
     report = service.validate(controller, components)
 
     assert any(warning["rule_id"] == "ergonomic_fader_button_proximity" for warning in report["warnings"])
+
+
+def test_rotated_rect_component_uses_rotated_inside_surface_check():
+    service = ConstraintService()
+    controller = Controller("c1", 50, 100, 30, 3)
+    components = [
+        Component("fader1", "fader", 25, 50, rotation=90.0, library_ref="generic_45mm_linear_fader"),
+    ]
+
+    report = service.validate(controller, components)
+
+    assert not any(error["rule_id"] == "inside_surface_component" for error in report["errors"])

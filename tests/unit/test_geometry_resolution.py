@@ -189,3 +189,25 @@ def test_component_resolver_and_builder_keepouts_are_normalized():
     assert cutouts[0]["width"] == 27.0
     assert keepouts[0]["feature"] == "keepout_top"
     assert keepouts[1]["depth"] == 8.0
+
+
+def test_rotation_is_preserved_in_resolved_components_keepouts_and_cutouts():
+    component = Component(
+        id="disp1",
+        type="display",
+        x=50,
+        y=35,
+        rotation=90.0,
+        library_ref="adafruit_oled_096_i2c_ssd1306",
+    )
+    component_resolver = ComponentResolver()
+    builder = ControllerBuilder(doc=None, component_resolver=component_resolver)
+
+    resolved = component_resolver.resolve(component)
+    keepouts = builder.build_keepouts([component])
+    cutouts = builder.build_cutout_primitives([component])
+
+    assert resolved["rotation"] == 90.0
+    assert keepouts[0]["rotation"] == 90.0
+    assert keepouts[1]["rotation"] == 90.0
+    assert cutouts[0]["rotation"] == 90.0

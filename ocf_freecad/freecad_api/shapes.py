@@ -67,6 +67,18 @@ def translate_shape(shape, x=0, y=0, z=0):
     return translated
 
 
+def rotate_shape(shape, angle_deg, center=(0, 0, 0), axis=(0, 0, 1)):
+    import FreeCAD as App
+
+    rotated = shape.copy()
+    rotated.rotate(
+        App.Vector(float(center[0]), float(center[1]), float(center[2])),
+        App.Vector(float(axis[0]), float(axis[1]), float(axis[2])),
+        float(angle_deg),
+    )
+    return rotated
+
+
 def fuse_shapes(parts):
     filtered = [part for part in parts if part is not None]
     if not filtered:

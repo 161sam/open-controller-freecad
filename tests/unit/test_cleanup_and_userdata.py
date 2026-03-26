@@ -166,6 +166,47 @@ def test_overlay_renderer_drops_degenerate_and_text_items(monkeypatch):
     }
 
 
+def test_overlay_renderer_rotates_rect_items(monkeypatch):
+    from ocf_freecad.gui.overlay.renderer import OverlayRenderer
+
+    rotate_calls = []
+
+    class FakeDoc:
+        def __init__(self) -> None:
+            self.Objects = []
+
+        def addObject(self, _type_name: str, name: str):
+            obj = SimpleNamespace(Name=name, Label=name, Shape=None, ViewObject=SimpleNamespace())
+            self.Objects.append(obj)
+            return obj
+
+        def removeObject(self, name: str) -> None:
+            self.Objects = [obj for obj in self.Objects if obj.Name != name]
+
+        def recompute(self) -> None:
+            return
+
+    monkeypatch.setattr("ocf_freecad.gui.overlay.renderer.shapes.make_rect_prism_shape", lambda width, depth, height: SimpleNamespace(kind="rect", width=width, depth=depth, height=height, copy=lambda: SimpleNamespace(translate=lambda *_args: None)))
+    monkeypatch.setattr("ocf_freecad.gui.overlay.renderer.shapes.translate_shape", lambda shape, x=0, y=0, z=0: SimpleNamespace(kind="translated", shape=shape, x=x, y=y, z=z))
+    monkeypatch.setattr("ocf_freecad.gui.overlay.renderer.shapes.rotate_shape", lambda shape, angle_deg, center=(0, 0, 0), axis=(0, 0, 1): rotate_calls.append((angle_deg, center, axis)) or SimpleNamespace(kind="rotated", shape=shape))
+    monkeypatch.setattr("ocf_freecad.gui.overlay.renderer.shapes.make_compound_shape", lambda parts: SimpleNamespace(parts=list(parts)))
+
+    doc = FakeDoc()
+    payload = OverlayRenderer().render(
+        doc,
+        {
+            "enabled": True,
+            "controller_height": 10.0,
+            "items": [
+                {"id": "cutout", "type": "rect", "geometry": {"x": 10.0, "y": 15.0, "width": 12.0, "height": 8.0, "rotation": 90.0}, "style": {}},
+            ],
+        },
+    )
+
+    assert rotate_calls == [(90.0, (10.0, 15.0, 10.25), (0, 0, 1))]
+    assert payload["summary"]["render_item_count"] == 1
+
+
 def test_userdata_base_dir_uses_home_fallback(monkeypatch, tmp_path):
     monkeypatch.delenv("OCF_USERDATA_DIR", raising=False)
     monkeypatch.delenv("XDG_STATE_HOME", raising=False)

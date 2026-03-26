@@ -87,21 +87,26 @@ class OverlayRenderer:
             if item_type == "rect":
                 width = float(geometry["width"])
                 height = float(geometry["height"])
+                rotation = float(geometry.get("rotation", 0.0) or 0.0)
                 if not self._is_positive(width) or not self._is_positive(height):
                     return None, "degenerate_rect"
-                return (
-                    shapes.translate_shape(
-                        shapes.make_rect_prism_shape(
-                            width=width,
-                            depth=height,
-                            height=0.15,
-                        ),
-                        x=float(geometry["x"]) - (width / 2.0),
-                        y=float(geometry["y"]) - (height / 2.0),
-                        z=z,
+                rect_shape = shapes.translate_shape(
+                    shapes.make_rect_prism_shape(
+                        width=width,
+                        depth=height,
+                        height=0.15,
                     ),
-                    None,
+                    x=float(geometry["x"]) - (width / 2.0),
+                    y=float(geometry["y"]) - (height / 2.0),
+                    z=z,
                 )
+                if rotation != 0.0:
+                    rect_shape = shapes.rotate_shape(
+                        rect_shape,
+                        rotation,
+                        center=(float(geometry["x"]), float(geometry["y"]), z),
+                    )
+                return (rect_shape, None)
             if item_type == "circle":
                 diameter = float(geometry["diameter"])
                 if not self._is_positive(diameter):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from copy import deepcopy
+import logging
 from typing import Any
 
 from ocf_freecad.generator.controller_builder import ControllerBuilder
@@ -11,6 +12,8 @@ from ocf_freecad.gui.overlay.shapes import circle_item, rect_item, text_item
 from ocf_freecad.services.constraint_overlay_service import ConstraintOverlayService
 from ocf_freecad.services.constraint_service import ConstraintService
 from ocf_freecad.services.controller_service import ControllerService
+
+LOGGER = logging.getLogger(__name__)
 
 
 class OverlayService:
@@ -105,6 +108,7 @@ class OverlayService:
                     item_id=component["id"],
                     x=float(component["x"]),
                     y=float(component["y"]),
+                    rotation=float(component.get("rotation", 0.0) or 0.0),
                     shape=shape.to_dict(),
                     style=overlay_style(item_kind),
                     label=component_label(component, severity=severity),
@@ -120,6 +124,7 @@ class OverlayService:
                     item_id=feature["component_id"],
                     x=float(feature["x"]),
                     y=float(feature["y"]),
+                    rotation=float(feature.get("rotation", 0.0) or 0.0),
                     shape=feature,
                     style=overlay_style("keepout"),
                     source_component_id=feature["component_id"],
@@ -133,6 +138,7 @@ class OverlayService:
                     item_id=feature["component_id"],
                     x=float(feature["x"]),
                     y=float(feature["y"]),
+                    rotation=float(feature.get("rotation", 0.0) or 0.0),
                     shape=feature,
                     style=overlay_style("cutout"),
                     source_component_id=feature["component_id"],
@@ -226,6 +232,7 @@ class OverlayService:
         item_id: str,
         x: float,
         y: float,
+        rotation: float,
         shape: dict[str, Any],
         style: dict[str, Any],
         label: str | None = None,
@@ -244,6 +251,12 @@ class OverlayService:
                 source_component_id=source_component_id,
                 severity=severity,
             )
+        if shape_type not in {"rect", "slot"}:
+            LOGGER.warning(
+                "Overlay fallback: unsupported rect rotation shape '%s' for component '%s'.",
+                shape_type,
+                source_component_id or item_id,
+            )
         return rect_item(
             item_id=f"{prefix}:{item_id}",
             x=x,
@@ -251,6 +264,7 @@ class OverlayService:
             width=float(shape["width"]),
             height=float(shape["height"]),
             style=style,
+            rotation=rotation,
             label=label,
             source_component_id=source_component_id,
             severity=severity,

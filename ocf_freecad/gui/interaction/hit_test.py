@@ -3,13 +3,21 @@ from __future__ import annotations
 from math import hypot
 from typing import Any
 
+from ocf_freecad.geometry.planar import point_in_rotated_rect
+
 
 def hit_test_item(item: dict[str, Any], x: float, y: float) -> bool:
     geometry = item.get("geometry", {})
     if item.get("type") == "rect":
-        half_width = float(geometry["width"]) / 2.0
-        half_height = float(geometry["height"]) / 2.0
-        return abs(float(x) - float(geometry["x"])) <= half_width and abs(float(y) - float(geometry["y"])) <= half_height
+        return point_in_rotated_rect(
+            float(x),
+            float(y),
+            center_x=float(geometry["x"]),
+            center_y=float(geometry["y"]),
+            width=float(geometry["width"]),
+            height=float(geometry["height"]),
+            rotation_deg=float(geometry.get("rotation", 0.0) or 0.0),
+        )
     if item.get("type") == "circle":
         radius = float(geometry["diameter"]) / 2.0
         return hypot(float(x) - float(geometry["x"]), float(y) - float(geometry["y"])) <= radius

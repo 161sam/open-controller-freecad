@@ -45,6 +45,6 @@ class Component:
         self.row = row
         self.col = col
         self.pins = deepcopy(pins) if pins is not None else None
-        self.rotation = rotation
+        self.rotation = 0.0 if rotation is None else float(rotation)
         self.zone_id = zone_id
         self.cutout_radius = cutout_radius
