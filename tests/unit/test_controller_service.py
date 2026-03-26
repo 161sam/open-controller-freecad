@@ -104,6 +104,21 @@ def test_move_component_updates_state():
     assert state["components"][0]["rotation"] == 15.0
 
 
+def test_select_component_uses_visual_refresh_without_recompute():
+    service = ControllerService()
+    doc = FakeDocument()
+
+    service.create_controller(doc, {"id": "demo"})
+    service.add_component(doc, "alps_ec11e15204a3", component_id="enc1", x=10.0, y=10.0)
+    recomputes_before = doc.recompute_count
+
+    state = service.select_component(doc, "enc1")
+
+    assert state["meta"]["selection"] == "enc1"
+    assert doc.recompute_count == recomputes_before
+    assert doc.OCFLastSync["sync_mode"] == "visual_only"
+
+
 def test_update_controller_updates_geometry_fields():
     service = ControllerService()
     doc = FakeDocument()

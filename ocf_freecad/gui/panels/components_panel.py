@@ -73,7 +73,7 @@ class ComponentsPanel:
         if selected_id is not None:
             self._set_selected_component(selected_id)
         if labels:
-            self.load_selected_component()
+            self.load_selected_component(notify=False)
             move_mode = self.interaction_service.get_settings(self.doc).get("move_component_id")
             suffix = f" 3D move active for {move_mode}." if move_mode else ""
             set_label_text(self.form["status"], f"{len(labels)} components ready. Adjust values below and save.{suffix}")
@@ -97,12 +97,13 @@ class ComponentsPanel:
     def selected_component_id(self) -> str | None:
         return self._component_lookup.get(current_text(self.form["component"]))
 
-    def load_selected_component(self) -> dict[str, Any]:
+    def load_selected_component(self, notify: bool = True) -> dict[str, Any]:
         component_id = self.selected_component_id()
         if component_id is None:
             raise ValueError("No component selected")
         component = self.controller_service.get_component(self.doc, component_id)
-        self.controller_service.select_component(self.doc, component_id)
+        if self.controller_service.get_ui_context(self.doc).get("selection") != component_id:
+            self.controller_service.select_component(self.doc, component_id)
         set_value(self.form["x"], float(component.get("x", 0.0)))
         set_value(self.form["y"], float(component.get("y", 0.0)))
         set_value(self.form["rotation"], float(component.get("rotation", 0.0)))
@@ -120,7 +121,7 @@ class ComponentsPanel:
                 ]
             ),
         )
-        if self.on_selection_changed is not None:
+        if notify and self.on_selection_changed is not None:
             self.on_selection_changed(component_id)
         return component
 

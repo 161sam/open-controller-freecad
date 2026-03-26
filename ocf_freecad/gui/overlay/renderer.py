@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from time import perf_counter
 from typing import Any
 
 from ocf_freecad.freecad_api.metadata import set_document_data
@@ -18,9 +19,10 @@ class OverlayRenderer:
 
     def refresh(self, doc: Any) -> dict[str, Any]:
         payload = self.overlay_service.build_overlay(doc)
-        return self.render(doc, payload)
+        return self.render(doc, payload, recompute=False)
 
-    def render(self, doc: Any, payload: dict[str, Any]) -> dict[str, Any]:
+    def render(self, doc: Any, payload: dict[str, Any], recompute: bool = False) -> dict[str, Any]:
+        started_at = perf_counter()
         clear_legacy_overlay_objects(doc)
         stats = {
             "total_items": len(payload.get("items", [])),
@@ -28,16 +30,19 @@ class OverlayRenderer:
             "dropped_items": 0,
             "dropped_reasons": {},
             "render_path": "disabled",
+            "duration_ms": 0.0,
         }
         if not payload.get("enabled", True):
             if hasattr(doc, "addObject"):
                 update_overlay_object(doc, payload, stats)
+            stats["duration_ms"] = (perf_counter() - started_at) * 1000.0
             updated = self._with_render_summary(payload, stats)
             self._store_overlay_state(doc, updated)
             self._log_render_summary(updated)
             return updated
         if not hasattr(doc, "addObject"):
             stats["render_path"] = "headless"
+            stats["duration_ms"] = (perf_counter() - started_at) * 1000.0
             updated = self._with_render_summary(payload, stats)
             self._store_overlay_state(doc, updated)
             self._log_render_summary(updated)
@@ -59,8 +64,12 @@ class OverlayRenderer:
         updated = self._with_render_summary(updated, stats)
         if overlay_obj is not None:
             update_overlay_object(doc, updated, stats)
-        if hasattr(doc, "recompute"):
+        if recompute and hasattr(doc, "recompute"):
             doc.recompute()
+        stats["duration_ms"] = (perf_counter() - started_at) * 1000.0
+        updated = self._with_render_summary(updated, stats)
+        if overlay_obj is not None:
+            update_overlay_object(doc, updated, stats)
         self._store_overlay_state(doc, updated)
         self._log_render_summary(updated)
         return updated
@@ -114,6 +123,7 @@ class OverlayRenderer:
                 "render_item_count": int(stats["rendered_items"]),
                 "dropped_item_count": int(stats["dropped_items"]),
                 "render_path": str(stats["render_path"]),
+                "render_duration_ms": round(float(stats.get("duration_ms", 0.0)), 3),
             }
         )
         if stats.get("dropped_reasons"):
@@ -122,15 +132,17 @@ class OverlayRenderer:
         return updated
 
     def _store_overlay_state(self, doc: Any, payload: dict[str, Any]) -> None:
+        summary = payload.get("summary", {})
         set_document_data(doc, "OCFOverlayState", payload)
         set_document_data(
             doc,
             "OCFOverlayRender",
             {
-                "render_path": payload.get("summary", {}).get("render_path"),
-                "render_item_count": payload.get("summary", {}).get("render_item_count", 0),
-                "dropped_item_count": payload.get("summary", {}).get("dropped_item_count", 0),
-                "dropped_reasons": dict(payload.get("summary", {}).get("dropped_reasons", {})),
+                "render_path": summary.get("render_path"),
+                "render_item_count": summary.get("render_item_count", 0),
+                "dropped_item_count": summary.get("dropped_item_count", 0),
+                "dropped_reasons": dict(summary.get("dropped_reasons", {})),
+                "render_duration_ms": summary.get("render_duration_ms", 0.0),
             },
         )
 
@@ -141,5 +153,6 @@ class OverlayRenderer:
             f"path={summary.get('render_path', 'unknown')} "
             f"items={summary.get('item_count', 0)} "
             f"rendered={summary.get('render_item_count', 0)} "
-            f"dropped={summary.get('dropped_item_count', 0)}."
+            f"dropped={summary.get('dropped_item_count', 0)} "
+            f"duration_ms={summary.get('render_duration_ms', 0.0):.3f}."
         )

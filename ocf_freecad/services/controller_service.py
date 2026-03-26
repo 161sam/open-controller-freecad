@@ -1,5 +1,6 @@
 from __future__ import annotations
 from copy import deepcopy
+from time import perf_counter
 from typing import Any
 
 from ocf_freecad.freecad_api import gui as freecad_gui
@@ -315,7 +316,7 @@ class ControllerService:
             raise KeyError(f"Unknown component id: {component_id}")
         state["meta"]["selection"] = component_id
         self.save_state(doc, state)
-        self.sync_document(doc)
+        self.refresh_document_visuals(doc, recompute=False)
         return deepcopy(state)
 
     def get_component(self, doc: Any, component_id: str) -> dict[str, Any]:
@@ -347,6 +348,7 @@ class ControllerService:
         return report
 
     def sync_document(self, doc: Any) -> None:
+        started_at = perf_counter()
         state = self.get_state(doc)
         controller_object = get_controller_object(doc, create=hasattr(doc, "addObject"))
         generated_group = get_generated_group(doc, create=hasattr(doc, "addObject"))
@@ -366,6 +368,14 @@ class ControllerService:
         if not hasattr(doc, "addObject"):
             if hasattr(doc, "recompute"):
                 doc.recompute()
+            update_document_data(
+                doc,
+                "OCFLastSync",
+                {
+                    "sync_duration_ms": round((perf_counter() - started_at) * 1000.0, 3),
+                    "sync_mode": "state_only",
+                },
+            )
             _log_to_console(
                 f"Document '{getattr(doc, 'Name', '<unnamed>')}' has no FreeCAD object API; state-only sync complete.",
                 level="warning",
@@ -388,14 +398,39 @@ class ControllerService:
         if hasattr(doc, "recompute"):
             doc.recompute()
         generated_count = self._generated_object_count(doc)
-        update_document_data(doc, "OCFLastSync", {"generated_object_count": generated_count})
+        duration_ms = round((perf_counter() - started_at) * 1000.0, 3)
+        update_document_data(
+            doc,
+            "OCFLastSync",
+            {
+                "generated_object_count": generated_count,
+                "sync_duration_ms": duration_ms,
+                "sync_mode": "full",
+            },
+        )
         revealed = freecad_gui.reveal_generated_objects(doc)
         freecad_gui.activate_document(doc)
         freecad_gui.focus_view(doc, fit=True)
         _log_to_console(
             f"Document sync complete for '{getattr(doc, 'Name', '<unnamed>')}': "
-            f"{generated_count} generated objects, {revealed} visible in the 3D view."
+            f"{generated_count} generated objects, {revealed} visible in the 3D view, {duration_ms:.3f} ms."
         )
+
+    def refresh_document_visuals(self, doc: Any, recompute: bool = False) -> None:
+        state = self.get_state(doc)
+        update_document_data(
+            doc,
+            "OCFLastSync",
+            {
+                "selection": state["meta"].get("selection"),
+                "sync_mode": "visual_only",
+            },
+        )
+        if not hasattr(doc, "addObject"):
+            return
+        self._apply_selection_highlight(doc, state["meta"].get("selection"))
+        if recompute and hasattr(doc, "recompute"):
+            doc.recompute()
 
     def _create_component_markers(self, doc: Any, builder: ControllerBuilder, components: list[Component], z_height: float) -> None:
         if not self._should_materialize_component_markers(doc):

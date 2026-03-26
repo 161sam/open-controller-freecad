@@ -246,6 +246,7 @@ def test_overlay_renderer_materializes_single_overlay_object(monkeypatch):
     assert payload["summary"]["render_path"] == "featurepython-headless"
     assert payload["summary"]["render_item_count"] == 2
     assert payload["summary"]["dropped_item_count"] == 0
+    assert doc.recompute_count == 0
 
 
 def test_overlay_renderer_drops_degenerate_and_text_items(monkeypatch):

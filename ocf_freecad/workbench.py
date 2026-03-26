@@ -262,15 +262,26 @@ class ProductWorkbenchPanel:
         set_label_text(self.form["overlay_status"], self._overlay_status_text(payload))
         return payload
 
+    def refresh_context_panels(self, refresh_components: bool = False) -> None:
+        self.layout_panel.refresh()
+        self.constraints_panel.refresh()
+        self.info_panel.refresh()
+        if refresh_components:
+            self.components_panel.refresh()
+
     def toggle_overlay(self) -> dict[str, Any]:
         settings = self.interaction_service.toggle_overlay(self.doc)
-        self.refresh_all()
+        self.refresh_overlay()
+        self.layout_panel.refresh()
+        self.constraints_panel.refresh()
         self.set_status(f"Overlay {'enabled' if settings['overlay_enabled'] else 'disabled'}.")
         return settings
 
     def toggle_constraint_overlay(self) -> dict[str, Any]:
         settings = self.interaction_service.toggle_constraint_overlay(self.doc)
-        self.refresh_all()
+        self.refresh_overlay()
+        self.layout_panel.refresh()
+        self.constraints_panel.refresh()
         self.set_status(
             f"Constraint overlay {'enabled' if settings['show_constraints'] else 'disabled'}."
         )
@@ -278,19 +289,25 @@ class ProductWorkbenchPanel:
 
     def toggle_measurements(self) -> dict[str, Any]:
         settings = self.interaction_service.toggle_measurements(self.doc)
-        self.refresh_all()
+        self.refresh_overlay()
+        self.layout_panel.refresh()
+        self.constraints_panel.refresh()
         self.set_status(f"Measurements {'enabled' if settings['measurements_enabled'] else 'disabled'}.")
         return settings
 
     def toggle_conflict_lines(self) -> dict[str, Any]:
         settings = self.interaction_service.toggle_conflict_lines(self.doc)
-        self.refresh_all()
+        self.refresh_overlay()
+        self.layout_panel.refresh()
+        self.constraints_panel.refresh()
         self.set_status(f"Conflict lines {'enabled' if settings['conflict_lines_enabled'] else 'disabled'}.")
         return settings
 
     def toggle_constraint_labels(self) -> dict[str, Any]:
         settings = self.interaction_service.toggle_constraint_labels(self.doc)
-        self.refresh_all()
+        self.refresh_overlay()
+        self.layout_panel.refresh()
+        self.constraints_panel.refresh()
         self.set_status(
             f"Constraint labels {'enabled' if settings['constraint_labels_enabled'] else 'disabled'}."
         )
@@ -298,21 +315,25 @@ class ProductWorkbenchPanel:
 
     def arm_move_for_selection(self) -> dict[str, Any]:
         settings = self.move_tool.arm(self.doc)
-        self.refresh_all()
+        self.components_panel.refresh()
+        self.info_panel.refresh()
+        self.refresh_overlay()
         self.focus_panel("components")
         self.set_status(f"Move mode armed for '{settings['move_component_id']}'.")
         return settings
 
     def move_to(self, x: float, y: float) -> dict[str, Any]:
         result = self.move_tool.move_to(self.doc, x, y)
-        self.refresh_all()
+        self.refresh_context_panels(refresh_components=True)
+        self.refresh_overlay()
         self.focus_panel("components")
         self.set_status(f"Moved '{result['component_id']}' to {result['x']:.2f}, {result['y']:.2f} mm.")
         return result
 
     def snap_selection_to_grid(self) -> dict[str, Any]:
         result = self.interaction_service.snap_selected_component(self.doc)
-        self.refresh_all()
+        self.refresh_context_panels(refresh_components=True)
+        self.refresh_overlay()
         self.focus_panel("components")
         self.set_status(f"Snapped '{result['component_id']}' to grid.")
         return result
@@ -409,33 +430,25 @@ class ProductWorkbenchPanel:
         self.form["plugins_layout"].addWidget(_group_box("Plugins", self.plugin_manager_panel.widget))
 
     def _handle_created(self, _state: dict[str, Any]) -> None:
-        self.components_panel.refresh()
-        self.layout_panel.refresh()
-        self.constraints_panel.refresh()
-        self.info_panel.refresh()
+        self.refresh_context_panels(refresh_components=True)
         self.refresh_overlay()
         self.focus_panel("create")
         self.set_status("Controller created. Review size and shell settings, then add or place components.")
 
     def _handle_layout_applied(self, _result: dict[str, Any]) -> None:
-        self.components_panel.refresh()
+        self.refresh_context_panels(refresh_components=True)
         self.constraints_panel.validate()
-        self.info_panel.refresh()
         self.refresh_overlay()
         self.focus_panel("constraints")
 
     def _handle_components_changed(self, _state: dict[str, Any]) -> None:
-        self.layout_panel.refresh()
+        self.refresh_context_panels(refresh_components=False)
         self.constraints_panel.validate()
-        self.info_panel.refresh()
         self.refresh_overlay()
         self.focus_panel("components")
 
     def _handle_controller_updated(self, _state: dict[str, Any]) -> None:
-        self.layout_panel.refresh()
-        self.constraints_panel.refresh()
-        self.components_panel.refresh()
-        self.info_panel.refresh()
+        self.refresh_context_panels(refresh_components=True)
         self.refresh_overlay()
         self.focus_panel("create")
 
