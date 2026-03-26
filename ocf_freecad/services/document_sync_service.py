@@ -18,6 +18,13 @@ from ocf_freecad.generator.controller_builder import ControllerBuilder
 from ocf_freecad.services._logging import log_to_console
 
 
+class SyncMode:
+    FULL = "full"
+    VISUAL_ONLY = "visual_only"
+    PARTIAL_READY = "partial_ready"
+    STATE_ONLY = "state_only"
+
+
 class DocumentSyncService:
     def __init__(
         self,
@@ -28,18 +35,49 @@ class DocumentSyncService:
         self.gui_module = gui_module or freecad_gui
 
     def sync_document(self, doc: Any, state: dict[str, Any]) -> None:
+        self.update_document(doc, mode=SyncMode.FULL, state=state)
+
+    def update_document(
+        self,
+        doc: Any,
+        mode: str,
+        state: dict[str, Any] | None = None,
+        selection: str | None = None,
+        recompute: bool = False,
+    ) -> None:
+        if mode == SyncMode.VISUAL_ONLY:
+            self._perform_visual_refresh(doc, selection=selection, recompute=recompute)
+            return
+        if mode == SyncMode.PARTIAL_READY:
+            if state is None:
+                raise ValueError("partial_ready update requires project state")
+            log_to_console("Partial-ready sync requested; falling back to full rebuild.")
+            self._perform_full_sync(doc, state, requested_mode=SyncMode.PARTIAL_READY)
+            return
+        if mode == SyncMode.FULL:
+            if state is None:
+                raise ValueError("full sync requires project state")
+            self._perform_full_sync(doc, state, requested_mode=SyncMode.FULL)
+            return
+        raise ValueError(f"Unsupported sync mode '{mode}'")
+
+    def _perform_full_sync(self, doc: Any, state: dict[str, Any], requested_mode: str) -> None:
         started_at = perf_counter()
         controller_object = get_controller_object(doc, create=hasattr(doc, "addObject"))
         generated_group = get_generated_group(doc, create=hasattr(doc, "addObject"))
-        set_document_data(doc, "OCFLastSync", {
-            "controller_id": state["controller"]["id"],
-            "component_count": len(state["components"]),
-            "template_id": state["meta"].get("template_id"),
-            "variant_id": state["meta"].get("variant_id"),
-            "selection": state["meta"].get("selection"),
-            "controller_object": getattr(controller_object, "Name", CONTROLLER_OBJECT_NAME) if controller_object is not None else None,
-            "generated_group": getattr(generated_group, "Name", GENERATED_GROUP_NAME) if generated_group is not None else None,
-        })
+        self._set_last_sync(
+            doc,
+            {
+                "requested_sync_mode": requested_mode,
+                "controller_id": state["controller"]["id"],
+                "component_count": len(state["components"]),
+                "template_id": state["meta"].get("template_id"),
+                "variant_id": state["meta"].get("variant_id"),
+                "selection": state["meta"].get("selection"),
+                "controller_object": getattr(controller_object, "Name", CONTROLLER_OBJECT_NAME) if controller_object is not None else None,
+                "generated_group": getattr(generated_group, "Name", GENERATED_GROUP_NAME) if generated_group is not None else None,
+            },
+        )
         log_to_console(
             f"Syncing document '{getattr(doc, 'Name', '<unnamed>')}' "
             f"for controller '{state['controller']['id']}' with {len(state['components'])} components."
@@ -47,12 +85,11 @@ class DocumentSyncService:
         if not hasattr(doc, "addObject"):
             if hasattr(doc, "recompute"):
                 doc.recompute()
-            update_document_data(
+            self._set_last_sync(
                 doc,
-                "OCFLastSync",
                 {
                     "sync_duration_ms": round((perf_counter() - started_at) * 1000.0, 3),
-                    "sync_mode": "state_only",
+                    "sync_mode": SyncMode.STATE_ONLY,
                 },
             )
             log_to_console(
@@ -78,13 +115,12 @@ class DocumentSyncService:
             doc.recompute()
         generated_count = self._generated_object_count(doc)
         duration_ms = round((perf_counter() - started_at) * 1000.0, 3)
-        update_document_data(
+        self._set_last_sync(
             doc,
-            "OCFLastSync",
             {
                 "generated_object_count": generated_count,
                 "sync_duration_ms": duration_ms,
-                "sync_mode": "full",
+                "sync_mode": SyncMode.FULL,
             },
         )
         revealed = self.gui_module.reveal_generated_objects(doc)
@@ -101,12 +137,25 @@ class DocumentSyncService:
         selection: str | None,
         recompute: bool = False,
     ) -> None:
-        update_document_data(
+        self.update_document(
             doc,
-            "OCFLastSync",
+            mode=SyncMode.VISUAL_ONLY,
+            selection=selection,
+            recompute=recompute,
+        )
+
+    def _perform_visual_refresh(
+        self,
+        doc: Any,
+        selection: str | None,
+        recompute: bool = False,
+    ) -> None:
+        self._set_last_sync(
+            doc,
             {
+                "requested_sync_mode": SyncMode.VISUAL_ONLY,
                 "selection": selection,
-                "sync_mode": "visual_only",
+                "sync_mode": SyncMode.VISUAL_ONLY,
             },
         )
         if not hasattr(doc, "addObject"):
@@ -185,6 +234,11 @@ class DocumentSyncService:
 
     def _generated_object_count(self, doc: Any) -> int:
         return len(iter_generated_objects(doc))
+
+    def _set_last_sync(self, doc: Any, updates: dict[str, Any]) -> None:
+        if get_document_data(doc, "OCFLastSync") is None:
+            set_document_data(doc, "OCFLastSync", {})
+        update_document_data(doc, "OCFLastSync", updates)
 
     def _build_controller(self, controller_data: dict[str, Any]) -> Any:
         from ocf_freecad.domain.controller import Controller

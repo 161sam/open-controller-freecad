@@ -35,6 +35,22 @@ This service consumes state and applies it to the document.
 Overlay refresh is not part of the geometry rebuild path.
 Visual overlay updates should not trigger `doc.recompute()` and should remain view-only operations.
 
+## Sync Modes
+
+The current update model uses explicit sync modes:
+
+- `full`
+- `visual_only`
+- `partial_ready`
+- `state_only`
+
+Current behavior:
+
+- `full`: complete generated-geometry rebuild plus document recompute
+- `visual_only`: selection and visual refresh only, without geometry rebuild
+- `partial_ready`: reserved migration path, currently falls back to `full`
+- `state_only`: headless fallback when the document has no FreeCAD object API
+
 ### ControllerService
 
 Responsibilities:

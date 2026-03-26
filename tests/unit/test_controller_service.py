@@ -1,4 +1,5 @@
 from ocf_freecad.services.controller_service import ControllerService
+from ocf_freecad.services.document_sync_service import SyncMode
 
 
 class FakeDocument:
@@ -117,6 +118,7 @@ def test_select_component_uses_visual_refresh_without_recompute():
     assert state["meta"]["selection"] == "enc1"
     assert doc.recompute_count == recomputes_before
     assert doc.OCFLastSync["sync_mode"] == "visual_only"
+    assert doc.OCFLastSync["requested_sync_mode"] == "visual_only"
 
 
 def test_update_controller_updates_geometry_fields():
@@ -313,6 +315,7 @@ def test_sync_document_uses_central_controller_object_and_generated_group(monkey
     assert [obj.Label for obj in generated.Group] == ["OCF_ControllerBody", "OCF_TopPlate"]
     assert doc.OCFLastSync["controller_object"] == "OCF_Controller"
     assert doc.OCFLastSync["generated_group"] == "OCF_Generated"
+    assert doc.OCFLastSync["requested_sync_mode"] == "full"
 
 
 def test_sync_document_clears_only_group_managed_objects(monkeypatch):
@@ -353,6 +356,40 @@ def test_sync_document_clears_only_group_managed_objects(monkeypatch):
     second_generated_names = sorted(obj.Name for obj in doc.getObject("OCF_Generated").Group)
     assert first_generated_names == second_generated_names
     assert doc.getObject("UserSolid") is user_obj
+
+
+def test_partial_ready_sync_mode_currently_falls_back_to_full(monkeypatch):
+    class FakeBuilder:
+        def __init__(self, doc):
+            self.doc = doc
+
+        def build_body(self, _controller):
+            return self.doc.addObject("Part::Feature", "ControllerBody")
+
+        def build_top_plate(self, _controller):
+            return self.doc.addObject("Part::Feature", "TopPlate")
+
+        def apply_cutouts(self, top, _components):
+            top.Shape = "cut"
+            return top
+
+        def build_keepouts(self, _components):
+            return []
+
+    monkeypatch.setattr("ocf_freecad.services.document_sync_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocf_freecad.services.controller_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocf_freecad.services.document_sync_service.freecad_gui.reveal_generated_objects", lambda _doc: 0)
+    monkeypatch.setattr("ocf_freecad.services.document_sync_service.freecad_gui.activate_document", lambda _doc: True)
+    monkeypatch.setattr("ocf_freecad.services.document_sync_service.freecad_gui.focus_view", lambda _doc, fit=True: True)
+
+    service = ControllerService()
+    doc = FakeFeatureDocument()
+    state = service.create_controller(doc, {"id": "demo"})
+
+    service.update_document(doc, mode=SyncMode.PARTIAL_READY, state=state)
+
+    assert doc.OCFLastSync["requested_sync_mode"] == "partial_ready"
+    assert doc.OCFLastSync["sync_mode"] == "full"
 
 
 def test_sync_document_does_not_materialize_keepout_markers_by_default(monkeypatch):
