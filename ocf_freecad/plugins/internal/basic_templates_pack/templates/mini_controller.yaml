@@ -1,0 +1,21 @@
+id: "mini_controller"
+name: "Mini Controller"
+description: "Compact starter controller with one encoder, one button and one display"
+shape:
+  type: "rectangle"
+  width: 120
+  height: 80
+components:
+  - ref: "enc1"
+    component: "basic_components_pack.rotary_encoder_12mm"
+    position: [20, 20]
+  - ref: "btn1"
+    component: "basic_components_pack.tact_button_6mm"
+    position: [60, 20]
+  - ref: "oled1"
+    component: "basic_components_pack.oled_128x64_small"
+    position: [60, 52]
+layout:
+  strategy: "grid"
+defaults:
+  io_strategy: "direct_gpio"

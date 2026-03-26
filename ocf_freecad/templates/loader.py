@@ -3,16 +3,21 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ocf_freecad.plugins.data import normalize_template_payload
 from ocf_freecad.templates.models import TemplateModel
 from ocf_freecad.utils.yaml_io import load_yaml
 
 
 class TemplateLoader:
-    def load(self, path: str | Path) -> TemplateModel:
+    def load(self, path: str | Path, plugin_id: str | None = None) -> TemplateModel:
         payload = load_yaml(path)
-        return self._parse_template(payload, Path(path))
+        return self._parse_template(payload, Path(path), plugin_id=plugin_id)
 
-    def _parse_template(self, payload: dict[str, Any], source: Path) -> TemplateModel:
+    def _parse_template(self, payload: dict[str, Any], source: Path, plugin_id: str | None = None) -> TemplateModel:
+        if "template" not in payload:
+            if plugin_id is None:
+                raise ValueError(f"Missing required field 'template' in {source}")
+            payload = normalize_template_payload(payload, source, plugin_id)
         template_meta = payload.get("template")
         if not isinstance(template_meta, dict):
             raise ValueError(f"Missing required field 'template' in {source}")

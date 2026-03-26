@@ -84,8 +84,13 @@ class TemplateGenerator:
             library_ref = component.get("library_ref")
             if not isinstance(library_ref, str) or not library_ref:
                 raise ValueError(f"Template component '{component.get('id', '<unknown>')}' is missing a valid 'library_ref'")
-            self.library_service.get(library_ref)
+            library_component = self.library_service.get(library_ref)
             merged = deepcopy(component)
+            merged_type = merged.get("type")
+            if not isinstance(merged_type, str) or not merged_type or merged_type == "component":
+                merged["type"] = str(library_component["category"])
+            else:
+                merged["type"] = merged_type
             if "io_strategy" not in merged and "io_strategy" in defaults:
                 merged["io_strategy"] = defaults["io_strategy"]
             if "zone" in merged and "zone_id" not in merged:

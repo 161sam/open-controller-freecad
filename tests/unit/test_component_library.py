@@ -10,7 +10,8 @@ def test_load_all_components():
     ids = {component["id"] for component in components}
     fixture = load_yaml("tests/fixtures/library_lookup_expected.yaml")
 
-    assert ids == set(fixture["expected_components"])
+    assert set(fixture["expected_components"]).issubset(ids)
+    assert "basic_components_pack.rotary_encoder_12mm" in ids
 
 
 def test_get_component():
@@ -30,8 +31,10 @@ def test_list_components_by_category():
     pads = manager.list_components(category="pad")
     rgb_buttons = manager.list_components(category="rgb_button")
 
-    assert len(displays) == 1
-    assert displays[0]["id"] == "adafruit_oled_096_i2c_ssd1306"
+    assert {item["id"] for item in displays} >= {
+        "adafruit_oled_096_i2c_ssd1306",
+        "basic_components_pack.oled_128x64_small",
+    }
     assert len(faders) == 2
     assert {item["id"] for item in faders} == {"generic_45mm_linear_fader", "generic_60mm_linear_fader"}
     assert len(pads) == 1
@@ -94,3 +97,12 @@ def test_unknown_component_raises_key_error():
         assert False, "Expected KeyError"
     except KeyError as exc:
         assert "Unknown component id" in str(exc)
+
+
+def test_data_plugin_component_alias_resolves_unique_short_id():
+    manager = ComponentLibraryManager()
+
+    component = manager.get_component("rotary_encoder_12mm")
+
+    assert component["id"] == "basic_components_pack.rotary_encoder_12mm"
+    assert component["category"] == "encoder"

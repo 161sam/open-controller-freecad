@@ -58,7 +58,7 @@ class PluginManagerService:
         return self.persistence.is_enabled(plugin_id, default=default)
 
     def _build_item(self, plugin_dir: Path, registry: Any, warnings: list[str]) -> dict[str, Any]:
-        manifest_path = plugin_dir / "manifest.yaml"
+        manifest_path = self._manifest_path(plugin_dir)
         raw_plugin = self._raw_plugin(manifest_path)
         plugin_id = str(raw_plugin.get("id") or plugin_dir.name)
         item = {
@@ -152,6 +152,13 @@ class PluginManagerService:
             return {}
         plugin = payload.get("plugin", {})
         return plugin if isinstance(plugin, dict) else {}
+
+    def _manifest_path(self, plugin_dir: Path) -> Path:
+        for filename in ("plugin.yaml", "manifest.yaml"):
+            candidate = plugin_dir / filename
+            if candidate.exists():
+                return candidate
+        return plugin_dir / "manifest.yaml"
 
     def _matches_filter(self, item: dict[str, Any], filter_by: str) -> bool:
         normalized = (filter_by or "all").lower()

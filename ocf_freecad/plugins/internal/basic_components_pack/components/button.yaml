@@ -1,0 +1,21 @@
+id: "tact_button_6mm"
+type: "button"
+manufacturer: "Generic"
+part_number: "TS-6MM"
+description: "6 mm tactile push button"
+mechanical:
+  footprint: "button_6mm"
+  cutout:
+    type: "circle"
+    diameter: 6.5
+  keepout:
+    shape: "circle"
+    diameter: 10.0
+  height: 8.0
+electrical:
+  pins:
+    - name: "SW1"
+    - name: "SW2"
+ui:
+  label: "Button"
+  category: "controls"

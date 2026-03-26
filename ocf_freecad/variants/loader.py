@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ocf_freecad.plugins.data import normalize_variant_payload
 from ocf_freecad.utils.yaml_io import load_yaml
 from ocf_freecad.variants.models import VariantModel
 
@@ -10,11 +11,15 @@ _COMPONENT_OVERRIDE_OPERATIONS = {"add", "replace", "remove", "update", "remove_
 
 
 class VariantLoader:
-    def load(self, path: str | Path) -> VariantModel:
+    def load(self, path: str | Path, plugin_id: str | None = None) -> VariantModel:
         payload = load_yaml(path)
-        return self._parse_variant(payload, Path(path))
+        return self._parse_variant(payload, Path(path), plugin_id=plugin_id)
 
-    def _parse_variant(self, payload: dict[str, Any], source: Path) -> VariantModel:
+    def _parse_variant(self, payload: dict[str, Any], source: Path, plugin_id: str | None = None) -> VariantModel:
+        if "variant" not in payload:
+            if plugin_id is None:
+                raise ValueError(f"Missing required field 'variant' in {source}")
+            payload = normalize_variant_payload(payload, source, plugin_id)
         variant_meta = payload.get("variant")
         overrides = payload.get("overrides", {})
         if not isinstance(variant_meta, dict):

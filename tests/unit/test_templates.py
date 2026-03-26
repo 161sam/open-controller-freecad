@@ -23,13 +23,14 @@ def test_template_registry_lists_default_templates():
     templates = registry.list_templates()
     ids = {template["template"]["id"] for template in templates}
 
-    assert ids == {
+    assert {
         "encoder_module",
         "transport_module",
         "fader_strip",
         "pad_grid_4x4",
         "display_nav_module",
-    }
+    }.issubset(ids)
+    assert "basic_templates_pack.mini_controller" in ids
 
 
 def test_template_resolver_applies_overrides():
@@ -95,3 +96,13 @@ def test_missing_library_ref_in_template_raises_error(tmp_path: Path):
 
     with pytest.raises(ValueError, match="missing a valid 'library_ref'"):
         TemplateLoader().load(template_path)
+
+
+def test_data_plugin_template_generates_controller_from_alias():
+    generator = TemplateGenerator()
+
+    project = generator.generate_from_template("mini_controller")
+
+    assert project["template"]["id"] == "basic_templates_pack.mini_controller"
+    assert len(project["components"]) == 3
+    assert project["components"][0]["library_ref"].startswith("basic_components_pack.")

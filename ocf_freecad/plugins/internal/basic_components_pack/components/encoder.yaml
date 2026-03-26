@@ -1,0 +1,22 @@
+id: "rotary_encoder_12mm"
+type: "encoder"
+manufacturer: "ALPS"
+part_number: "EC11"
+description: "Compact 12 mm rotary encoder for panel mounting"
+mechanical:
+  footprint: "encoder_12mm"
+  cutout:
+    type: "circle"
+    diameter: 7.0
+  keepout:
+    shape: "circle"
+    diameter: 12.0
+  height: 15.0
+electrical:
+  pins:
+    - name: "A"
+    - name: "B"
+    - name: "GND"
+ui:
+  label: "Encoder"
+  category: "controls"

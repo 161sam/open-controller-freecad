@@ -21,7 +21,8 @@ def test_variant_registry_lists_default_variants():
     ids = {variant["variant"]["id"] for variant in variants}
     fixture = load_yaml("tests/fixtures/variant_lookup_expected.yaml")
 
-    assert ids == set(fixture["expected_variants"])
+    assert set(fixture["expected_variants"]).issubset(ids)
+    assert "basic_variants_pack.simple_variant" in ids
 
 
 def test_variant_registry_filters_by_template_and_tag():
@@ -73,3 +74,13 @@ def test_variant_loader_rejects_unknown_component_operation(tmp_path: Path):
 
     with pytest.raises(ValueError, match="unknown component override operations"):
         VariantLoader().load(path)
+
+
+def test_data_plugin_variant_alias_resolves_and_adds_component():
+    from ocf_freecad.variants.generator import VariantGenerator
+
+    project = VariantGenerator().generate_from_variant("simple_variant")
+
+    assert project["variant"]["id"] == "basic_variants_pack.simple_variant"
+    assert any(component["id"] == "btn2" for component in project["components"])
+    assert next(component for component in project["components"] if component["id"] == "enc1")["x"] == 30.0

@@ -1,0 +1,25 @@
+id: "oled_128x64_small"
+type: "display"
+manufacturer: "Generic"
+part_number: "OLED-12864"
+description: "Small 128x64 OLED display module"
+mechanical:
+  footprint: "oled_128x64_small"
+  cutout:
+    type: "rect"
+    width: 28.0
+    height: 14.0
+  keepout:
+    shape: "rect"
+    width: 32.0
+    height: 20.0
+  height: 6.0
+electrical:
+  pins:
+    - name: "VCC"
+    - name: "GND"
+    - name: "SCL"
+    - name: "SDA"
+ui:
+  label: "OLED"
+  category: "display"

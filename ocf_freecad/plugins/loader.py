@@ -87,7 +87,7 @@ class PluginLoader:
 
         descriptors: list[PluginDescriptor] = []
         for plugin_dir in sorted(item for item in root.iterdir() if item.is_dir()):
-            manifest_path = plugin_dir / "manifest.yaml"
+            manifest_path = self._manifest_path(plugin_dir)
             if not manifest_path.exists():
                 self.warnings.append(f"Skipping plugin without manifest: {plugin_dir}")
                 continue
@@ -123,7 +123,7 @@ class PluginLoader:
                 continue
             source = (descriptor.root_path / relative_path).resolve()
             if source.exists():
-                context.register_source(registry_name, source)
+                context.register_source(registry_name, source, plugin_id=descriptor.plugin_id)
             else:
                 context.warn(f"Plugin '{descriptor.plugin_id}' entrypoint '{registry_name}' not found: {source}")
 
@@ -148,3 +148,10 @@ class PluginLoader:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
+
+    def _manifest_path(self, plugin_dir: Path) -> Path:
+        for filename in ("plugin.yaml", "manifest.yaml"):
+            path = plugin_dir / filename
+            if path.exists():
+                return path
+        return plugin_dir / "manifest.yaml"
