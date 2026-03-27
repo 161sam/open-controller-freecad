@@ -727,10 +727,10 @@ class ProductWorkbenchPanel:
         if hasattr(tabs, "setElideMode") and _qtcore is not None:
             tabs.setElideMode(_qtcore.Qt.ElideRight)
         set_size_policy(tabs, horizontal="preferred", vertical="expanding")
-        create_page, create_layout = _scrollable_tab_page(qtwidgets)
-        layout_page, layout_layout = _scrollable_tab_page(qtwidgets)
-        components_page, components_layout = _scrollable_tab_page(qtwidgets)
-        plugins_page, plugins_layout = _scrollable_tab_page(qtwidgets)
+        create_page, create_layout = _tab_page(qtwidgets)
+        layout_page, layout_layout = _tab_page(qtwidgets)
+        components_page, components_layout = _tab_page(qtwidgets)
+        plugins_page, plugins_layout = _tab_page(qtwidgets)
         for layout in (create_layout, layout_layout, components_layout, plugins_layout):
             layout.setSpacing(8)
         tabs.addTab(create_page, "Create")
@@ -754,12 +754,20 @@ class ProductWorkbenchPanel:
     def _mount_panels(self) -> None:
         if "create_layout" not in self.form:
             return
-        self.form["create_layout"].addWidget(_group_box("Create Controller", self.create_panel.widget))
-        self.form["create_layout"].addWidget(_group_box("Controller Setup", self.info_panel.widget))
-        self.form["layout_layout"].addWidget(_group_box("Layout", self.layout_panel.widget))
-        self.form["layout_layout"].addWidget(_group_box("Constraints", self.constraints_panel.widget))
-        self.form["components_layout"].addWidget(_group_box("Components", self.components_panel.widget))
-        self.form["plugins_layout"].addWidget(_group_box("Plugins", self.plugin_manager_panel.widget))
+        create_splitter = _section_splitter(
+            "vertical",
+            [self.create_panel.widget, self.info_panel.widget],
+            stretch_factors=[3, 2],
+        )
+        layout_splitter = _section_splitter(
+            "vertical",
+            [self.layout_panel.widget, self.constraints_panel.widget],
+            stretch_factors=[3, 2],
+        )
+        self.form["create_layout"].addWidget(create_splitter, 1)
+        self.form["layout_layout"].addWidget(layout_splitter, 1)
+        self.form["components_layout"].addWidget(self.components_panel.widget, 1)
+        self.form["plugins_layout"].addWidget(self.plugin_manager_panel.widget, 1)
 
     def _handle_created(self, _state: dict[str, Any]) -> None:
         self.refresh_context_panels(refresh_components=True)
@@ -918,21 +926,6 @@ def ensure_workbench_ui(doc: Any | None = None, focus: str = "create") -> Produc
         raise RuntimeError(f"Open Controller workbench UI setup failed: {exc}") from exc
 
 
-def _group_box(title: str, child: Any) -> Any:
-    _qtcore, _qtgui, qtwidgets = load_qt()
-    if qtwidgets is None:
-        return child
-    group = qtwidgets.QGroupBox(title)
-    if hasattr(group, "setMinimumSize"):
-        group.setMinimumSize(0, 0)
-    set_size_policy(group, horizontal="preferred", vertical="preferred")
-    layout = qtwidgets.QVBoxLayout(group)
-    layout.setContentsMargins(6, 6, 6, 6)
-    layout.setSpacing(6)
-    layout.addWidget(child)
-    return group
-
-
 def _show_in_dock(panel: ProductWorkbenchPanel) -> Any | None:
     dock = create_or_reuse_dock("Open Controller Workbench", panel.widget)
     if dock is None:
@@ -963,16 +956,30 @@ def _show_fallback_dock(exc: Exception) -> Any | None:
     return create_or_reuse_dock("Open Controller Workbench", widget)
 
 
-def _scrollable_tab_page(qtwidgets: Any) -> tuple[Any, Any]:
-    page = qtwidgets.QScrollArea()
-    page.setWidgetResizable(True)
-    if hasattr(page, "setFrameShape") and hasattr(qtwidgets, "QFrame"):
-        page.setFrameShape(qtwidgets.QFrame.NoFrame)
-    container = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(container)
+def _tab_page(qtwidgets: Any) -> tuple[Any, Any]:
+    page = qtwidgets.QWidget()
+    layout = qtwidgets.QVBoxLayout(page)
     layout.setContentsMargins(0, 0, 0, 0)
-    page.setWidget(container)
+    layout.setSpacing(8)
     return page, layout
+
+
+def _section_splitter(orientation: str, widgets: list[Any], stretch_factors: list[int] | None = None) -> Any:
+    _qtcore, _qtgui, qtwidgets = load_qt()
+    if qtwidgets is None or _qtcore is None or not hasattr(qtwidgets, "QSplitter"):
+        return widgets[0] if widgets else object()
+    splitter = qtwidgets.QSplitter(
+        _qtcore.Qt.Vertical if orientation == "vertical" else _qtcore.Qt.Horizontal
+    )
+    if hasattr(splitter, "setChildrenCollapsible"):
+        splitter.setChildrenCollapsible(False)
+    if hasattr(splitter, "setHandleWidth"):
+        splitter.setHandleWidth(8)
+    for index, widget in enumerate(widgets):
+        splitter.addWidget(widget)
+        if stretch_factors and index < len(stretch_factors):
+            splitter.setStretchFactor(index, stretch_factors[index])
+    return splitter
 
 
 def _workbench_shell_stylesheet() -> str:
@@ -1049,6 +1056,14 @@ QGroupBox::title {
 }
 QScrollArea {
     background: transparent;
+}
+QSplitter::handle {
+    background: #111827;
+}
+QSplitter::handle:vertical {
+    height: 8px;
+    border-top: 1px solid #1f2937;
+    border-bottom: 1px solid #1f2937;
 }
 """
 

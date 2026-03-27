@@ -209,11 +209,22 @@ def _build_form() -> dict[str, Any]:
 
     content = qtwidgets.QWidget()
     layout = qtwidgets.QVBoxLayout(content)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
     set_size_policy(plugin_list.widget, horizontal="expanding", vertical="preferred")
     set_size_policy(plugin_details.widget, horizontal="expanding", vertical="preferred")
-    layout.addWidget(plugin_list.widget)
-    layout.addWidget(plugin_details.widget)
-    layout.addStretch(1)
+    if hasattr(qtwidgets, "QSplitter"):
+        splitter = qtwidgets.QSplitter()
+        splitter.setOrientation(_qtcore.Qt.Vertical)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(plugin_list.widget)
+        splitter.addWidget(plugin_details.widget)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        layout.addWidget(splitter, 1)
+    else:
+        layout.addWidget(plugin_list.widget)
+        layout.addWidget(plugin_details.widget)
     widget = wrap_widget_in_scroll_area(content)
     return {
         "widget": widget,

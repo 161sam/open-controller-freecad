@@ -317,9 +317,13 @@ def _build_form() -> dict[str, Any]:
 
     content = qtwidgets.QWidget()
     layout = qtwidgets.QVBoxLayout(content)
-    intro = qtwidgets.QLabel("Start with Auto Place, then use the Components tab for small adjustments. Overlay toggles below are helpers, not required steps.")
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
+    intro = qtwidgets.QLabel("Run Auto Place first, then use overlay tools only as needed.")
     intro.setWordWrap(True)
     form = qtwidgets.QFormLayout()
+    form.setContentsMargins(0, 0, 0, 0)
+    form.setSpacing(6)
     preset = qtwidgets.QComboBox()
     preset.addItems(["grid", "row", "column", "zone"])
     configure_combo_box(preset)
@@ -353,10 +357,15 @@ def _build_form() -> dict[str, Any]:
     set_tooltip(measurements_button, "Show or hide measurement guides in the overlay.")
     set_tooltip(conflict_lines_button, "Show or hide helper lines that connect conflicting components.")
     set_tooltip(constraint_labels_button, "Show or hide text labels for issues directly in the view.")
+    primary_actions = qtwidgets.QHBoxLayout()
+    primary_actions.setSpacing(8)
+    primary_actions.addWidget(apply_button, 1)
+    primary_actions.addWidget(rerun_button, 1)
     button_row = qtwidgets.QGridLayout()
+    button_row.setContentsMargins(0, 0, 0, 0)
+    button_row.setHorizontalSpacing(8)
+    button_row.setVerticalSpacing(6)
     actions = [
-        apply_button,
-        rerun_button,
         overlay_button,
         constraint_overlay_button,
         snap_button,
@@ -368,22 +377,25 @@ def _build_form() -> dict[str, Any]:
         row, column = divmod(index, 2)
         button_row.addWidget(button, row, column)
     summary = qtwidgets.QPlainTextEdit()
-    configure_text_panel(summary, max_height=120)
+    configure_text_panel(summary, max_height=88)
     overlay_status = qtwidgets.QPlainTextEdit()
-    configure_text_panel(overlay_status, max_height=120)
+    configure_text_panel(overlay_status, max_height=88)
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
+    diagnostics_row = qtwidgets.QHBoxLayout()
+    diagnostics_row.setSpacing(8)
+    diagnostics_row.addWidget(overlay_status, 1)
+    diagnostics_row.addWidget(summary, 1)
     form.addRow("Preset", preset)
     form.addRow("Grid (mm)", grid_mm)
     form.addRow("Spacing (mm)", spacing_mm)
     form.addRow("Padding (mm)", padding_mm)
     layout.addWidget(intro)
     layout.addLayout(form)
+    layout.addLayout(primary_actions)
     layout.addLayout(button_row)
-    layout.addWidget(overlay_status)
-    layout.addWidget(summary)
+    layout.addLayout(diagnostics_row)
     layout.addWidget(status)
-    layout.addStretch(1)
     widget = wrap_widget_in_scroll_area(content)
     return {
         "widget": widget,

@@ -196,6 +196,8 @@ def _build_form() -> dict[str, Any]:
 
     content = qtwidgets.QWidget()
     layout = qtwidgets.QVBoxLayout(content)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
     meta_box = qtwidgets.QGroupBox("Current Project")
     meta_layout = qtwidgets.QFormLayout(meta_box)
     template = qtwidgets.QLabel("-")
@@ -211,6 +213,7 @@ def _build_form() -> dict[str, Any]:
 
     settings_box = qtwidgets.QGroupBox("Controller Geometry")
     settings_layout = qtwidgets.QFormLayout(settings_box)
+    settings_layout.setSpacing(6)
     width = qtwidgets.QDoubleSpinBox()
     depth = qtwidgets.QDoubleSpinBox()
     height = qtwidgets.QDoubleSpinBox()
@@ -262,14 +265,16 @@ def _build_form() -> dict[str, Any]:
     settings_layout.addRow("", apply_button)
 
     info = qtwidgets.QPlainTextEdit()
-    configure_text_panel(info, max_height=120)
+    configure_text_panel(info, max_height=88)
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
-    layout.addWidget(meta_box)
-    layout.addWidget(settings_box)
+    top_row = qtwidgets.QHBoxLayout()
+    top_row.setSpacing(8)
+    top_row.addWidget(meta_box, 1)
+    top_row.addWidget(settings_box, 2)
+    layout.addLayout(top_row)
     layout.addWidget(info)
     layout.addWidget(status)
-    layout.addStretch(1)
     widget = wrap_widget_in_scroll_area(content)
     return {
         "widget": widget,

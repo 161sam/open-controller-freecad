@@ -118,19 +118,20 @@ def _build_form() -> dict[str, Any]:
 
     content = qtwidgets.QWidget()
     layout = qtwidgets.QVBoxLayout(content)
-    intro = qtwidgets.QLabel("Review spacing, edge distance, and placement issues before the next iteration.")
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
+    intro = qtwidgets.QLabel("Check spacing and edge issues before the next iteration.")
     intro.setWordWrap(True)
     validate_button = qtwidgets.QPushButton("Validate Layout")
     set_tooltip(validate_button, "Run spacing, overlap and edge-distance checks for the current controller.")
     results = qtwidgets.QPlainTextEdit()
-    configure_text_panel(results, max_height=180)
+    configure_text_panel(results, max_height=132)
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
     layout.addWidget(intro)
     layout.addWidget(validate_button)
     layout.addWidget(results)
     layout.addWidget(status)
-    layout.addStretch(1)
     widget = wrap_widget_in_scroll_area(content)
     return {
         "widget": widget,
