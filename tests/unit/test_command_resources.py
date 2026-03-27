@@ -10,6 +10,7 @@ from ocw_workbench.commands.drag_move_component import DragMoveComponentCommand
 from ocw_workbench.commands.import_template_from_fcstd import ImportTemplateFromFCStdCommand
 from ocw_workbench.commands.open_component_palette import OpenComponentPaletteCommand
 from ocw_workbench.commands.open_plugin_manager import OpenPluginManagerCommand
+from ocw_workbench.commands.selection_transform import SelectionTransformCommand
 from ocw_workbench.commands.toggle_overlay import ToggleOverlayCommand
 from ocw_workbench.commands.validate_constraints import ValidateConstraintsCommand
 from ocw_workbench.workbench import OpenControllerWorkbench
@@ -27,6 +28,8 @@ def test_registered_command_resources_include_existing_pixmaps() -> None:
         DragMoveComponentCommand(),
         SelectionArrangeCommand("align_left"),
         SelectionArrangeCommand("distribute_horizontal"),
+        SelectionTransformCommand("rotate_cw_90"),
+        SelectionTransformCommand("mirror_vertical"),
         ImportTemplateFromFCStdCommand(),
     ]
 

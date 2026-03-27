@@ -158,6 +158,18 @@
 - Each align or distribute action runs as one document operation, so Undo reverts the whole arrangement in one step.
 - The current rule is intentionally center-based and does not use keepout or physical body extents.
 
+## Rotate And Mirror
+
+- The layout commands `Rotate +90`, `Rotate -90`, `Rotate 180`, `Mirror Horizontally`, and `Mirror Vertically` work on the current selection, including multi-selection.
+- Rotation always happens around each component's own center, never around the global controller origin.
+- OCW stores rotation as a normalized degree value in the `[0, 360)` range.
+- The command set intentionally operates in robust 90-degree steps plus 180-degree flips.
+- Mirror is currently modeled as an orientation transform on `rotation`, not as a separate mirrored body state.
+- `Mirror Horizontally` reflects the component orientation across the local vertical axis through the component center.
+- `Mirror Vertically` reflects the component orientation across the local horizontal axis through the component center.
+- This keeps the data model small and lets geometry, overlay, validation, and sync continue through the normal rotation path.
+- For symmetric components, mirror may look identical to a rotation-only change. That is expected in the current implementation.
+
 ## Undo And Redo
 
 - Overlay previews do not open FreeCAD document transactions and do not create undo entries.

@@ -31,6 +31,7 @@ from ocw_workbench.gui.runtime import component_icon_path, icon_path
 from ocw_workbench.freecad_api.metadata import get_document_data
 from ocw_workbench.freecad_api.state import has_persisted_state
 from ocw_workbench.services.alignment_service import AlignmentService
+from ocw_workbench.services.component_transform_service import ComponentTransformService
 from ocw_workbench.services.controller_service import ControllerService
 from ocw_workbench.services.interaction_service import InteractionService
 from ocw_workbench.services.overlay_service import OverlayService
@@ -142,6 +143,7 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         from ocw_workbench.commands.open_component_palette import OpenComponentPaletteCommand
         from ocw_workbench.commands.reload_plugins import ReloadPluginsCommand
         from ocw_workbench.commands.select_component import SelectComponentCommand
+        from ocw_workbench.commands.selection_transform import SelectionTransformCommand
         from ocw_workbench.commands.show_constraint_overlay import ShowConstraintOverlayCommand
         from ocw_workbench.commands.snap_to_grid import SnapToGridCommand
         from ocw_workbench.commands.toggle_conflict_lines import ToggleConflictLinesCommand
@@ -161,6 +163,11 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         Gui.addCommand("OCW_MoveComponentInteractive", _LoggedCommand("OCW_MoveComponentInteractive", MoveComponentInteractiveCommand()))
         Gui.addCommand("OCW_DragMoveComponent", _LoggedCommand("OCW_DragMoveComponent", DragMoveComponentCommand()))
         Gui.addCommand("OCW_SnapToGrid", _LoggedCommand("OCW_SnapToGrid", SnapToGridCommand()))
+        Gui.addCommand("OCW_RotateCW90", _LoggedCommand("OCW_RotateCW90", SelectionTransformCommand("rotate_cw_90")))
+        Gui.addCommand("OCW_RotateCCW90", _LoggedCommand("OCW_RotateCCW90", SelectionTransformCommand("rotate_ccw_90")))
+        Gui.addCommand("OCW_Rotate180", _LoggedCommand("OCW_Rotate180", SelectionTransformCommand("rotate_180")))
+        Gui.addCommand("OCW_MirrorHorizontal", _LoggedCommand("OCW_MirrorHorizontal", SelectionTransformCommand("mirror_horizontal")))
+        Gui.addCommand("OCW_MirrorVertical", _LoggedCommand("OCW_MirrorVertical", SelectionTransformCommand("mirror_vertical")))
         Gui.addCommand("OCW_AlignLeft", _LoggedCommand("OCW_AlignLeft", SelectionArrangeCommand("align_left")))
         Gui.addCommand("OCW_AlignCenterX", _LoggedCommand("OCW_AlignCenterX", SelectionArrangeCommand("align_center_x")))
         Gui.addCommand("OCW_AlignRight", _LoggedCommand("OCW_AlignRight", SelectionArrangeCommand("align_right")))
@@ -200,6 +207,11 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
             "OCW_MoveComponentInteractive",
             "OCW_DragMoveComponent",
             "OCW_SnapToGrid",
+            "OCW_RotateCW90",
+            "OCW_RotateCCW90",
+            "OCW_Rotate180",
+            "OCW_MirrorHorizontal",
+            "OCW_MirrorVertical",
             "OCW_AlignLeft",
             "OCW_AlignCenterX",
             "OCW_AlignRight",
@@ -264,6 +276,7 @@ class ProductWorkbenchPanel:
         self.controller_service = controller_service or ControllerService()
         self.interaction_service = InteractionService(self.controller_service)
         self.alignment_service = AlignmentService()
+        self.transform_service = ComponentTransformService()
         self.overlay_service = OverlayService(self.controller_service)
         self.overlay_renderer = OverlayRenderer(self.overlay_service)
         self.interaction_manager = InteractionSessionManager()
@@ -518,6 +531,33 @@ class ProductWorkbenchPanel:
             "plan": plan,
         }
 
+    def apply_selection_transform(self, operation: str) -> dict[str, Any]:
+        state = self.controller_service.get_state(self.doc)
+        selected_ids = self.controller_service.get_selected_component_ids(self.doc)
+        selected_components = [component for component in state["components"] if component["id"] in selected_ids]
+        plan = self.transform_service.build_updates(selected_components, operation)
+        if plan["updates_by_component"]:
+            self.controller_service.bulk_update_components(
+                self.doc,
+                plan["updates_by_component"],
+                transaction_name=plan["transaction_name"],
+            )
+            self.refresh_context_panels(refresh_components=True)
+            self.refresh_overlay()
+        self.focus_panel("components")
+        count = len(selected_components)
+        moved_count = int(plan.get("moved_count", 0))
+        if moved_count <= 0:
+            self.set_status(f"{self._transform_label(operation)} left {count} selected components unchanged.")
+        else:
+            self.set_status(f"{self._transform_label(operation)} applied to {count} selected components.")
+        return {
+            "operation": operation,
+            "selected_count": count,
+            "moved_count": moved_count,
+            "plan": plan,
+        }
+
     def enable_selected_plugin(self) -> dict[str, Any]:
         result = self.plugin_manager_panel.enable_selected_plugin()
         self.refresh_all()
@@ -697,6 +737,16 @@ class ProductWorkbenchPanel:
             "distribute_vertical": "Distribute vertically",
         }
         return labels.get(operation, "Arrange selection")
+
+    def _transform_label(self, operation: str) -> str:
+        labels = {
+            "rotate_cw_90": "Rotate +90",
+            "rotate_ccw_90": "Rotate -90",
+            "rotate_180": "Rotate 180",
+            "mirror_horizontal": "Mirror horizontally",
+            "mirror_vertical": "Mirror vertically",
+        }
+        return labels.get(operation, "Transform selection")
 
     def _overlay_status_text(self, payload: dict[str, Any] | None = None) -> str:
         current = payload or get_document_data(self.doc, "OCWOverlayState", {})

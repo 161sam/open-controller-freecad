@@ -133,6 +133,16 @@
 - die inneren Komponenten werden gleichmäßig dazwischen verteilt
 - jede Aktion läuft als eine gemeinsame Positionsoperation und ist mit einem Undo vollständig rückgängig machbar
 
+## Workflow 10d – Select -> Rotate / Mirror
+
+- eine oder mehrere Komponenten auswählen
+- `Rotate +90`, `Rotate -90` oder `Rotate 180` verwenden, um die Selektion um ihre jeweiligen Komponenten-Zentren zu drehen
+- `Mirror Horizontally` oder `Mirror Vertically` verwenden, um die Orientierungsrichtung der Selektion lokal zu spiegeln
+- Rotate und Mirror laufen bewusst über den bestehenden Rotationspfad
+- Positionen bleiben dabei unverändert
+- Overlay, Keepout-Validierung und Builder verwenden danach direkt die aktualisierte `rotation`
+- jede Transform-Aktion läuft als eine gemeinsame Undo-fähige Operation
+
 ## Stage A And Stage B Compatibility
 
 - Stage A and Stage B use the same registry, template loader, and template inspector flow.
@@ -194,6 +204,7 @@
   - `clear_selection()`
   - `toggle_selection(...)`
 - Align and distribute consume that same ordered selection input and keep the primary selection unchanged.
+- Rotate and mirror also consume the same selection input and keep the primary selection unchanged.
 
 ## Project Parameter Roundtrip
 

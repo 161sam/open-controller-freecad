@@ -494,6 +494,43 @@ def test_product_workbench_panel_distributes_multi_selection_horizontally():
     assert doc.transactions[-2:] == [("open", "OCW Distribute Horizontally"), ("commit", None)]
 
 
+def test_product_workbench_panel_rotates_multi_selection_with_single_operation():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=10.0, y=10.0, rotation=0.0)
+    service.add_component(doc, "omron_b3f_1000", component_id="btn2", x=30.0, y=10.0, rotation=90.0)
+    service.set_selected_component_ids(doc, ["btn1", "btn2"], primary_id="btn1")
+    workbench = ProductWorkbenchPanel(doc, controller_service=service)
+
+    result = workbench.apply_selection_transform("rotate_cw_90")
+
+    assert result["selected_count"] == 2
+    assert result["moved_count"] == 2
+    state = service.get_state(doc)
+    by_id = {component["id"]: component for component in state["components"]}
+    assert by_id["btn1"]["rotation"] == 90.0
+    assert by_id["btn2"]["rotation"] == 180.0
+    assert doc.transactions[-2:] == [("open", "OCW Rotate +90"), ("commit", None)]
+
+
+def test_product_workbench_panel_mirrors_selection_vertically_via_rotation():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "adafruit_oled_096_i2c_ssd1306", component_id="disp1", x=20.0, y=20.0, rotation=90.0)
+    service.set_selected_component_ids(doc, ["disp1"], primary_id="disp1")
+    workbench = ProductWorkbenchPanel(doc, controller_service=service)
+
+    result = workbench.apply_selection_transform("mirror_vertical")
+
+    assert result["selected_count"] == 1
+    assert result["moved_count"] == 1
+    component = service.get_component(doc, "disp1")
+    assert component["rotation"] == 270.0
+    assert doc.transactions[-2:] == [("open", "OCW Mirror Vertically"), ("commit", None)]
+
+
 def test_panels_expose_tooltips_for_key_workflows():
     doc = FakeDocument()
     service = ControllerService()
