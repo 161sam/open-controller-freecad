@@ -1,114 +1,107 @@
-
 # Open Controller Workbench
 
-FreeCAD-Workbench zur parametrischen Entwicklung modularer MIDI-Controller.
+Open Controller Workbench (OCW) is a FreeCAD workbench for designing modular MIDI controller hardware with template-driven controller generation, component placement, validation overlays, and export-oriented project data.
 
-## Ziel
+Current release target: `v0.1.0`
 
-Dieses Repository ist als FreeCAD-Modulroot aufgebaut. FreeCAD soll den gesamten Repo-Root als Modul laden, nicht nur das Python-Package `ocw_workbench/`.
+## What v0.1 includes
 
-Die relevante Struktur ist:
+- FreeCAD workbench registration through `InitGui.py`
+- Controller creation from YAML templates and variants
+- FCStd template import:
+  - Stage A: FCStd to YAML template
+  - Stage B: FCStd-backed base geometry reference
+- Template inspector with parameter editing and preset application
+- Project parameter roundtrip for reopening and re-parameterizing saved documents
+- Interactive placement and drag tools with preview validation and cleanup hardening
+- Multi-selection, bulk edit, align/distribute, rotate/mirror, duplicate, and array placement workflows
+- Constraint validation, overlay rendering, and export-oriented state generation
+
+## Repository layout
+
+This repository is intentionally structured as a FreeCAD module root. FreeCAD must load the repository root, not only the `ocw_workbench/` Python package.
 
 ```text
-open-controler-workbench/
+OpenControllerWorkbench/
 ├── Init.py
 ├── InitGui.py
 ├── ocw_workbench/
 ├── ocw_kicad/
 ├── resources/
-├── examples/
-└── docs/
+├── docs/
+└── examples/
 ```
 
-Wichtig:
-- `Init.py` und `InitGui.py` liegen im Modulroot, wie FreeCAD es erwartet
-- `ocw_workbench/` enthält das Python-Package
-- `resources/` enthält Icons und weitere Runtime-Ressourcen
-- YAML-Daten für Templates, Varianten, Libraries und Plugins liegen im Package unter `ocw_workbench/`
+## Installation
 
-## Dev-Installation unter Linux
-
-1. Repository klonen:
+### Development install on Linux
 
 ```bash
-git clone https://github.com/161sam/open-controler-workbench.git
-cd open-controler-workbench
-```
-
-2. Python-Abhängigkeiten für lokale Entwicklung installieren:
-
-```bash
+git clone https://github.com/161sam/open-controller-workbench.git
+cd open-controller-workbench
 pip install -e .
-```
-
-3. FreeCAD-Mod-Symlink setzen:
-
-```bash
 mkdir -p ~/.local/share/FreeCAD/Mod
 ln -s "$(pwd)" ~/.local/share/FreeCAD/Mod/OpenControllerWorkbench
 ```
 
-Alternativ für Snap-FreeCAD:
+### Development install for Snap FreeCAD
 
 ```bash
+git clone https://github.com/161sam/open-controller-workbench.git
+cd open-controller-workbench
+pip install -e .
 mkdir -p ~/snap/freecad/common/Mod
 ln -s "$(pwd)" ~/snap/freecad/common/Mod/OpenControllerWorkbench
 ```
 
-Wichtig:
-- Ziel ist immer der Repo-Root
-- nicht `$(pwd)/ocw_workbench`
-- der Modulname darf frei gewählt werden, sollte aber stabil sein, z. B. `OpenControllerWorkbench`
+Important:
 
-## FreeCAD-Test
+- Symlink the repository root.
+- Do not symlink only `ocw_workbench/`.
+- Keep the module directory name stable, for example `OpenControllerWorkbench`.
+
+## First run
+
+1. Start FreeCAD.
+2. Open the workbench selector.
+3. Select `Open Controller Workbench`.
+4. Create a controller from a template or import a template from FCStd.
+
+## Documentation
+
+- [User Guide](docs/user-guide.md)
+- [Workflows](docs/workflows.md)
+- [Installation](docs/plugin-installation.md)
+- [Architecture](docs/architecture.md)
+- [Service Architecture](docs/service-architecture.md)
+- [State Architecture](docs/state-architecture.md)
+- [Geometry Pipeline](docs/geometry-pipeline.md)
+- [Development](docs/development.md)
+- [Release Checklist](docs/release-checklist.md)
+- [Release Notes v0.1](RELEASE_NOTES_v0.1.md)
+- [Changelog](CHANGELOG.md)
+
+## Testing
+
+Run the unit test suite with:
 
 ```bash
-freecad
+.venv/bin/python -m pytest -q
 ```
 
-Danach in FreeCAD:
-- Workbench-Liste öffnen
-- `Open Controller Workbench` auswählen
+For release sanity checks, include the metadata/resource checks:
 
-Wenn die Installation stimmt, sieht FreeCAD `InitGui.py`, registriert die Workbench und lädt Icons/Ressourcen aus demselben Modulroot.
+```bash
+.venv/bin/python -m pytest -q tests/unit/test_release_metadata.py
+```
 
-## Troubleshooting
+## Known limits for v0.1
 
-### Workbench erscheint nicht
+- The project is still alpha-quality and focused on a productive FreeCAD workflow rather than long-term file-format guarantees.
+- Mirror currently uses the existing component rotation path rather than a dedicated mirrored geometry model.
+- Pattern generation is intentionally simple and not constraint-aware.
+- A final public license selection is still required before an external public release should be published.
 
-- prüfen, ob der Symlink auf den Repo-Root zeigt
-- prüfen, ob `Init.py` und `InitGui.py` direkt im Zielordner liegen
-- FreeCAD komplett neu starten
+## License status
 
-### Workbench erscheint, aber Icons fehlen
-
-- prüfen, ob `resources/icons/` im verlinkten Repo vorhanden ist
-- keinen Symlink auf `ocw_workbench/` setzen, sondern auf den Repo-Root
-
-### YAML/Templates/Libraries werden nicht gefunden
-
-- prüfen, ob `ocw_workbench/templates/`, `ocw_workbench/variants/`, `ocw_workbench/library/` im verlinkten Repo vorhanden sind
-- prüfen, ob FreeCAD wirklich das richtige Modulverzeichnis geladen hat
-
-## Dokumentation
-
-- `docs/architecture.md`
-- `docs/workbench.md`
-- `docs/workflows.md`
-- `docs/schema-v1.md`
-- `docs/development.md`
-- `docs/plugin-installation.md`
-- `docs/kicad-workflow.md`
-
-## Vision
-
-Parametrischer Hardware-Controller-Builder mit durchgängiger Pipeline:
-
-FreeCAD → Schema → KiCad → OCF Framework → Runtime
-
-OCW bezeichnet dieses FreeCAD-Workbench-Repository.
-OCF bezeichnet das separate Framework-Repository.
-
-## Lizenz
-
-Noch nicht final festgelegt. Vor Veröffentlichung oder externer Weitergabe muss eine eindeutige Lizenz für dieses Repository ergänzt werden.
+No final project license has been selected yet. This is a release blocker for any public distribution beyond internal or private evaluation.

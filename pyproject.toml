@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,6 +8,18 @@ version = "0.1.0"
 description = "FreeCAD Workbench for modular MIDI controller design"
 authors = [{ name = "huckle lab" }]
 readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["freecad", "midi", "controller", "cad", "hardware"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Multimedia :: Sound/Audio :: MIDI",
+    "Topic :: Scientific/Engineering",
+]
+urls = { Repository = "https://github.com/161sam/open-controller-workbench" }
 dependencies = [
     "pyyaml"
 ]
@@ -29,3 +41,7 @@ ocw_workbench = [
 ]
 
 ocw_kicad = []
+
+[tool.setuptools.data-files]
+"resources/icons" = ["resources/icons/*.svg"]
+"resources/icons/components" = ["resources/icons/components/*.svg"]

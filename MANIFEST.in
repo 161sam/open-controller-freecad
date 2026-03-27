@@ -3,6 +3,6 @@ include InitGui.py
 include ocw_kicad_plugin.py
 include README.md
 include pyproject.toml
-recursive-include resources *.svg *.ui *.yaml *.json
-recursive-include ocw_workbench *.yaml *.svg *.json *.ui
+recursive-include resources *.svg
+recursive-include ocw_workbench *.yaml
 recursive-include examples *.yaml

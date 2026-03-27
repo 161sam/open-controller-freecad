@@ -1,10 +1,10 @@
-# Plugin Installation
+# Installation
 
-## Zielstruktur
+## Module root requirement
 
-Dieses Repository ist selbst der FreeCAD-Modulordner.
+This repository is the FreeCAD module root.
 
-FreeCAD erwartet im Modulroot:
+FreeCAD expects the following structure directly in the module directory:
 
 ```text
 OpenControllerWorkbench/
@@ -15,76 +15,74 @@ OpenControllerWorkbench/
 └── resources/
 ```
 
-Deshalb muss der Symlink immer auf den Repository-Root zeigen.
+Always link or copy the repository root itself. Do not point FreeCAD only at `ocw_workbench/`.
 
-## Voraussetzungen
+## Requirements
 
 - FreeCAD
-- Python + pip
+- Python and `pip`
 - Git
 
-## Dev-Setup unter Linux
+## Linux development install
 
 ```bash
-git clone https://github.com/161sam/open-controler-workbench.git
-cd open-controler-workbench
+git clone https://github.com/161sam/open-controller-workbench.git
+cd open-controller-workbench
 pip install -e .
 mkdir -p ~/.local/share/FreeCAD/Mod
 ln -s "$(pwd)" ~/.local/share/FreeCAD/Mod/OpenControllerWorkbench
 ```
 
-## Dev-Setup für Snap-FreeCAD
+## Snap FreeCAD development install
 
 ```bash
-git clone https://github.com/161sam/open-controler-workbench.git
-cd open-controler-workbench
+git clone https://github.com/161sam/open-controller-workbench.git
+cd open-controller-workbench
 pip install -e .
 mkdir -p ~/snap/freecad/common/Mod
 ln -s "$(pwd)" ~/snap/freecad/common/Mod/OpenControllerWorkbench
 ```
 
-## Start
+## Startup check
 
-```bash
-freecad
-```
+1. Start FreeCAD.
+2. Open the workbench selector.
+3. Select `Open Controller Workbench`.
 
-Dann:
-- FreeCAD öffnen
-- Workbench `Open Controller Workbench` auswählen
+If installation is correct:
 
-## Prüfung
-
-Wenn die Installation korrekt ist:
-- FreeCAD findet `InitGui.py`
-- die Workbench erscheint in der Workbench-Liste
-- Icons werden geladen
-- Templates, Varianten und Library-YAMLs sind verfügbar
+- FreeCAD finds `InitGui.py`
+- the workbench appears in the workbench list
+- icons load
+- templates, variants, and library YAML data are available
 
 ## Troubleshooting
 
-### Workbench fehlt
+### Workbench does not appear
 
-- prüfen, ob der Link auf den Repo-Root zeigt
-- prüfen, ob im Zielordner `Init.py` und `InitGui.py` direkt liegen
-- FreeCAD vollständig neu starten
+- Confirm the symlink points to the repository root.
+- Confirm `Init.py` and `InitGui.py` are directly inside the target directory.
+- Restart FreeCAD completely.
 
-### Icons fehlen
+### Icons are missing
 
-- prüfen, ob `resources/icons/` im Modulroot vorhanden ist
-- prüfen, ob nicht versehentlich nur `ocw_workbench/` verlinkt wurde
+- Confirm `resources/icons/` exists in the linked module root.
+- Confirm only the repository root is linked, not `ocw_workbench/` alone.
 
-### YAML-/Template-Daten fehlen
+### YAML template or library data is missing
 
-- prüfen, ob `ocw_workbench/templates/`, `ocw_workbench/variants/`, `ocw_workbench/library/` und `ocw_workbench/plugins/internal/` vorhanden sind
-- prüfen, ob FreeCAD das richtige Modulverzeichnis lädt
+- Confirm these paths exist in the linked module root:
+  - `ocw_workbench/templates/`
+  - `ocw_workbench/variants/`
+  - `ocw_workbench/library/`
+  - `ocw_workbench/plugins/internal/`
+- Confirm FreeCAD loaded the expected module directory.
 
-### Importfehler
+### Import errors
 
-- `pip install -e .` erneut ausführen
-- Python-Umgebung von FreeCAD beachten
+- Re-run `pip install -e .`
+- Verify which Python environment your FreeCAD build uses
 
-## Zukunft
+## Distribution note
 
-- Addon-Manager-Integration
-- Release-ZIP mit kompletter Modulstruktur
+`v0.1.0` is prepared for source and wheel builds, but no public package publication is performed in this task.
