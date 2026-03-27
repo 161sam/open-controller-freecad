@@ -94,7 +94,7 @@ class ComponentsPanel:
             suffix = f" 3D move active for {move_mode}." if move_mode else ""
             apply_status_message(
                 self.form["status"],
-                f"{len(labels)} components ready. {selection_count} selected.{suffix}",
+                f"{len(labels)} components available. {selection_count} selected.{suffix}",
                 level="info",
             )
         else:
@@ -102,7 +102,7 @@ class ComponentsPanel:
             set_text(self.form["details"], "No components in this controller yet.")
             apply_status_message(
                 self.form["status"],
-                "Add a component from the library to start building the controller.",
+                "Add a component to start building the controller.",
                 level="info",
             )
 
@@ -164,9 +164,9 @@ class ComponentsPanel:
             self.form["details"],
             "\n".join(
                 [
-                    f"Bulk edit count: {self._bulk_model['count']}",
+                    f"Selected: {self._bulk_model['count']}",
                     f"Families: {', '.join(self._bulk_model['categories'])}",
-                    "Bulk edit only exposes shared, conservative fields.",
+                    "Only shared fields are shown.",
                 ]
             ),
         )
@@ -185,7 +185,7 @@ class ComponentsPanel:
         values = self._read_form_values(model)
         updates = self._changed_updates(model, values)
         if not updates:
-            self._publish_status(f"No changes to apply for '{component_id}'. Adjust placement or properties first.")
+            self._publish_status(f"No changes to apply for '{component_id}'.")
             return self.controller_service.get_state(self.doc)
         target_x = float(values["x"])
         target_y = float(values["y"])
@@ -209,7 +209,7 @@ class ComponentsPanel:
         if state is None:
             return self.controller_service.get_state(self.doc)
         self.refresh_components()
-        self._publish_status(f"Applied changes to '{component_id}'. Placement and component properties are up to date.")
+        self._publish_status(f"Changes applied to '{component_id}'.")
         if self.on_components_changed is not None:
             self.on_components_changed(state)
         return state
@@ -257,8 +257,7 @@ class ComponentsPanel:
             raise ValueError("No component selected")
         settings = self.interaction_service.arm_move(self.doc, component_id)
         self._publish_status(
-            f"Pick In 3D is active for '{component_id}'. Click in the view to choose a new location, "
-            "or return here and edit X/Y directly."
+            f"3D move is active for '{component_id}'. Click in the view to choose a new position, or edit X/Y here."
         )
         return settings
 
@@ -295,7 +294,7 @@ class ComponentsPanel:
         try:
             self.arm_move_for_selected()
         except Exception as exc:
-            self._publish_status(_friendly_component_error("Could not enable Pick In 3D", exc))
+            self._publish_status(_friendly_component_error("Could not start 3D move", exc))
 
     def handle_snap_clicked(self) -> None:
         try:
@@ -574,10 +573,10 @@ def _build_form() -> dict[str, Any]:
             "tags": FallbackText(),
             "visible": FallbackCheckBox(True),
             "specific_editor": specific_editor,
-            "update_button": FallbackButton("Apply Changes"),
-            "arm_move_button": FallbackButton("Pick In 3D"),
-            "snap_button": FallbackButton("Snap To Grid"),
-            "reset_button": FallbackButton("Reset Properties"),
+            "update_button": FallbackButton("Apply"),
+            "arm_move_button": FallbackButton("Move In 3D"),
+            "snap_button": FallbackButton("Snap"),
+            "reset_button": FallbackButton("Reset"),
             "bulk_count": FallbackLabel("Selected: 0"),
             "bulk_types": FallbackLabel("Types: -"),
             "bulk_summary": FallbackText(),
@@ -618,7 +617,7 @@ def _build_form() -> dict[str, Any]:
     layout = qtwidgets.QVBoxLayout(content)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(8)
-    selector_box = qtwidgets.QGroupBox("Adjust Selected Component")
+    selector_box = qtwidgets.QGroupBox("Selected Component")
     selector_layout = qtwidgets.QFormLayout(selector_box)
     selector_layout.setSpacing(6)
     component = qtwidgets.QComboBox()
@@ -634,28 +633,28 @@ def _build_form() -> dict[str, Any]:
     tags = qtwidgets.QLineEdit()
     visible = qtwidgets.QCheckBox()
     visible.setChecked(True)
-    update_button = qtwidgets.QPushButton("Apply Changes")
-    arm_move_button = qtwidgets.QPushButton("Pick In 3D")
-    snap_button = qtwidgets.QPushButton("Snap To Grid")
-    reset_button = qtwidgets.QPushButton("Reset Properties")
+    update_button = qtwidgets.QPushButton("Apply")
+    arm_move_button = qtwidgets.QPushButton("Move In 3D")
+    snap_button = qtwidgets.QPushButton("Snap")
+    reset_button = qtwidgets.QPushButton("Reset")
     configure_combo_box(library_ref)
-    set_tooltip(component, "Select the component you want to inspect or adjust.")
-    set_tooltip(x, "Horizontal center position in millimeters.")
-    set_tooltip(y, "Vertical center position in millimeters.")
-    set_tooltip(rotation, "Rotation around the component center in degrees.")
-    set_tooltip(library_ref, "Choose the component variant from the library family.")
-    set_tooltip(label, "Human-readable label shown in exported data and inspectors.")
-    set_tooltip(tags, "Comma-separated tags for grouping, filtering or downstream workflows.")
-    set_tooltip(visible, "Toggle whether the component is treated as visible metadata.")
-    set_tooltip(update_button, "Apply the edited placement and component properties.")
-    set_tooltip(arm_move_button, "Pick a new location directly in the 3D view.")
-    set_tooltip(snap_button, "Move the selected component to the current snap grid.")
-    set_tooltip(reset_button, "Discard unsaved panel edits and reload the selected component.")
+    set_tooltip(component, "Select a component to inspect or edit.")
+    set_tooltip(x, "Center X position in millimeters.")
+    set_tooltip(y, "Center Y position in millimeters.")
+    set_tooltip(rotation, "Rotation in degrees.")
+    set_tooltip(library_ref, "Choose a variant from the same library family.")
+    set_tooltip(label, "Label used in exports and inspectors.")
+    set_tooltip(tags, "Comma-separated tags for filtering or export workflows.")
+    set_tooltip(visible, "Include this component as visible metadata.")
+    set_tooltip(update_button, "Apply the current edits.")
+    set_tooltip(arm_move_button, "Pick a new position in the 3D view.")
+    set_tooltip(snap_button, "Snap the selected component to the grid.")
+    set_tooltip(reset_button, "Discard unsaved edits.")
     for spinbox in (x, y, rotation):
         spinbox.setRange(-1000.0, 1000.0)
         spinbox.setDecimals(2)
         set_size_policy(spinbox, horizontal="expanding", vertical="preferred")
-    selector_summary = qtwidgets.QLabel("Choose a component, adjust placement or metadata, then apply.")
+    selector_summary = qtwidgets.QLabel("Select a component, edit its values, then apply.")
     selector_summary.setWordWrap(True)
     selector_actions = qtwidgets.QGridLayout()
     selector_actions.setContentsMargins(0, 0, 0, 0)
@@ -679,12 +678,12 @@ def _build_form() -> dict[str, Any]:
     selector_layout.addRow("Visible", visible)
     selector_layout.addRow("Type-Specific", specific_editor.widget)
     selector_layout.addRow("", selector_actions)
-    bulk_box = qtwidgets.QGroupBox("Bulk Edit Selection")
+    bulk_box = qtwidgets.QGroupBox("Bulk Edit")
     bulk_layout = qtwidgets.QFormLayout(bulk_box)
     bulk_layout.setSpacing(6)
     bulk_count = qtwidgets.QLabel("Selected: 0")
     bulk_types = qtwidgets.QLabel("Types: -")
-    bulk_summary = qtwidgets.QLabel("Bulk edit is most useful when several similar components are selected.")
+    bulk_summary = qtwidgets.QLabel("Bulk edit works best with similar components.")
     bulk_summary.setWordWrap(True)
     bulk_label_rotation = qtwidgets.QLabel("Rotation")
     bulk_apply_rotation = qtwidgets.QCheckBox()
@@ -715,8 +714,8 @@ def _build_form() -> dict[str, Any]:
         spinbox.setRange(-1000.0, 1000.0)
         spinbox.setDecimals(2)
         set_size_policy(spinbox, horizontal="expanding", vertical="preferred")
-    bulk_update_button = qtwidgets.QPushButton("Apply Bulk Changes")
-    bulk_reset_button = qtwidgets.QPushButton("Reset Bulk Changes")
+    bulk_update_button = qtwidgets.QPushButton("Apply Bulk Edit")
+    bulk_reset_button = qtwidgets.QPushButton("Reset Bulk Edit")
     bulk_actions = qtwidgets.QGridLayout()
     bulk_actions.setContentsMargins(0, 0, 0, 0)
     bulk_actions.setHorizontalSpacing(8)
@@ -733,7 +732,7 @@ def _build_form() -> dict[str, Any]:
     bulk_layout.addRow(bulk_label_bezel, _bulk_row_widget(qtwidgets, bulk_apply_bezel, bulk_bezel))
     bulk_layout.addRow(bulk_label_cap_width, _bulk_row_widget(qtwidgets, bulk_apply_cap_width, bulk_cap_width))
     bulk_layout.addRow("", bulk_actions)
-    add_box = qtwidgets.QGroupBox("Add From Library")
+    add_box = qtwidgets.QGroupBox("Add Component")
     add_layout = qtwidgets.QFormLayout(add_box)
     add_layout.setSpacing(6)
     add_category = qtwidgets.QComboBox()
@@ -743,13 +742,13 @@ def _build_form() -> dict[str, Any]:
     add_x = qtwidgets.QDoubleSpinBox()
     add_y = qtwidgets.QDoubleSpinBox()
     add_rotation = qtwidgets.QDoubleSpinBox()
-    add_button = qtwidgets.QPushButton("Add To Controller")
+    add_button = qtwidgets.QPushButton("Add")
     set_tooltip(add_category, "Filter the component library by category.")
-    set_tooltip(add_component, "Choose the library part to insert into the controller.")
-    set_tooltip(add_x, "Initial X position for the new component.")
-    set_tooltip(add_y, "Initial Y position for the new component.")
-    set_tooltip(add_rotation, "Initial rotation for the new component.")
-    set_tooltip(add_button, "Insert the selected library component into the active controller.")
+    set_tooltip(add_component, "Choose a library part to add.")
+    set_tooltip(add_x, "Initial X position.")
+    set_tooltip(add_y, "Initial Y position.")
+    set_tooltip(add_rotation, "Initial rotation.")
+    set_tooltip(add_button, "Add the selected component.")
     for spinbox in (add_x, add_y, add_rotation):
         spinbox.setRange(-1000.0, 1000.0)
         spinbox.setDecimals(2)

@@ -9,8 +9,8 @@ class ToggleOverlayCommand(BaseCommand):
 
     def GetResources(self):
         return self.resources(
-            "Overlay Visibility",
-            "Show or hide helper graphics such as component outlines, cutout previews and keepouts.",
+            "Overlay",
+            "Show or hide layout helpers such as outlines and keepouts.",
         )
 
     def Activated(self):

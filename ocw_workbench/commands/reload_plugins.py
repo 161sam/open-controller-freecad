@@ -9,8 +9,8 @@ class ReloadPluginsCommand(BaseCommand):
 
     def GetResources(self):
         return self.resources(
-            "Refresh Plugins",
-            "Rescan plugin packs and refresh their status.",
+            "Reload Plugins",
+            "Rescan plugin packs and refresh plugin status.",
         )
 
     def Activated(self):
@@ -21,6 +21,6 @@ class ReloadPluginsCommand(BaseCommand):
 
             doc = App.ActiveDocument or App.newDocument("Controller")
             result = ensure_workbench_ui(doc, focus="plugins").reload_plugins()
-            show_info("Refresh Plugins", f"Discovered {len(result)} plugins.")
+            show_info("Reload Plugins", f"Discovered {len(result)} plugins.")
         except Exception as exc:
-            show_error("Refresh Plugins", exc)
+            show_error("Reload Plugins", exc)

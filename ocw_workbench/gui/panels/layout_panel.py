@@ -72,7 +72,7 @@ class LayoutPanel:
             set_text(self.form["summary"], "No layout has been applied yet.")
             apply_status_message(
                 self.form["status"],
-                "Use Auto Place after creating a template or when components need a fresh starting layout.",
+                "Use Auto Place after creating a controller or when the layout needs a reset.",
                 level="info",
             )
             return
@@ -137,7 +137,7 @@ class LayoutPanel:
             format_toggle_message(
                 "Overlay",
                 settings["overlay_enabled"],
-                "Use this for cutout, keepout and placement guidance without changing the model.",
+                "Use this to show layout helpers without changing the model.",
             ),
             level="info",
         )
@@ -150,7 +150,7 @@ class LayoutPanel:
             format_toggle_message(
                 "Constraint checks",
                 settings["show_constraints"],
-                "Enable this when you want spacing and edge warnings highlighted in the view.",
+                "Use this to highlight spacing and edge issues in the view.",
             ),
             level="info",
         )
@@ -164,7 +164,7 @@ class LayoutPanel:
         )
         self.refresh()
         self._publish_status(
-            format_toggle_message("Snap to grid", updated["snap_enabled"], "New moves and snaps will follow the current grid value."),
+            format_toggle_message("Snap to grid", updated["snap_enabled"], "New moves use the current grid."),
             level="info",
         )
         return updated
@@ -173,7 +173,7 @@ class LayoutPanel:
         settings = self.interaction_service.toggle_measurements(self.doc)
         self.refresh()
         self._publish_status(
-            format_toggle_message("Measurement guides", settings["measurements_enabled"], "Useful when checking center-to-center distances."),
+            format_toggle_message("Measurement guides", settings["measurements_enabled"], "Use these to check spacing."),
             level="info",
         )
         return settings
@@ -182,7 +182,7 @@ class LayoutPanel:
         settings = self.interaction_service.toggle_conflict_lines(self.doc)
         self.refresh()
         self._publish_status(
-            format_toggle_message("Conflict lines", settings["conflict_lines_enabled"], "These lines help locate spacing conflicts quickly."),
+            format_toggle_message("Conflict lines", settings["conflict_lines_enabled"], "Use these to spot conflicts quickly."),
             level="info",
         )
         return settings
@@ -191,7 +191,7 @@ class LayoutPanel:
         settings = self.interaction_service.toggle_constraint_labels(self.doc)
         self.refresh()
         self._publish_status(
-            format_toggle_message("Issue labels", settings["constraint_labels_enabled"], "Turn labels on when you need readable issue names in the view."),
+            format_toggle_message("Issue labels", settings["constraint_labels_enabled"], "Turn labels on when you need issue names in the view."),
             level="info",
         )
         return settings
@@ -302,12 +302,12 @@ def _build_form() -> dict[str, Any]:
             "grid_mm": FallbackValue(1.0),
             "spacing_mm": FallbackValue(24.0),
             "padding_mm": FallbackValue(8.0),
-            "apply_button": FallbackButton("Auto Place Components"),
+            "apply_button": FallbackButton("Auto Place"),
             "rerun_button": FallbackButton("Re-run Placement"),
-            "overlay_button": FallbackButton("Overlay Visibility"),
-            "constraint_overlay_button": FallbackButton("Constraint Checks"),
+            "overlay_button": FallbackButton("Overlay"),
+            "constraint_overlay_button": FallbackButton("Issues"),
             "snap_button": FallbackButton("Snap"),
-            "measurements_button": FallbackButton("Measurement Guides"),
+            "measurements_button": FallbackButton("Guides"),
             "conflict_lines_button": FallbackButton("Conflict Lines"),
             "constraint_labels_button": FallbackButton("Issue Labels"),
             "summary": FallbackText(),
@@ -319,7 +319,7 @@ def _build_form() -> dict[str, Any]:
     layout = qtwidgets.QVBoxLayout(content)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(8)
-    intro = qtwidgets.QLabel("Run Auto Place first, then use overlay tools only as needed.")
+    intro = qtwidgets.QLabel("Run Auto Place first. Use the overlay tools when needed.")
     intro.setWordWrap(True)
     form = qtwidgets.QFormLayout()
     form.setContentsMargins(0, 0, 0, 0)
@@ -337,26 +337,26 @@ def _build_form() -> dict[str, Any]:
     grid_mm.setValue(1.0)
     spacing_mm.setValue(24.0)
     padding_mm.setValue(8.0)
-    apply_button = qtwidgets.QPushButton("Auto Place Components")
+    apply_button = qtwidgets.QPushButton("Auto Place")
     rerun_button = qtwidgets.QPushButton("Re-run Placement")
-    overlay_button = qtwidgets.QPushButton("Overlay Visibility")
-    constraint_overlay_button = qtwidgets.QPushButton("Constraint Checks")
+    overlay_button = qtwidgets.QPushButton("Overlay")
+    constraint_overlay_button = qtwidgets.QPushButton("Issues")
     snap_button = qtwidgets.QPushButton("Snap")
-    measurements_button = qtwidgets.QPushButton("Measurement Guides")
+    measurements_button = qtwidgets.QPushButton("Guides")
     conflict_lines_button = qtwidgets.QPushButton("Conflict Lines")
     constraint_labels_button = qtwidgets.QPushButton("Issue Labels")
-    set_tooltip(preset, "Choose the placement strategy used when Auto Place runs.")
-    set_tooltip(grid_mm, "Base grid used for snapping and placement rounding.")
-    set_tooltip(spacing_mm, "Center-to-center spacing target for grid, row or column placement.")
-    set_tooltip(padding_mm, "Padding kept free near the controller edge or placement zone border.")
-    set_tooltip(apply_button, "Apply the current placement strategy to all components now.")
-    set_tooltip(rerun_button, "Run Auto Place again with the current strategy and spacing values.")
-    set_tooltip(overlay_button, "Show or hide helper graphics such as outlines and cutout previews.")
-    set_tooltip(constraint_overlay_button, "Show or hide validation highlights for spacing and edge checks.")
-    set_tooltip(snap_button, "Toggle whether new moves align to the current grid value.")
-    set_tooltip(measurements_button, "Show or hide measurement guides in the overlay.")
-    set_tooltip(conflict_lines_button, "Show or hide helper lines that connect conflicting components.")
-    set_tooltip(constraint_labels_button, "Show or hide text labels for issues directly in the view.")
+    set_tooltip(preset, "Choose the Auto Place strategy.")
+    set_tooltip(grid_mm, "Grid size for snapping and placement.")
+    set_tooltip(spacing_mm, "Target spacing between component centers.")
+    set_tooltip(padding_mm, "Clearance kept near the controller edge.")
+    set_tooltip(apply_button, "Place all components with the current settings.")
+    set_tooltip(rerun_button, "Run Auto Place again with the current settings.")
+    set_tooltip(overlay_button, "Show or hide layout helpers.")
+    set_tooltip(constraint_overlay_button, "Show or hide validation issues in the view.")
+    set_tooltip(snap_button, "Turn snap to grid on or off.")
+    set_tooltip(measurements_button, "Show or hide measurement guides.")
+    set_tooltip(conflict_lines_button, "Show or hide conflict lines.")
+    set_tooltip(constraint_labels_button, "Show or hide issue labels.")
     primary_actions = qtwidgets.QHBoxLayout()
     primary_actions.setSpacing(8)
     primary_actions.addWidget(apply_button, 1)

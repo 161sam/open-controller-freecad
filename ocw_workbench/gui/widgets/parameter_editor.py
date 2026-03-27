@@ -265,7 +265,7 @@ def _build_widget() -> dict[str, Any]:
         return {
             "widget": object(),
             "preset": FallbackCombo(["Template Default"]),
-            "apply_preset_button": FallbackButton("Apply Template Preset"),
+            "apply_preset_button": FallbackButton("Apply Preset"),
             "controls_container": type("FallbackContainer", (), {"rows": []})(),
             "summary": FallbackLabel("No parameters for the selected template."),
         }
@@ -274,7 +274,7 @@ def _build_widget() -> dict[str, Any]:
     layout = qtwidgets.QVBoxLayout(widget)
     preset_row = qtwidgets.QHBoxLayout()
     preset = qtwidgets.QComboBox()
-    apply_preset_button = qtwidgets.QPushButton("Apply Template Preset")
+    apply_preset_button = qtwidgets.QPushButton("Apply Preset")
     preset_row.addWidget(preset, 1)
     preset_row.addWidget(apply_preset_button)
     controls_container = qtwidgets.QWidget()

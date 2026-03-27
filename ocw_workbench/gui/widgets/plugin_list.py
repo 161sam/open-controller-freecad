@@ -137,12 +137,12 @@ def _build_widget() -> dict[str, Any]:
             "remote_refresh_button": FallbackButton("Load Registry"),
             "remote_plugin_combo": FallbackCombo(),
             "remote_summary": FallbackLabel("No remote plugin selected."),
-            "remote_details": FallbackText("Load a remote registry to inspect available plugin packs."),
+            "remote_details": FallbackText("Load a registry to inspect available plugin packs."),
             "download_path": FallbackText(".plugin_downloads"),
             "download_button": FallbackButton("Download ZIP"),
         }
 
-    widget = qtwidgets.QGroupBox("Plugin List")
+    widget = qtwidgets.QGroupBox("Installed Plugins")
     layout = qtwidgets.QVBoxLayout(widget)
     filter_combo = qtwidgets.QComboBox()
     filter_combo.addItems(["all", "enabled", "disabled", "errors"])
@@ -152,12 +152,12 @@ def _build_widget() -> dict[str, Any]:
     refresh_button = qtwidgets.QPushButton("Refresh")
     export_path = qtwidgets.QLineEdit(".plugin_packs")
     import_path = qtwidgets.QLineEdit()
-    export_button = qtwidgets.QPushButton("Export ZIP")
-    import_button = qtwidgets.QPushButton("Import ZIP")
+    export_button = qtwidgets.QPushButton("Export")
+    import_button = qtwidgets.QPushButton("Import")
     summary = qtwidgets.QLabel("")
     summary.setWordWrap(True)
     remote_url = qtwidgets.QLineEdit()
-    remote_refresh_button = qtwidgets.QPushButton("Load Registry")
+    remote_refresh_button = qtwidgets.QPushButton("Load")
     remote_plugin_combo = qtwidgets.QComboBox()
     remote_summary = qtwidgets.QLabel("No remote plugin selected.")
     remote_summary.setWordWrap(True)
@@ -166,7 +166,7 @@ def _build_widget() -> dict[str, Any]:
     remote_details = qtwidgets.QPlainTextEdit()
     configure_text_panel(remote_details, max_height=120)
     download_path = qtwidgets.QLineEdit(".plugin_downloads")
-    download_button = qtwidgets.QPushButton("Download ZIP")
+    download_button = qtwidgets.QPushButton("Download")
     for child in (filter_combo, plugin_combo, export_path, import_path, remote_url, remote_plugin_combo, download_path):
         set_size_policy(child, horizontal="expanding", vertical="preferred")
     row = qtwidgets.QHBoxLayout()
@@ -197,7 +197,7 @@ def _build_widget() -> dict[str, Any]:
     layout.addLayout(export_row)
     layout.addLayout(import_row)
     layout.addSpacing(8)
-    layout.addWidget(qtwidgets.QLabel("Remote Registry"))
+    layout.addWidget(qtwidgets.QLabel("Remote Plugins"))
     layout.addLayout(remote_url_row)
     layout.addWidget(remote_plugin_combo)
     layout.addWidget(remote_summary)

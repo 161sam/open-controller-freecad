@@ -27,16 +27,16 @@ def _build_widget() -> dict[str, Any]:
             "widget": object(),
             "combo": FallbackCombo(),
             "name": FallbackText(),
-            "load_button": FallbackButton("Load Preset"),
-            "save_button": FallbackButton("Save Preset"),
+            "load_button": FallbackButton("Load"),
+            "save_button": FallbackButton("Save"),
         }
 
     widget = qtwidgets.QGroupBox("Presets")
     layout = qtwidgets.QFormLayout(widget)
     combo = qtwidgets.QComboBox()
     name = qtwidgets.QLineEdit()
-    load_button = qtwidgets.QPushButton("Load Preset")
-    save_button = qtwidgets.QPushButton("Save Preset")
+    load_button = qtwidgets.QPushButton("Load")
+    save_button = qtwidgets.QPushButton("Save")
     actions = qtwidgets.QHBoxLayout()
     actions.addWidget(load_button)
     actions.addWidget(save_button)

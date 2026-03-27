@@ -27,13 +27,13 @@ def _build_widget() -> dict[str, Any]:
             "widget": object(),
             "label": FallbackLabel("Favorites"),
             "combo": FallbackCombo(),
-            "apply_button": FallbackButton("Load Favorite"),
+            "apply_button": FallbackButton("Load"),
         }
 
     widget = qtwidgets.QGroupBox("Favorites")
     layout = qtwidgets.QVBoxLayout(widget)
     combo = qtwidgets.QComboBox()
-    apply_button = qtwidgets.QPushButton("Load Favorite")
+    apply_button = qtwidgets.QPushButton("Load")
     layout.addWidget(combo)
     layout.addWidget(apply_button)
     return {"widget": widget, "combo": combo, "apply_button": apply_button}

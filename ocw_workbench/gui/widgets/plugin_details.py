@@ -22,7 +22,7 @@ class PluginDetailsWidget:
         if plugin is None:
             set_label_text(self.parts["title"], "Plugin Details")
             self.parts["status_badge"].set_status("disabled", "No Selection")
-            set_text(self.parts["details"], "Select a plugin to inspect its metadata and current load status.")
+            set_text(self.parts["details"], "Select a plugin to inspect its metadata and status.")
             return
         set_label_text(self.parts["title"], plugin["name"])
         self.parts["status_badge"].set_status(plugin["status"], plugin["status_label"])

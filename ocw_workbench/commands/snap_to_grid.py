@@ -9,7 +9,7 @@ class SnapToGridCommand(BaseCommand):
 
     def GetResources(self):
         return self.resources(
-            "Snap To Grid",
+            "Snap",
             "Snap the selected component to the current grid.",
         )
 
@@ -24,6 +24,6 @@ class SnapToGridCommand(BaseCommand):
                 raise RuntimeError("No active FreeCAD document")
             panel = ensure_workbench_ui(doc, focus="components")
             result = panel.snap_selection_to_grid()
-            show_info("Snap To Grid", f"Snapped '{result['component_id']}' to grid.")
+            show_info("Snap", f"Snapped '{result['component_id']}' to grid.")
         except Exception as exc:
-            show_error("Snap To Grid", exc)
+            show_error("Snap", exc)

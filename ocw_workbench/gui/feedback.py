@@ -35,7 +35,7 @@ def format_layout_message(result: dict[str, Any], strategy: str) -> tuple[str, s
     level = "success" if unplaced == 0 and warnings == 0 else "warning"
     message = (
         f"Auto Place finished with {strategy}: {placed} placed, "
-        f"{unplaced} unplaced, {warnings} warnings. Review the Constraints tab next."
+        f"{unplaced} unplaced, {warnings} warnings."
     )
     return (message, level)
 

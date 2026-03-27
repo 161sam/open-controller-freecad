@@ -10,8 +10,8 @@ class SelectComponentCommand(BaseCommand):
 
     def GetResources(self):
         return self.resources(
-            "Component Manager",
-            "Review, edit, and reposition components in the current controller.",
+            "Components",
+            "Review, edit, and move components in the current controller.",
         )
 
     def Activated(self):
@@ -24,6 +24,6 @@ class SelectComponentCommand(BaseCommand):
             if doc is None:
                 raise RuntimeError("No active FreeCAD document")
             ensure_workbench_ui(doc, focus="components")
-            log_to_console("Component Manager command focused the Components panel.")
+            log_to_console("Components command focused the Components panel.")
         except Exception as exc:
             show_error("Components", exc)

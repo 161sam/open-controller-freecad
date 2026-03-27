@@ -122,7 +122,7 @@ class _FavoriteComponentCommand:
 
 class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
     MenuText = "Open Controller Workbench"
-    ToolTip = "Design modular MIDI controllers in the Open Controller Workbench."
+    ToolTip = "Create and refine modular controllers in the Open Controller Workbench."
     Icon = icon_path("workbench")
 
     def GetClassName(self) -> str:
@@ -492,9 +492,7 @@ class ProductWorkbenchPanel:
         self.info_panel.refresh()
         self.refresh_overlay()
         self.focus_panel("components")
-        self.set_status(
-            f"Pick In 3D is ready for '{settings['move_component_id']}'. Click in the view or return to the Components tab to edit X/Y directly."
-        )
+        self.set_status(f"3D move is ready for '{settings['move_component_id']}'. Click in the view or edit X/Y in Components.")
         return settings
 
     def move_to(self, x: float, y: float) -> dict[str, Any]:
@@ -502,9 +500,7 @@ class ProductWorkbenchPanel:
         self.refresh_context_panels(refresh_components=True)
         self.refresh_overlay()
         self.focus_panel("components")
-        self.set_status(
-            f"Moved '{result['component_id']}' to {result['x']:.2f}, {result['y']:.2f} mm. Validation and overlay were refreshed."
-        )
+        self.set_status(f"Moved '{result['component_id']}' to {result['x']:.2f}, {result['y']:.2f} mm.")
         return result
 
     def snap_selection_to_grid(self) -> dict[str, Any]:
@@ -512,7 +508,7 @@ class ProductWorkbenchPanel:
         self.refresh_context_panels(refresh_components=True)
         self.refresh_overlay()
         self.focus_panel("components")
-        self.set_status(f"Snapped '{result['component_id']}' to the current grid. Review the overlay for the updated placement.")
+        self.set_status(f"Snapped '{result['component_id']}' to the current grid.")
         return result
 
     def apply_selection_arrangement(self, operation: str) -> dict[str, Any]:
@@ -677,12 +673,12 @@ class ProductWorkbenchPanel:
         title = qtwidgets.QLabel("Open Controller Workbench")
         if hasattr(title, "setObjectName"):
             title.setObjectName("OCWHeaderTitle")
-        subtitle = qtwidgets.QLabel("Build a controller, place components, then validate the result.")
+        subtitle = qtwidgets.QLabel("Create a controller, place components, and validate the layout.")
         if hasattr(subtitle, "setObjectName"):
             subtitle.setObjectName("OCWHeaderSubtitle")
         subtitle.setWordWrap(True)
 
-        hint = qtwidgets.QLabel("Start in Create, refine in Layout or Components, then confirm issues in Validate.")
+        hint = qtwidgets.QLabel("Start in Create. Refine in Layout or Components. Review issues in Validate.")
         if hasattr(hint, "setObjectName"):
             hint.setObjectName("OCWHeaderHint")
         hint.setWordWrap(True)
@@ -773,7 +769,7 @@ class ProductWorkbenchPanel:
         self.refresh_context_panels(refresh_components=True)
         self.refresh_overlay()
         self.focus_panel("create")
-        self.set_status("Controller created. Review size and shell settings, then use Components or Auto Place to refine the layout.")
+        self.set_status("Controller created. Review geometry, then refine the layout.")
 
     def _handle_layout_applied(self, _result: dict[str, Any]) -> None:
         self.refresh_context_panels(refresh_components=True)
@@ -789,13 +785,13 @@ class ProductWorkbenchPanel:
         self.refresh_overlay()
         self.focus_panel("components")
         message, _level = format_validation_message(report)
-        self.set_status(f"Component update applied. {message}")
+        self.set_status(f"Components updated. {message}")
 
     def _handle_controller_updated(self, _state: dict[str, Any]) -> None:
         self.refresh_context_panels(refresh_components=True)
         self.refresh_overlay()
         self.focus_panel("create")
-        self.set_status("Controller settings updated. Check the model preview and re-run validation if dimensions changed.")
+        self.set_status("Controller settings updated. Re-run validation if dimensions changed.")
 
     def _handle_selection_changed(self, _component_id: str | None) -> None:
         self.info_panel.refresh()
@@ -921,9 +917,9 @@ def ensure_workbench_ui(doc: Any | None = None, focus: str = "create") -> Produc
         return _ACTIVE_WORKBENCH
     except Exception as exc:
         _ACTIVE_WORKBENCH = None
-        log_exception("Failed to build Open Controller workbench UI", exc)
+        log_exception("Failed to build Open Controller Workbench UI", exc)
         _ACTIVE_DOCK = _show_fallback_dock(exc)
-        raise RuntimeError(f"Open Controller workbench UI setup failed: {exc}") from exc
+        raise RuntimeError(f"Open Controller Workbench UI setup failed: {exc}") from exc
 
 
 def _show_in_dock(panel: ProductWorkbenchPanel) -> Any | None:
@@ -945,7 +941,7 @@ def _show_fallback_dock(exc: Exception) -> Any | None:
     layout = qtwidgets.QVBoxLayout(widget)
     title = qtwidgets.QLabel("Open Controller Workbench")
     title.setStyleSheet("font-weight: 600;")
-    message = qtwidgets.QLabel("The workbench UI could not be built. Check the FreeCAD report view for details.")
+    message = qtwidgets.QLabel("The Workbench UI could not be loaded. Check the FreeCAD report view for details.")
     message.setWordWrap(True)
     details = qtwidgets.QLabel(f"{exc.__class__.__name__}: {exc}")
     details.setWordWrap(True)

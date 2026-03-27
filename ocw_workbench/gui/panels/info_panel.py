@@ -70,7 +70,7 @@ class InfoPanel:
             self.form["surface_shape"].setCurrentIndex(0 if shape_name == "rectangle" else 1)
         set_value(self.form["corner_radius"], float(surface.get("corner_radius", 0.0) or 0.0))
         validation = context.get("validation")
-        validation_text = "Validation has not been run yet."
+        validation_text = "Validation not run."
         if isinstance(validation, dict):
             summary = validation.get("summary", {})
             validation_text = (
@@ -99,7 +99,7 @@ class InfoPanel:
         set_text(self.form["info"], summary_text)
         apply_status_message(
             self.form["status"],
-            "Review controller size and shell settings here, then place components in the Components tab.",
+            "Review controller geometry here, then place or refine components.",
             level="info",
         )
         self._sync_surface_fields()
@@ -120,7 +120,7 @@ class InfoPanel:
         }
         state = self.controller_service.update_controller(self.doc, updates)
         self.refresh()
-        self._publish_status("Updated controller geometry. Review the 3D result and re-run validation if clearances changed.", level="success")
+        self._publish_status("Controller geometry updated. Re-run validation if clearances changed.", level="success")
         if self.on_updated is not None:
             self.on_updated(state)
         return state
@@ -159,14 +159,14 @@ class InfoPanel:
         set_tooltip(self.form["width"], "Overall controller width in millimeters.")
         set_tooltip(self.form["depth"], "Overall controller depth in millimeters.")
         set_tooltip(self.form["height"], "Overall controller height in millimeters.")
-        set_tooltip(self.form["wall_thickness"], "Wall thickness for the enclosure shell.")
-        set_tooltip(self.form["bottom_thickness"], "Bottom panel thickness inside the enclosure.")
-        set_tooltip(self.form["top_thickness"], "Top plate thickness used for cutouts and lid geometry.")
-        set_tooltip(self.form["lid_inset"], "Inset depth for the lid or top plate seating feature.")
-        set_tooltip(self.form["inner_clearance"], "Extra clearance between outer shell and inner cavity.")
-        set_tooltip(self.form["surface_shape"], "Surface outline shape for the top side of the controller.")
-        set_tooltip(self.form["corner_radius"], "Corner radius used when the surface shape is rounded rectangle.")
-        set_tooltip(self.form["apply_button"], "Apply the edited controller dimensions and rebuild the model.")
+        set_tooltip(self.form["wall_thickness"], "Enclosure wall thickness.")
+        set_tooltip(self.form["bottom_thickness"], "Bottom panel thickness.")
+        set_tooltip(self.form["top_thickness"], "Top plate thickness.")
+        set_tooltip(self.form["lid_inset"], "Inset depth for the lid or top plate.")
+        set_tooltip(self.form["inner_clearance"], "Clearance between the shell and inner cavity.")
+        set_tooltip(self.form["surface_shape"], "Top surface shape.")
+        set_tooltip(self.form["corner_radius"], "Corner radius for rounded rectangles.")
+        set_tooltip(self.form["apply_button"], "Apply geometry changes and rebuild the model.")
 
 
 def _build_form() -> dict[str, Any]:
@@ -189,7 +189,7 @@ def _build_form() -> dict[str, Any]:
             "inner_clearance": FallbackValue(0.35),
             "surface_shape": FallbackCombo(["rectangle", "rounded_rect"]),
             "corner_radius": FallbackValue(0.0),
-            "apply_button": FallbackButton("Apply Controller Settings"),
+            "apply_button": FallbackButton("Apply Geometry"),
             "info": FallbackText(),
             "status": FallbackLabel(),
         }
@@ -198,7 +198,7 @@ def _build_form() -> dict[str, Any]:
     layout = qtwidgets.QVBoxLayout(content)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(8)
-    meta_box = qtwidgets.QGroupBox("Current Project")
+    meta_box = qtwidgets.QGroupBox("Project")
     meta_layout = qtwidgets.QFormLayout(meta_box)
     template = qtwidgets.QLabel("-")
     variant = qtwidgets.QLabel("-")
@@ -211,7 +211,7 @@ def _build_form() -> dict[str, Any]:
     meta_layout.addRow("Selected count", selection_count)
     meta_layout.addRow("Components", component_count)
 
-    settings_box = qtwidgets.QGroupBox("Controller Geometry")
+    settings_box = qtwidgets.QGroupBox("Geometry")
     settings_layout = qtwidgets.QFormLayout(settings_box)
     settings_layout.setSpacing(6)
     width = qtwidgets.QDoubleSpinBox()
@@ -240,18 +240,18 @@ def _build_form() -> dict[str, Any]:
     surface_shape = qtwidgets.QComboBox()
     configure_combo_box(surface_shape)
     surface_shape.addItems(["rectangle", "rounded_rect"])
-    apply_button = qtwidgets.QPushButton("Apply Controller Settings")
+    apply_button = qtwidgets.QPushButton("Apply Geometry")
     set_tooltip(width, "Overall controller width in millimeters.")
     set_tooltip(depth, "Overall controller depth in millimeters.")
     set_tooltip(height, "Overall controller height in millimeters.")
-    set_tooltip(wall_thickness, "Wall thickness for the enclosure shell.")
-    set_tooltip(bottom_thickness, "Bottom panel thickness inside the enclosure.")
-    set_tooltip(top_thickness, "Top plate thickness used for cutouts and lid geometry.")
-    set_tooltip(lid_inset, "Inset depth for the lid or top plate seating feature.")
-    set_tooltip(inner_clearance, "Extra clearance between outer shell and inner cavity.")
-    set_tooltip(surface_shape, "Surface outline shape for the top side of the controller.")
-    set_tooltip(corner_radius, "Corner radius used when the surface shape is rounded rectangle.")
-    set_tooltip(apply_button, "Apply the edited controller dimensions and rebuild the model.")
+    set_tooltip(wall_thickness, "Enclosure wall thickness.")
+    set_tooltip(bottom_thickness, "Bottom panel thickness.")
+    set_tooltip(top_thickness, "Top plate thickness.")
+    set_tooltip(lid_inset, "Inset depth for the lid or top plate.")
+    set_tooltip(inner_clearance, "Clearance between the shell and inner cavity.")
+    set_tooltip(surface_shape, "Top surface shape.")
+    set_tooltip(corner_radius, "Corner radius for rounded rectangles.")
+    set_tooltip(apply_button, "Apply geometry changes and rebuild the model.")
     settings_layout.addRow("Width (mm)", width)
     settings_layout.addRow("Depth (mm)", depth)
     settings_layout.addRow("Height (mm)", height)
