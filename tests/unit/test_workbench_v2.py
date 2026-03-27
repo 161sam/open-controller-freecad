@@ -531,6 +531,50 @@ def test_product_workbench_panel_mirrors_selection_vertically_via_rotation():
     assert doc.transactions[-2:] == [("open", "OCW Mirror Vertically"), ("commit", None)]
 
 
+def test_product_workbench_panel_duplicates_multi_selection_as_group():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=10.0, y=10.0)
+    service.add_component(doc, "omron_b3f_1000", component_id="btn2", x=30.0, y=10.0)
+    service.set_selected_component_ids(doc, ["btn1", "btn2"], primary_id="btn1")
+    workbench = ProductWorkbenchPanel(doc, controller_service=service)
+
+    result = workbench.duplicate_selection_once(offset_x=40.0, offset_y=5.0)
+
+    assert result["created_count"] == 2
+    state = service.get_state(doc)
+    by_id = {component["id"]: component for component in state["components"]}
+    assert by_id["btn3"]["x"] == 50.0
+    assert by_id["btn3"]["y"] == 15.0
+    assert by_id["btn4"]["x"] == 70.0
+    assert by_id["btn4"]["y"] == 15.0
+    assert state["meta"]["selected_ids"] == ["btn3", "btn4"]
+    assert doc.transactions[-2:] == [("open", "OCW Duplicate Components"), ("commit", None)]
+
+
+def test_product_workbench_panel_creates_grid_array_from_selection():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "generic_mpc_pad_30mm", component_id="pad1", x=10.0, y=10.0)
+    service.set_selected_component_ids(doc, ["pad1"], primary_id="pad1")
+    workbench = ProductWorkbenchPanel(doc, controller_service=service)
+
+    result = workbench.array_selection_grid(rows=2, cols=2, spacing_x=20.0, spacing_y=20.0)
+
+    assert result["created_count"] == 3
+    state = service.get_state(doc)
+    by_id = {component["id"]: component for component in state["components"]}
+    assert by_id["pad2"]["x"] == 30.0
+    assert by_id["pad2"]["y"] == 10.0
+    assert by_id["pad3"]["x"] == 10.0
+    assert by_id["pad3"]["y"] == 30.0
+    assert by_id["pad4"]["x"] == 30.0
+    assert by_id["pad4"]["y"] == 30.0
+    assert doc.transactions[-2:] == [("open", "OCW Grid Array"), ("commit", None)]
+
+
 def test_panels_expose_tooltips_for_key_workflows():
     doc = FakeDocument()
     service = ControllerService()

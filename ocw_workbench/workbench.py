@@ -31,6 +31,7 @@ from ocw_workbench.gui.runtime import component_icon_path, icon_path
 from ocw_workbench.freecad_api.metadata import get_document_data
 from ocw_workbench.freecad_api.state import has_persisted_state
 from ocw_workbench.services.alignment_service import AlignmentService
+from ocw_workbench.services.component_pattern_service import ComponentPatternService
 from ocw_workbench.services.component_transform_service import ComponentTransformService
 from ocw_workbench.services.controller_service import ControllerService
 from ocw_workbench.services.interaction_service import InteractionService
@@ -133,6 +134,7 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         from ocw_workbench.commands.add_component import AddComponentCommand
         from ocw_workbench.commands.align_distribute import SelectionArrangeCommand
         from ocw_workbench.commands.apply_layout import ApplyLayoutCommand
+        from ocw_workbench.commands.component_patterns import DuplicateSelectionCommand, GridArrayCommand, LinearArrayCommand
         from ocw_workbench.commands.create_from_template import CreateFromTemplateCommand
         from ocw_workbench.commands.disable_plugin import DisablePluginCommand
         from ocw_workbench.commands.drag_move_component import DragMoveComponentCommand
@@ -163,6 +165,10 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         Gui.addCommand("OCW_MoveComponentInteractive", _LoggedCommand("OCW_MoveComponentInteractive", MoveComponentInteractiveCommand()))
         Gui.addCommand("OCW_DragMoveComponent", _LoggedCommand("OCW_DragMoveComponent", DragMoveComponentCommand()))
         Gui.addCommand("OCW_SnapToGrid", _LoggedCommand("OCW_SnapToGrid", SnapToGridCommand()))
+        Gui.addCommand("OCW_DuplicateSelected", _LoggedCommand("OCW_DuplicateSelected", DuplicateSelectionCommand()))
+        Gui.addCommand("OCW_ArrayHorizontal", _LoggedCommand("OCW_ArrayHorizontal", LinearArrayCommand("x")))
+        Gui.addCommand("OCW_ArrayVertical", _LoggedCommand("OCW_ArrayVertical", LinearArrayCommand("y")))
+        Gui.addCommand("OCW_GridArray", _LoggedCommand("OCW_GridArray", GridArrayCommand()))
         Gui.addCommand("OCW_RotateCW90", _LoggedCommand("OCW_RotateCW90", SelectionTransformCommand("rotate_cw_90")))
         Gui.addCommand("OCW_RotateCCW90", _LoggedCommand("OCW_RotateCCW90", SelectionTransformCommand("rotate_ccw_90")))
         Gui.addCommand("OCW_Rotate180", _LoggedCommand("OCW_Rotate180", SelectionTransformCommand("rotate_180")))
@@ -207,6 +213,10 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
             "OCW_MoveComponentInteractive",
             "OCW_DragMoveComponent",
             "OCW_SnapToGrid",
+            "OCW_DuplicateSelected",
+            "OCW_ArrayHorizontal",
+            "OCW_ArrayVertical",
+            "OCW_GridArray",
             "OCW_RotateCW90",
             "OCW_RotateCCW90",
             "OCW_Rotate180",
@@ -276,6 +286,7 @@ class ProductWorkbenchPanel:
         self.controller_service = controller_service or ControllerService()
         self.interaction_service = InteractionService(self.controller_service)
         self.alignment_service = AlignmentService()
+        self.pattern_service = ComponentPatternService()
         self.transform_service = ComponentTransformService()
         self.overlay_service = OverlayService(self.controller_service)
         self.overlay_renderer = OverlayRenderer(self.overlay_service)
@@ -558,6 +569,39 @@ class ProductWorkbenchPanel:
             "plan": plan,
         }
 
+    def duplicate_selection_once(self, *, offset_x: float, offset_y: float) -> dict[str, Any]:
+        return self._apply_selection_pattern(
+            self.pattern_service.duplicate_once(
+                self._selected_components_in_order(),
+                self.controller_service.get_state(self.doc)["components"],
+                offset_x=offset_x,
+                offset_y=offset_y,
+            )
+        )
+
+    def array_selection_linear(self, *, axis: str, count: int, spacing: float) -> dict[str, Any]:
+        return self._apply_selection_pattern(
+            self.pattern_service.linear_array(
+                self._selected_components_in_order(),
+                self.controller_service.get_state(self.doc)["components"],
+                axis=axis,
+                count=count,
+                spacing=spacing,
+            )
+        )
+
+    def array_selection_grid(self, *, rows: int, cols: int, spacing_x: float, spacing_y: float) -> dict[str, Any]:
+        return self._apply_selection_pattern(
+            self.pattern_service.grid_array(
+                self._selected_components_in_order(),
+                self.controller_service.get_state(self.doc)["components"],
+                rows=rows,
+                cols=cols,
+                spacing_x=spacing_x,
+                spacing_y=spacing_y,
+            )
+        )
+
     def enable_selected_plugin(self) -> dict[str, Any]:
         result = self.plugin_manager_panel.enable_selected_plugin()
         self.refresh_all()
@@ -725,6 +769,31 @@ class ProductWorkbenchPanel:
     def _handle_interaction_finished(self, controller: Any) -> None:
         self.interaction_manager.clear(controller.cancel)
 
+    def _selected_components_in_order(self) -> list[dict[str, Any]]:
+        state = self.controller_service.get_state(self.doc)
+        by_id = {component["id"]: component for component in state["components"]}
+        selected_ids = self.controller_service.get_selected_component_ids(self.doc)
+        return [by_id[component_id] for component_id in selected_ids if component_id in by_id]
+
+    def _apply_selection_pattern(self, plan: dict[str, Any]) -> dict[str, Any]:
+        state = self.controller_service.add_components(
+            self.doc,
+            plan["new_components"],
+            primary_id=plan["new_ids"][0] if plan["new_ids"] else None,
+            transaction_name=plan["transaction_name"],
+        )
+        self.refresh_context_panels(refresh_components=True)
+        self.refresh_overlay()
+        self.focus_panel("components")
+        created_count = len(plan["new_ids"])
+        self.set_status(f"{self._pattern_label(plan['kind'])} created {created_count} components.")
+        return {
+            "kind": plan["kind"],
+            "created_count": created_count,
+            "new_ids": list(plan["new_ids"]),
+            "state": state,
+        }
+
     def _arrangement_label(self, operation: str) -> str:
         labels = {
             "align_left": "Align left",
@@ -747,6 +816,15 @@ class ProductWorkbenchPanel:
             "mirror_vertical": "Mirror vertically",
         }
         return labels.get(operation, "Transform selection")
+
+    def _pattern_label(self, kind: str) -> str:
+        labels = {
+            "duplicate": "Duplicate",
+            "array_horizontal": "Horizontal array",
+            "array_vertical": "Vertical array",
+            "grid_array": "Grid array",
+        }
+        return labels.get(kind, "Pattern")
 
     def _overlay_status_text(self, payload: dict[str, Any] | None = None) -> str:
         current = payload or get_document_data(self.doc, "OCWOverlayState", {})

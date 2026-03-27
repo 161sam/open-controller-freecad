@@ -275,6 +275,29 @@ class ControllerStateService:
         self.save_state(doc, state)
         return deepcopy(state)
 
+    def add_components(
+        self,
+        doc: Any,
+        components: list[dict[str, Any]],
+        *,
+        primary_id: str | None = None,
+    ) -> dict[str, Any]:
+        if not isinstance(components, list) or not components:
+            raise ValueError("Component additions must be a non-empty list")
+        state = self.get_state(doc)
+        existing_ids = {str(component["id"]) for component in state["components"]}
+        added_ids: list[str] = []
+        for raw_component in components:
+            normalized = self._normalized_new_component(raw_component, existing_ids)
+            existing_ids.add(str(normalized["id"]))
+            added_ids.append(str(normalized["id"]))
+            state["components"].append(normalized)
+        resolved_primary = primary_id if primary_id in added_ids else added_ids[0]
+        state["meta"]["selection"] = resolved_primary
+        state["meta"]["selected_ids"] = [resolved_primary] + [component_id for component_id in added_ids if component_id != resolved_primary]
+        self.save_state(doc, state)
+        return deepcopy(state)
+
     def select_component(self, doc: Any, component_id: str | None) -> dict[str, Any]:
         return self.set_selected_component_ids(doc, [component_id] if component_id is not None else [], primary_id=component_id)
 
@@ -423,6 +446,33 @@ class ControllerStateService:
         state = self._prepare_initial_layout_state(state, project)
         self.save_state(doc, state)
         return deepcopy(state)
+
+    def _normalized_new_component(self, component: dict[str, Any], existing_ids: set[str]) -> dict[str, Any]:
+        if not isinstance(component, dict):
+            raise ValueError("New component payloads must be mappings")
+        component_id = component.get("id")
+        if not isinstance(component_id, str) or not component_id:
+            raise ValueError("New components must define a non-empty id")
+        if component_id in existing_ids:
+            raise ValueError(f"New component id already exists: {component_id}")
+        library_ref = component.get("library_ref")
+        if not isinstance(library_ref, str) or not library_ref:
+            raise ValueError(f"New component '{component_id}' is missing library_ref")
+        library_component = self.library_service.get(library_ref)
+        normalized = deepcopy(component)
+        normalized["type"] = str(component.get("type") or library_component["category"])
+        normalized["x"] = float(component.get("x", 0.0) or 0.0)
+        normalized["y"] = float(component.get("y", 0.0) or 0.0)
+        normalized["rotation"] = float(component.get("rotation", 0.0) or 0.0)
+        if "label" in normalized:
+            normalized["label"] = str(normalized.get("label") or "")
+        if "visible" in normalized:
+            normalized["visible"] = bool(normalized.get("visible"))
+        if "tags" in normalized and isinstance(normalized.get("tags"), list):
+            normalized["tags"] = [str(item) for item in normalized["tags"] if str(item).strip()]
+        if "properties" in normalized and not isinstance(normalized.get("properties"), dict):
+            raise ValueError("New component properties must be a mapping")
+        return normalized
 
     def _apply_layout_to_state(
         self,

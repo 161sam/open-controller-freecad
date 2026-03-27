@@ -143,6 +143,18 @@
 - Overlay, Keepout-Validierung und Builder verwenden danach direkt die aktualisierte `rotation`
 - jede Transform-Aktion läuft als eine gemeinsame Undo-fähige Operation
 
+## Workflow 10e – Select -> Duplicate / Array
+
+- eine oder mehrere Komponenten auswählen
+- `Duplicate Selected` verwenden, um mit Offset direkt eine weitere Gruppe zu erzeugen
+- `Array Horizontally` oder `Array Vertically` verwenden, um mehrere zusätzliche Gruppen mit definierter Schrittweite anzulegen
+- `Grid Array` verwenden, um aus einer Basisselektion ein Raster aus `rows x cols` aufzubauen
+- die aktuelle Selektion ist immer die Basisgruppe
+- die relative Anordnung innerhalb dieser Basisgruppe bleibt in jeder erzeugten Kopie erhalten
+- neue Komponenten erhalten automatisch eindeutige ids
+- nach der Operation wird die neue Duplikatgruppe selektiert, damit wiederholte Produktivitätsoperationen direkt anschließen können
+- jede Duplicate-/Array-Operation läuft als eine gemeinsame Undo-fähige Create-Operation
+
 ## Stage A And Stage B Compatibility
 
 - Stage A and Stage B use the same registry, template loader, and template inspector flow.

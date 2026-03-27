@@ -139,6 +139,20 @@ class ControllerService:
             ),
         )
 
+    def add_components(
+        self,
+        doc: Any,
+        components: list[dict[str, Any]],
+        *,
+        primary_id: str | None = None,
+        transaction_name: str = "OCW Add Components",
+    ) -> dict[str, Any]:
+        return self._mutate_with_full_sync(
+            doc,
+            transaction_name=transaction_name,
+            mutator=lambda: self.state_service.add_components(doc, components, primary_id=primary_id),
+        )
+
     def move_component(
         self,
         doc: Any,

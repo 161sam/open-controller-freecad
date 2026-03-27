@@ -170,6 +170,26 @@
 - This keeps the data model small and lets geometry, overlay, validation, and sync continue through the normal rotation path.
 - For symmetric components, mirror may look identical to a rotation-only change. That is expected in the current implementation.
 
+## Duplicate And Array Placement
+
+- `Duplicate Selected` creates one translated copy of the current selection.
+- `Array Horizontally` and `Array Vertically` create repeated copy groups from the current selection.
+- `Grid Array` creates a row/column matrix from the current selection.
+- The current selection is treated as one base group, so relative placement inside the selection stays unchanged in every duplicate group.
+- Duplicate and array commands assign new unique component ids automatically.
+- If a source component has an explicit label, copies receive a `Copy N` suffix.
+- After the operation, the new duplicate group becomes the active selection so repeated duplicate or array commands can continue from the latest result.
+- Linear arrays use:
+  - `Copies` = number of additional duplicate groups
+  - `Spacing X` or `Spacing Y` = translation step between those groups
+- Grid arrays use:
+  - `Rows`
+  - `Cols`
+  - `Spacing X`
+  - `Spacing Y`
+- The original selected group remains in place; arrays add duplicate cells around it.
+- Each duplicate or array action runs as one undoable document transaction.
+
 ## Undo And Redo
 
 - Overlay previews do not open FreeCAD document transactions and do not create undo entries.
