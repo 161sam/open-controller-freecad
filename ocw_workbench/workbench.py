@@ -378,15 +378,16 @@ class ProductWorkbenchPanel:
         self.info_panel.refresh()
         self.plugin_manager_panel.refresh()
         self.refresh_overlay()
+        self._update_context_summary()
 
     def focus_panel(self, panel_name: str) -> None:
         tab_index = {
             "create": 0,
             "info": 0,
             "layout": 1,
-            "constraints": 1,
             "components": 2,
-            "plugins": 3,
+            "constraints": 3,
+            "plugins": 4,
         }.get(panel_name)
         tabs = self.form.get("tabs")
         if tab_index is not None and tabs is not None and hasattr(tabs, "setCurrentIndex"):
@@ -401,15 +402,7 @@ class ProductWorkbenchPanel:
         }.get(panel_name)
         if widget is not None and hasattr(widget, "setFocus"):
             widget.setFocus()
-        titles = {
-            "create": "Create",
-            "layout": "Layout",
-            "components": "Components",
-            "constraints": "Constraints",
-            "info": "Info",
-            "plugins": "Plugins",
-        }
-        self.set_status(f"{titles.get(panel_name, 'Workbench')} panel active.")
+        self._update_context_summary(active_panel=panel_name)
 
     def set_status(self, message: str) -> None:
         level = "error" if message.lower().startswith("could not") or message.lower().startswith("validation found") else "info"
@@ -419,10 +412,12 @@ class ProductWorkbenchPanel:
             level = "warning"
         apply_status_message(self.form["status"], message, level=level)
         set_label_text(self.form["overlay_status"], self._overlay_status_text())
+        self._update_context_summary()
 
     def refresh_overlay(self) -> dict[str, Any]:
         payload = self.overlay_renderer.refresh(self.doc)
         set_label_text(self.form["overlay_status"], self._overlay_status_text(payload))
+        self._update_context_summary()
         return payload
 
     def refresh_context_panels(self, refresh_components: bool = False) -> None:
@@ -665,6 +660,8 @@ class ProductWorkbenchPanel:
         if qtwidgets is None:
             return {
                 "widget": object(),
+                "title": FallbackLabel("Open Controller"),
+                "context_summary": FallbackLabel("Create | 0 components | grid 1.0 mm | validation clear"),
                 "status": FallbackLabel("Workbench ready."),
                 "overlay_status": FallbackLabel("Overlay ready."),
             }
@@ -675,125 +672,36 @@ class ProductWorkbenchPanel:
         if hasattr(widget, "setObjectName"):
             widget.setObjectName("OCWWorkbenchShell")
         root = qtwidgets.QVBoxLayout(widget)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(8)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
         widget.setStyleSheet(_workbench_shell_stylesheet())
 
         header_box = qtwidgets.QFrame()
         if hasattr(header_box, "setObjectName"):
-            header_box.setObjectName("OCWHeaderCard")
+            header_box.setObjectName("OCWHeaderBar")
         header_layout = qtwidgets.QVBoxLayout(header_box)
-        header_layout.setContentsMargins(12, 12, 12, 12)
-        header_layout.setSpacing(10)
+        header_layout.setContentsMargins(10, 8, 10, 8)
+        header_layout.setSpacing(3)
 
-        eyebrow = qtwidgets.QLabel("Open Controller Workbench")
-        if hasattr(eyebrow, "setObjectName"):
-            eyebrow.setObjectName("OCWHeaderEyebrow")
-
-        title = qtwidgets.QLabel("Controller Workspace")
+        title = qtwidgets.QLabel("Open Controller")
         if hasattr(title, "setObjectName"):
             title.setObjectName("OCWHeaderTitle")
-        subtitle = qtwidgets.QLabel("Create the panel, place components, and review issues from one dock.")
-        if hasattr(subtitle, "setObjectName"):
-            subtitle.setObjectName("OCWHeaderSubtitle")
-        subtitle.setWordWrap(True)
+        context_summary = qtwidgets.QLabel("Create | 0 components | grid 1.0 mm | validation clear")
+        if hasattr(context_summary, "setObjectName"):
+            context_summary.setObjectName("OCWContextSummary")
+        context_summary.setWordWrap(True)
 
-        overview_row = qtwidgets.QHBoxLayout()
-        overview_row.setContentsMargins(0, 0, 0, 0)
-        overview_row.setSpacing(6)
-        overview_create = _compact_badge(qtwidgets, "1  Create")
-        overview_layout = _compact_badge(qtwidgets, "2  Layout")
-        overview_validate = _compact_badge(qtwidgets, "3  Validate")
-        overview_row.addWidget(overview_create)
-        overview_row.addWidget(overview_layout)
-        overview_row.addWidget(overview_validate)
-        overview_row.addStretch(1)
-
-        context_box = qtwidgets.QFrame()
-        if hasattr(context_box, "setObjectName"):
-            context_box.setObjectName("OCWContextCard")
-        context_layout = qtwidgets.QHBoxLayout(context_box)
-        context_layout.setContentsMargins(10, 10, 10, 10)
-        context_layout.setSpacing(10)
-
-        next_step = qtwidgets.QLabel("Next")
-        if hasattr(next_step, "setObjectName"):
-            next_step.setObjectName("OCWMetaLabel")
-        next_step_value = qtwidgets.QLabel("Start in Create, then refine in Layout or Components.")
-        if hasattr(next_step_value, "setObjectName"):
-            next_step_value.setObjectName("OCWMetaValue")
-        next_step_value.setWordWrap(True)
-
-        focus_hint = qtwidgets.QLabel("View")
-        if hasattr(focus_hint, "setObjectName"):
-            focus_hint.setObjectName("OCWMetaLabel")
-        focus_hint_value = qtwidgets.QLabel("Validate reviews issues. Plugins manages extensions.")
-        if hasattr(focus_hint_value, "setObjectName"):
-            focus_hint_value.setObjectName("OCWMetaValue")
-        focus_hint_value.setWordWrap(True)
-
-        next_step_col = qtwidgets.QVBoxLayout()
-        next_step_col.setContentsMargins(0, 0, 0, 0)
-        next_step_col.setSpacing(3)
-        next_step_col.addWidget(next_step)
-        next_step_col.addWidget(next_step_value)
-
-        focus_col = qtwidgets.QVBoxLayout()
-        focus_col.setContentsMargins(0, 0, 0, 0)
-        focus_col.setSpacing(3)
-        focus_col.addWidget(focus_hint)
-        focus_col.addWidget(focus_hint_value)
-
-        context_layout.addLayout(next_step_col, 1)
-        context_layout.addLayout(focus_col, 1)
-
-        status_heading = qtwidgets.QLabel("Activity")
-        if hasattr(status_heading, "setObjectName"):
-            status_heading.setObjectName("OCWStatusHeading")
         status = qtwidgets.QLabel("Workbench ready.")
         status.setWordWrap(True)
         if hasattr(status, "setObjectName"):
-            status.setObjectName("OCWStatusCard")
-
-        overlay_heading = qtwidgets.QLabel("Overlay")
-        if hasattr(overlay_heading, "setObjectName"):
-            overlay_heading.setObjectName("OCWStatusHeading")
+            status.setObjectName("OCWStatusText")
         overlay_status = qtwidgets.QLabel("Overlay ready.")
         overlay_status.setWordWrap(True)
         if hasattr(overlay_status, "setObjectName"):
-            overlay_status.setObjectName("OCWOverlayCard")
+            overlay_status.setObjectName("OCWOverlayText")
 
-        status_row = qtwidgets.QHBoxLayout()
-        status_row.setContentsMargins(0, 0, 0, 0)
-        status_row.setSpacing(8)
-
-        activity_box = _build_status_panel(qtwidgets, status_heading, status)
-        overlay_box = _build_status_panel(qtwidgets, overlay_heading, overlay_status)
-        status_row.addWidget(activity_box, 1)
-        status_row.addWidget(overlay_box, 1)
-
-        tabs_header = qtwidgets.QFrame()
-        if hasattr(tabs_header, "setObjectName"):
-            tabs_header.setObjectName("OCWTabsHeader")
-        tabs_header_layout = qtwidgets.QHBoxLayout(tabs_header)
-        tabs_header_layout.setContentsMargins(10, 8, 10, 8)
-        tabs_header_layout.setSpacing(8)
-        tabs_label = qtwidgets.QLabel("Workspace")
-        if hasattr(tabs_label, "setObjectName"):
-            tabs_label.setObjectName("OCWTabsTitle")
-        tabs_hint = qtwidgets.QLabel("Choose a section to continue.")
-        if hasattr(tabs_hint, "setObjectName"):
-            tabs_hint.setObjectName("OCWTabsHint")
-        tabs_hint.setWordWrap(True)
-        tabs_header_layout.addWidget(tabs_label)
-        tabs_header_layout.addWidget(tabs_hint, 1)
-
-        header_layout.addWidget(eyebrow)
         header_layout.addWidget(title)
-        header_layout.addWidget(subtitle)
-        header_layout.addLayout(overview_row)
-        header_layout.addWidget(context_box)
-        header_layout.addLayout(status_row)
+        header_layout.addWidget(context_summary)
 
         tabs = qtwidgets.QTabWidget()
         if hasattr(tabs, "setObjectName"):
@@ -810,25 +718,39 @@ class ProductWorkbenchPanel:
         create_page, create_layout = _tab_page(qtwidgets)
         layout_page, layout_layout = _tab_page(qtwidgets)
         components_page, components_layout = _tab_page(qtwidgets)
+        validate_page, validate_layout = _tab_page(qtwidgets)
         plugins_page, plugins_layout = _tab_page(qtwidgets)
-        for layout in (create_layout, layout_layout, components_layout, plugins_layout):
+        for layout in (create_layout, layout_layout, components_layout, validate_layout, plugins_layout):
             layout.setSpacing(8)
         tabs.addTab(create_page, "Create")
         tabs.addTab(layout_page, "Layout")
         tabs.addTab(components_page, "Components")
+        tabs.addTab(validate_page, "Validate")
         tabs.addTab(plugins_page, "Plugins")
 
+        footer = qtwidgets.QFrame()
+        if hasattr(footer, "setObjectName"):
+            footer.setObjectName("OCWFooterBar")
+        footer_layout = qtwidgets.QVBoxLayout(footer)
+        footer_layout.setContentsMargins(10, 7, 10, 7)
+        footer_layout.setSpacing(2)
+        footer_layout.addWidget(status)
+        footer_layout.addWidget(overlay_status)
+
         root.addWidget(header_box)
-        root.addWidget(tabs_header)
         root.addWidget(tabs, 1)
+        root.addWidget(footer)
         return {
             "widget": widget,
+            "title": title,
+            "context_summary": context_summary,
             "status": status,
             "overlay_status": overlay_status,
             "tabs": tabs,
             "create_layout": create_layout,
             "layout_layout": layout_layout,
             "components_layout": components_layout,
+            "validate_layout": validate_layout,
             "plugins_layout": plugins_layout,
         }
 
@@ -840,14 +762,10 @@ class ProductWorkbenchPanel:
             [self.create_panel.widget, self.info_panel.widget],
             stretch_factors=[3, 2],
         )
-        layout_splitter = _section_splitter(
-            "vertical",
-            [self.layout_panel.widget, self.constraints_panel.widget],
-            stretch_factors=[3, 2],
-        )
         self.form["create_layout"].addWidget(create_splitter, 1)
-        self.form["layout_layout"].addWidget(layout_splitter, 1)
+        self.form["layout_layout"].addWidget(self.layout_panel.widget, 1)
         self.form["components_layout"].addWidget(self.components_panel.widget, 1)
+        self.form["validate_layout"].addWidget(self.constraints_panel.widget, 1)
         self.form["plugins_layout"].addWidget(self.plugin_manager_panel.widget, 1)
 
     def _handle_created(self, _state: dict[str, Any]) -> None:
@@ -995,6 +913,39 @@ class ProductWorkbenchPanel:
             f" | Items {summary.get('item_count', 0)}"
         )
 
+    def _update_context_summary(self, active_panel: str | None = None) -> None:
+        label = self.form.get("context_summary")
+        if label is None:
+            return
+        context = self.controller_service.get_ui_context(self.doc)
+        validation = context.get("validation")
+        summary = validation.get("summary", {}) if isinstance(validation, dict) else {}
+        pieces = [
+            _panel_title(active_panel or self._active_panel_name()),
+            f"{int(context.get('component_count', 0))} components",
+            f"grid {context.get('grid_mm', 1.0)} mm",
+        ]
+        if int(summary.get("error_count", 0)) > 0:
+            pieces.append(f"{int(summary.get('error_count', 0))} errors")
+        elif int(summary.get("warning_count", 0)) > 0:
+            pieces.append(f"{int(summary.get('warning_count', 0))} warnings")
+        else:
+            pieces.append("validation clear")
+        set_label_text(label, " | ".join(pieces))
+
+    def _active_panel_name(self) -> str:
+        tabs = self.form.get("tabs")
+        if tabs is not None and hasattr(tabs, "currentIndex"):
+            mapping = {
+                0: "create",
+                1: "layout",
+                2: "components",
+                3: "constraints",
+                4: "plugins",
+            }
+            return mapping.get(int(tabs.currentIndex()), "create")
+        return "create"
+
 
 def ensure_workbench_ui(doc: Any | None = None, focus: str = "create") -> ProductWorkbenchPanel:
     global _ACTIVE_DOCK
@@ -1088,23 +1039,15 @@ def _section_splitter(orientation: str, widgets: list[Any], stretch_factors: lis
     return splitter
 
 
-def _compact_badge(qtwidgets: Any, text: str) -> Any:
-    badge = qtwidgets.QLabel(text)
-    if hasattr(badge, "setObjectName"):
-        badge.setObjectName("OCWFlowBadge")
-    return badge
-
-
-def _build_status_panel(qtwidgets: Any, heading: Any, value: Any) -> Any:
-    panel = qtwidgets.QFrame()
-    if hasattr(panel, "setObjectName"):
-        panel.setObjectName("OCWStatusPanel")
-    layout = qtwidgets.QVBoxLayout(panel)
-    layout.setContentsMargins(10, 10, 10, 10)
-    layout.setSpacing(6)
-    layout.addWidget(heading)
-    layout.addWidget(value)
-    return panel
+def _panel_title(panel_name: str) -> str:
+    return {
+        "create": "Create",
+        "layout": "Layout",
+        "components": "Components",
+        "constraints": "Validate",
+        "plugins": "Plugins",
+        "info": "Create",
+    }.get(panel_name, "Create")
 
 
 def _workbench_shell_stylesheet() -> str:
@@ -1112,83 +1055,32 @@ def _workbench_shell_stylesheet() -> str:
 QWidget#OCWWorkbenchShell {
     background: #111827;
 }
-QFrame#OCWHeaderCard {
+QFrame#OCWHeaderBar {
     background: #0f172a;
     border: 1px solid #253043;
-    border-radius: 12px;
-}
-QLabel#OCWHeaderEyebrow {
-    color: #60a5fa;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    border-radius: 10px;
 }
 QLabel#OCWHeaderTitle {
     color: #f8fafc;
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
 }
-QLabel#OCWHeaderSubtitle {
+QLabel#OCWContextSummary {
     color: #cbd5e1;
-    font-size: 12px;
-}
-QLabel#OCWFlowBadge {
-    color: #dbeafe;
-    background: #162033;
-    border: 1px solid #29405f;
-    border-radius: 8px;
-    padding: 4px 8px;
     font-size: 11px;
-    font-weight: 600;
 }
-QFrame#OCWContextCard {
-    background: #111827;
-    border: 1px solid #253043;
-    border-radius: 10px;
-}
-QLabel#OCWMetaLabel {
-    color: #94a3b8;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-QLabel#OCWMetaValue {
-    color: #e5e7eb;
-    font-size: 12px;
-}
-QLabel#OCWStatusHeading {
-    color: #94a3b8;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-QFrame#OCWStatusPanel {
-    background: #111827;
-    border: 1px solid #253043;
-    border-radius: 10px;
-}
-QLabel#OCWStatusCard, QLabel#OCWOverlayCard {
-    color: #e5e7eb;
-    background: transparent;
-    border: none;
-    border-top: 1px solid #334155;
-    border-radius: 0px;
-    padding: 6px 0 0 0;
-}
-QFrame#OCWTabsHeader {
+QFrame#OCWFooterBar {
     background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 10px;
+    border: 1px solid #253043;
+    border-radius: 8px;
 }
-QLabel#OCWTabsTitle {
-    color: #f8fafc;
+QLabel#OCWStatusText {
+    color: #e5e7eb;
     font-size: 12px;
-    font-weight: 700;
 }
-QLabel#OCWTabsHint {
+QLabel#OCWOverlayText {
     color: #94a3b8;
-    font-size: 12px;
+    font-size: 11px;
 }
 QToolButton#OCWCollapsibleToggle {
     color: #dbe5f1;
@@ -1218,7 +1110,7 @@ QTabBar::tab {
     border: 1px solid #253043;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
-    padding: 8px 10px;
+    padding: 6px 10px;
     min-width: 72px;
 }
 QTabBar::tab:selected {

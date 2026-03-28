@@ -310,6 +310,24 @@ def test_workbench_uses_clearer_status_text_for_create_and_overlay_actions():
     assert "without changing model geometry" in overlay_status
 
 
+def test_workbench_uses_single_flow_context_summary_for_active_step():
+    doc = FakeDocument()
+    service = ControllerService()
+    workbench = ProductWorkbenchPanel(doc, controller_service=service)
+
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    workbench.refresh_all()
+    workbench.focus_panel("constraints")
+    validate_summary = workbench.form["context_summary"].text
+    workbench.focus_panel("plugins")
+    plugins_summary = workbench.form["context_summary"].text
+
+    assert validate_summary.startswith("Validate |")
+    assert "0 components" in validate_summary
+    assert "validation clear" in validate_summary
+    assert plugins_summary.startswith("Plugins |")
+
+
 def test_components_panel_saves_position_without_move_step():
     doc = FakeDocument()
     service = ControllerService()

@@ -284,6 +284,7 @@ def test_product_workbench_panel_uses_tab_shell():
     panel = ProductWorkbenchPanel(doc, controller_service=ControllerService())
 
     assert "tabs" not in panel.form or panel.form["tabs"] is not None
+    assert panel.form["context_summary"].text.startswith("Create |")
 
 
 def test_plugin_list_build_uses_widget_safe_row_insertion(monkeypatch):
