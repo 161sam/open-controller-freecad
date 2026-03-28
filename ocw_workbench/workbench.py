@@ -661,7 +661,7 @@ class ProductWorkbenchPanel:
             widget.setObjectName("OCWWorkbenchShell")
         root = qtwidgets.QVBoxLayout(widget)
         root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(10)
+        root.setSpacing(8)
         widget.setStyleSheet(_workbench_shell_stylesheet())
 
         header_box = qtwidgets.QFrame()
@@ -669,20 +669,68 @@ class ProductWorkbenchPanel:
             header_box.setObjectName("OCWHeaderCard")
         header_layout = qtwidgets.QVBoxLayout(header_box)
         header_layout.setContentsMargins(12, 12, 12, 12)
-        header_layout.setSpacing(8)
+        header_layout.setSpacing(10)
 
-        title = qtwidgets.QLabel("Open Controller Workbench")
+        eyebrow = qtwidgets.QLabel("Open Controller Workbench")
+        if hasattr(eyebrow, "setObjectName"):
+            eyebrow.setObjectName("OCWHeaderEyebrow")
+
+        title = qtwidgets.QLabel("Controller Workspace")
         if hasattr(title, "setObjectName"):
             title.setObjectName("OCWHeaderTitle")
-        subtitle = qtwidgets.QLabel("Create a controller, place components, and validate the layout.")
+        subtitle = qtwidgets.QLabel("Build geometry, place components, and validate the panel from one dock.")
         if hasattr(subtitle, "setObjectName"):
             subtitle.setObjectName("OCWHeaderSubtitle")
         subtitle.setWordWrap(True)
 
-        hint = qtwidgets.QLabel("Start in Create. Refine in Layout or Components. Review issues in Validate.")
-        if hasattr(hint, "setObjectName"):
-            hint.setObjectName("OCWHeaderHint")
-        hint.setWordWrap(True)
+        overview_row = qtwidgets.QHBoxLayout()
+        overview_row.setContentsMargins(0, 0, 0, 0)
+        overview_row.setSpacing(6)
+        overview_create = _compact_badge(qtwidgets, "1  Create")
+        overview_layout = _compact_badge(qtwidgets, "2  Layout")
+        overview_validate = _compact_badge(qtwidgets, "3  Validate")
+        overview_row.addWidget(overview_create)
+        overview_row.addWidget(overview_layout)
+        overview_row.addWidget(overview_validate)
+        overview_row.addStretch(1)
+
+        context_box = qtwidgets.QFrame()
+        if hasattr(context_box, "setObjectName"):
+            context_box.setObjectName("OCWContextCard")
+        context_layout = qtwidgets.QHBoxLayout(context_box)
+        context_layout.setContentsMargins(10, 10, 10, 10)
+        context_layout.setSpacing(10)
+
+        next_step = qtwidgets.QLabel("Next")
+        if hasattr(next_step, "setObjectName"):
+            next_step.setObjectName("OCWMetaLabel")
+        next_step_value = qtwidgets.QLabel("Start in Create, then refine in Layout or Components.")
+        if hasattr(next_step_value, "setObjectName"):
+            next_step_value.setObjectName("OCWMetaValue")
+        next_step_value.setWordWrap(True)
+
+        focus_hint = qtwidgets.QLabel("View")
+        if hasattr(focus_hint, "setObjectName"):
+            focus_hint.setObjectName("OCWMetaLabel")
+        focus_hint_value = qtwidgets.QLabel("Validate surfaces issues, Plugins manages extensions.")
+        if hasattr(focus_hint_value, "setObjectName"):
+            focus_hint_value.setObjectName("OCWMetaValue")
+        focus_hint_value.setWordWrap(True)
+
+        next_step_col = qtwidgets.QVBoxLayout()
+        next_step_col.setContentsMargins(0, 0, 0, 0)
+        next_step_col.setSpacing(3)
+        next_step_col.addWidget(next_step)
+        next_step_col.addWidget(next_step_value)
+
+        focus_col = qtwidgets.QVBoxLayout()
+        focus_col.setContentsMargins(0, 0, 0, 0)
+        focus_col.setSpacing(3)
+        focus_col.addWidget(focus_hint)
+        focus_col.addWidget(focus_hint_value)
+
+        context_layout.addLayout(next_step_col, 1)
+        context_layout.addLayout(focus_col, 1)
 
         status_heading = qtwidgets.QLabel("Activity")
         if hasattr(status_heading, "setObjectName"):
@@ -700,19 +748,37 @@ class ProductWorkbenchPanel:
         if hasattr(overlay_status, "setObjectName"):
             overlay_status.setObjectName("OCWOverlayCard")
 
-        status_grid = qtwidgets.QGridLayout()
-        status_grid.setContentsMargins(0, 0, 0, 0)
-        status_grid.setHorizontalSpacing(8)
-        status_grid.setVerticalSpacing(4)
-        status_grid.addWidget(status_heading, 0, 0)
-        status_grid.addWidget(overlay_heading, 0, 1)
-        status_grid.addWidget(status, 1, 0)
-        status_grid.addWidget(overlay_status, 1, 1)
+        status_row = qtwidgets.QHBoxLayout()
+        status_row.setContentsMargins(0, 0, 0, 0)
+        status_row.setSpacing(8)
 
+        activity_box = _build_status_panel(qtwidgets, status_heading, status)
+        overlay_box = _build_status_panel(qtwidgets, overlay_heading, overlay_status)
+        status_row.addWidget(activity_box, 1)
+        status_row.addWidget(overlay_box, 1)
+
+        tabs_header = qtwidgets.QFrame()
+        if hasattr(tabs_header, "setObjectName"):
+            tabs_header.setObjectName("OCWTabsHeader")
+        tabs_header_layout = qtwidgets.QHBoxLayout(tabs_header)
+        tabs_header_layout.setContentsMargins(10, 8, 10, 8)
+        tabs_header_layout.setSpacing(8)
+        tabs_label = qtwidgets.QLabel("Workspace")
+        if hasattr(tabs_label, "setObjectName"):
+            tabs_label.setObjectName("OCWTabsTitle")
+        tabs_hint = qtwidgets.QLabel("Choose a section to continue the current controller.")
+        if hasattr(tabs_hint, "setObjectName"):
+            tabs_hint.setObjectName("OCWTabsHint")
+        tabs_hint.setWordWrap(True)
+        tabs_header_layout.addWidget(tabs_label)
+        tabs_header_layout.addWidget(tabs_hint, 1)
+
+        header_layout.addWidget(eyebrow)
         header_layout.addWidget(title)
         header_layout.addWidget(subtitle)
-        header_layout.addWidget(hint)
-        header_layout.addLayout(status_grid)
+        header_layout.addLayout(overview_row)
+        header_layout.addWidget(context_box)
+        header_layout.addLayout(status_row)
 
         tabs = qtwidgets.QTabWidget()
         if hasattr(tabs, "setObjectName"):
@@ -721,6 +787,8 @@ class ProductWorkbenchPanel:
             tabs.setUsesScrollButtons(True)
         if hasattr(tabs, "setDocumentMode"):
             tabs.setDocumentMode(True)
+        if hasattr(tabs, "setTabPosition") and hasattr(qtwidgets.QTabWidget, "North"):
+            tabs.setTabPosition(qtwidgets.QTabWidget.North)
         if hasattr(tabs, "setElideMode") and _qtcore is not None:
             tabs.setElideMode(_qtcore.Qt.ElideRight)
         set_size_policy(tabs, horizontal="preferred", vertical="expanding")
@@ -736,6 +804,7 @@ class ProductWorkbenchPanel:
         tabs.addTab(plugins_page, "Plugins")
 
         root.addWidget(header_box)
+        root.addWidget(tabs_header)
         root.addWidget(tabs, 1)
         return {
             "widget": widget,
@@ -974,6 +1043,25 @@ def _section_splitter(orientation: str, widgets: list[Any], stretch_factors: lis
     return splitter
 
 
+def _compact_badge(qtwidgets: Any, text: str) -> Any:
+    badge = qtwidgets.QLabel(text)
+    if hasattr(badge, "setObjectName"):
+        badge.setObjectName("OCWFlowBadge")
+    return badge
+
+
+def _build_status_panel(qtwidgets: Any, heading: Any, value: Any) -> Any:
+    panel = qtwidgets.QFrame()
+    if hasattr(panel, "setObjectName"):
+        panel.setObjectName("OCWStatusPanel")
+    layout = qtwidgets.QVBoxLayout(panel)
+    layout.setContentsMargins(10, 10, 10, 10)
+    layout.setSpacing(6)
+    layout.addWidget(heading)
+    layout.addWidget(value)
+    return panel
+
+
 def _workbench_shell_stylesheet() -> str:
     return """
 QWidget#OCWWorkbenchShell {
@@ -982,23 +1070,47 @@ QWidget#OCWWorkbenchShell {
 QFrame#OCWHeaderCard {
     background: #0f172a;
     border: 1px solid #253043;
-    border-radius: 10px;
+    border-radius: 12px;
+}
+QLabel#OCWHeaderEyebrow {
+    color: #60a5fa;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
 }
 QLabel#OCWHeaderTitle {
     color: #f8fafc;
-    font-size: 17px;
+    font-size: 18px;
     font-weight: 700;
 }
 QLabel#OCWHeaderSubtitle {
     color: #cbd5e1;
     font-size: 12px;
 }
-QLabel#OCWHeaderHint {
-    color: #93c5fd;
-    background: #172554;
-    border: 1px solid #1d4ed8;
+QLabel#OCWFlowBadge {
+    color: #dbeafe;
+    background: #162033;
+    border: 1px solid #29405f;
     border-radius: 8px;
-    padding: 6px 8px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+}
+QFrame#OCWContextCard {
+    background: #111827;
+    border: 1px solid #253043;
+    border-radius: 10px;
+}
+QLabel#OCWMetaLabel {
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+QLabel#OCWMetaValue {
+    color: #e5e7eb;
+    font-size: 12px;
 }
 QLabel#OCWStatusHeading {
     color: #94a3b8;
@@ -1006,12 +1118,32 @@ QLabel#OCWStatusHeading {
     font-weight: 600;
     text-transform: uppercase;
 }
+QFrame#OCWStatusPanel {
+    background: #111827;
+    border: 1px solid #253043;
+    border-radius: 10px;
+}
 QLabel#OCWStatusCard, QLabel#OCWOverlayCard {
     color: #e5e7eb;
-    background: #111827;
+    background: transparent;
+    border: none;
+    border-top: 1px solid #334155;
+    border-radius: 0px;
+    padding: 6px 0 0 0;
+}
+QFrame#OCWTabsHeader {
+    background: #0f172a;
     border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 8px;
+    border-radius: 10px;
+}
+QLabel#OCWTabsTitle {
+    color: #f8fafc;
+    font-size: 12px;
+    font-weight: 700;
+}
+QLabel#OCWTabsHint {
+    color: #94a3b8;
+    font-size: 12px;
 }
 QTabWidget#OCWMainTabs::pane {
     border: 1px solid #253043;
@@ -1023,6 +1155,8 @@ QTabBar::tab {
     background: #172033;
     color: #94a3b8;
     border: 1px solid #253043;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
     padding: 8px 10px;
     min-width: 72px;
 }
@@ -1036,7 +1170,7 @@ QGroupBox {
     font-weight: 600;
     border: 1px solid #253043;
     border-radius: 10px;
-    margin-top: 10px;
+    margin-top: 8px;
     padding-top: 8px;
     background: #0f172a;
 }

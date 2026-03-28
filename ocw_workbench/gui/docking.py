@@ -54,7 +54,9 @@ def create_or_reuse_dock(title: str, widget: Any, object_name: str = DOCK_OBJECT
         dock.setObjectName(object_name)
         dock.setAllowedAreas(qtcore.Qt.LeftDockWidgetArea | qtcore.Qt.RightDockWidgetArea)
         if hasattr(dock, "setMinimumWidth"):
-            dock.setMinimumWidth(360)
+            dock.setMinimumWidth(380)
+        if hasattr(dock, "setBaseSize"):
+            dock.setBaseSize(440, 720)
         if hasattr(qtwidgets.QDockWidget, "DockWidgetClosable") and hasattr(qtwidgets.QDockWidget, "DockWidgetMovable"):
             features = qtwidgets.QDockWidget.DockWidgetClosable | qtwidgets.QDockWidget.DockWidgetMovable
             if hasattr(qtwidgets.QDockWidget, "DockWidgetFloatable"):
@@ -63,7 +65,7 @@ def create_or_reuse_dock(title: str, widget: Any, object_name: str = DOCK_OBJECT
         main_window.addDockWidget(qtcore.Qt.RightDockWidgetArea, dock)
         if hasattr(main_window, "resizeDocks"):
             try:
-                main_window.resizeDocks([dock], [420], qtcore.Qt.Horizontal)
+                main_window.resizeDocks([dock], [460], qtcore.Qt.Horizontal)
             except Exception:
                 log_to_console("Dock resize hint skipped due to Qt/FreeCAD limitation.", level="warning")
         log_to_console("Created Open Controller dock in right dock area.")
