@@ -60,7 +60,7 @@ class ConstraintsPanel:
             self._messages = []
             self._set_summary_counts(errors=0, warnings=0)
             self._set_review_state("Not run", "info")
-            self._set_result_overview("Run Validate Layout to check spacing, edge distance, and placement issues.")
+            self._set_result_overview("Validate the layout to see blocking issues, warnings, and export readiness.")
             self._set_widget_visible(self.form["success_box"], False)
             self._set_widget_visible(self.form["list_box"], False)
             self._set_widget_visible(self.form["detail_box"], False)
@@ -375,6 +375,8 @@ def _build_form() -> dict[str, Any]:
     results_overview = create_status_label(qtwidgets, "Run validation to populate the issue list.")
     next_step = create_hint_label(qtwidgets, "Run Validate after layout or component edits.")
     success_box, success_layout = create_section_widget(qtwidgets, "Validation Result", spacing=6)
+    if hasattr(success_box, "setObjectName"):
+        success_box.setObjectName("OCWValidationSuccessCard")
     success_title = qtwidgets.QLabel("Layout valid - ready for export")
     if hasattr(success_title, "setStyleSheet"):
         success_title.setStyleSheet("color: #8dd4b4; font-size: 15px; font-weight: 700;")
@@ -409,11 +411,19 @@ def _build_form() -> dict[str, Any]:
     set_size_policy(results, horizontal="expanding", vertical="expanding")
 
     list_box, list_layout = create_section_widget(qtwidgets, "Issues To Resolve", spacing=6)
+    if hasattr(list_box, "setObjectName"):
+        list_box.setObjectName("OCWValidationIssuesSection")
     list_hint = create_hint_label(qtwidgets, "Errors block release. Select a row, then focus the affected component.")
     list_layout.addWidget(list_hint)
     list_layout.addWidget(results, 1)
     empty_state_box, empty_state_layout = create_section_widget(qtwidgets, "Validation Result", spacing=6)
-    empty_state_message = create_hint_label(qtwidgets, "No validation data yet. Run Validate Layout to see blocking issues, warnings, and export readiness.")
+    if hasattr(empty_state_box, "setObjectName"):
+        empty_state_box.setObjectName("OCWValidationEmptyCard")
+    empty_state_title = qtwidgets.QLabel("No validation results yet")
+    if hasattr(empty_state_title, "setStyleSheet"):
+        empty_state_title.setStyleSheet("color: #d9e2ec; font-size: 14px; font-weight: 700;")
+    empty_state_message = create_hint_label(qtwidgets, "Run Validate Layout to check spacing, edge distance, warnings, and export readiness.")
+    empty_state_layout.addWidget(empty_state_title)
     empty_state_layout.addWidget(empty_state_message)
 
     detail_box, detail_layout = create_section_widget(qtwidgets, "Selected Finding", spacing=6)
@@ -479,6 +489,7 @@ def _build_form() -> dict[str, Any]:
         "success_title": success_title,
         "success_message": success_message,
         "empty_state_box": empty_state_box,
+        "empty_state_title": empty_state_title,
         "list_box": list_box,
         "detail_box": detail_box,
         "results": results,

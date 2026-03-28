@@ -1391,6 +1391,33 @@ QFrame#OCWEmptyStateCard {
     background: rgba(18, 34, 56, 0.28);
     padding: 6px;
 }
+QGroupBox#OCWValidationSuccessCard {
+    border: 1px solid #2f5a47;
+    border-radius: 10px;
+    background: rgba(16, 46, 37, 0.42);
+    padding-top: 8px;
+}
+QGroupBox#OCWValidationSuccessCard::title {
+    color: #b8e5cf;
+}
+QGroupBox#OCWValidationEmptyCard {
+    border: 1px dashed #38516d;
+    border-radius: 10px;
+    background: rgba(18, 28, 42, 0.38);
+    padding-top: 8px;
+}
+QGroupBox#OCWValidationEmptyCard::title {
+    color: #c7d2e0;
+}
+QGroupBox#OCWValidationIssuesSection {
+    border: 1px solid #4b2f35;
+    border-radius: 10px;
+    background: rgba(45, 17, 24, 0.16);
+    padding-top: 8px;
+}
+QGroupBox#OCWValidationIssuesSection::title {
+    color: #f0b3b8;
+}
 QScrollArea {
     background: transparent;
     border: none;

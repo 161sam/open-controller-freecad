@@ -750,6 +750,7 @@ def test_constraints_panel_exposes_validate_step_state_and_release_hint():
     assert "Run Validate" in panel.form["next_step"].text
     assert "Reviewing 1 component" in panel.form["validation_scope"].text
     assert panel.form["empty_state_box"].visible is True
+    assert panel.form["empty_state_title"].text == "No validation results yet"
 
     panel.validate()
 
