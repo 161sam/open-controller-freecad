@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from ocw_workbench.gui.panels._common import (
+    build_form_layout,
+    build_panel_container,
+    configure_combo_box,
+    finalize_panel_widget,
+    load_qt,
+    set_size_policy,
+)
 from ocw_workbench.services.controller_service import ControllerService
 
 
@@ -49,37 +57,39 @@ class LibraryTaskPanel:
 
 
 def _build_library_form() -> dict[str, Any]:
-    try:
-        from PySide2 import QtWidgets
-    except ImportError:
-        try:
-            from PySide import QtGui as QtWidgets  # type: ignore
-        except ImportError:
-            return {
-                "category": _FallbackCombo(),
-                "component": _FallbackCombo(),
-                "x": _FallbackValue(10.0),
-                "y": _FallbackValue(10.0),
-                "rotation": _FallbackValue(0.0),
-            }
+    _qtcore, _qtgui, qtwidgets = load_qt()
+    if qtwidgets is None:
+        return {
+            "category": _FallbackCombo(),
+            "component": _FallbackCombo(),
+            "x": _FallbackValue(10.0),
+            "y": _FallbackValue(10.0),
+            "rotation": _FallbackValue(0.0),
+        }
 
-    widget = QtWidgets.QWidget()
-    layout = QtWidgets.QFormLayout(widget)
-    category = QtWidgets.QComboBox()
-    component = QtWidgets.QComboBox()
-    x = QtWidgets.QDoubleSpinBox()
-    y = QtWidgets.QDoubleSpinBox()
-    rotation = QtWidgets.QDoubleSpinBox()
+    widget, layout = build_panel_container(qtwidgets, spacing=12, margins=(12, 12, 12, 12))
+    form = build_form_layout(qtwidgets, spacing=8)
+    category = qtwidgets.QComboBox()
+    component = qtwidgets.QComboBox()
+    x = qtwidgets.QDoubleSpinBox()
+    y = qtwidgets.QDoubleSpinBox()
+    rotation = qtwidgets.QDoubleSpinBox()
+    for combo in (category, component):
+        configure_combo_box(combo)
     x.setRange(-1000.0, 1000.0)
     y.setRange(-1000.0, 1000.0)
     rotation.setRange(-360.0, 360.0)
+    for spinbox in (x, y, rotation):
+        set_size_policy(spinbox, horizontal="expanding", vertical="preferred")
     x.setValue(10.0)
     y.setValue(10.0)
-    layout.addRow("Category", category)
-    layout.addRow("Component", component)
-    layout.addRow("X (mm)", x)
-    layout.addRow("Y (mm)", y)
-    layout.addRow("Rotation", rotation)
+    form.addRow("Category", category)
+    form.addRow("Component", component)
+    form.addRow("X (mm)", x)
+    form.addRow("Y (mm)", y)
+    form.addRow("Rotation", rotation)
+    layout.addLayout(form)
+    finalize_panel_widget(widget)
     return {"widget": widget, "category": category, "component": component, "x": x, "y": y, "rotation": rotation}
 
 

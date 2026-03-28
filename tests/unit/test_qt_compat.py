@@ -3,6 +3,7 @@ import types
 
 from ocw_workbench.gui import docking
 from ocw_workbench.gui.panels import _common
+from ocw_workbench.gui.taskpanels import constraints_taskpanel, layout_taskpanel, library_taskpanel
 from ocw_workbench.gui.widgets import plugin_list
 from ocw_workbench.gui.runtime import _show_message
 from ocw_workbench.workbench import OpenControllerWorkbench
@@ -199,6 +200,227 @@ def test_wrap_widget_in_scroll_area_sets_resizable_container_and_layout_constrai
     assert scroll_area.resizable is True
     assert scroll_area.widget is content
     assert content._layout.constraint == FakeLayout.SetMinAndMaxSize
+
+
+def test_build_group_box_uses_layout_margin_and_minimum_expanding_policy(monkeypatch):
+    class FakeLayout:
+        def __init__(self, parent=None) -> None:
+            self.margins = None
+            self.spacing = None
+            self.constraint = None
+            if parent is not None and hasattr(parent, "setLayout"):
+                parent.setLayout(self)
+
+        def setContentsMargins(self, *margins) -> None:
+            self.margins = margins
+
+        def setSpacing(self, spacing) -> None:
+            self.spacing = spacing
+
+        def setSizeConstraint(self, value) -> None:
+            self.constraint = value
+
+        def setVerticalSpacing(self, value) -> None:
+            self.vertical_spacing = value
+
+        def setHorizontalSpacing(self, value) -> None:
+            self.horizontal_spacing = value
+
+    class FakeGroupBox:
+        def __init__(self, title) -> None:
+            self.title = title
+            self.object_name = None
+            self.flat = None
+            self.layout_ref = None
+            self.minimum_size = None
+            self.size_policy = None
+
+        def setObjectName(self, name: str) -> None:
+            self.object_name = name
+
+        def setFlat(self, flat: bool) -> None:
+            self.flat = flat
+
+        def setLayout(self, layout) -> None:
+            self.layout_ref = layout
+
+        def setMinimumSize(self, width: int, height: int) -> None:
+            self.minimum_size = (width, height)
+
+        def setSizePolicy(self, horizontal, vertical) -> None:
+            self.size_policy = (horizontal, vertical)
+
+    class FakeQLayout:
+        SetMinAndMaxSize = 9
+
+    class FakeSizePolicy:
+        Fixed = 0
+        Minimum = 1
+        Preferred = 2
+        MinimumExpanding = 3
+        Expanding = 4
+
+    qtwidgets = types.SimpleNamespace(
+        QGroupBox=FakeGroupBox,
+        QVBoxLayout=FakeLayout,
+        QHBoxLayout=FakeLayout,
+        QFormLayout=FakeLayout,
+        QGridLayout=FakeLayout,
+        QLayout=FakeQLayout,
+        QSizePolicy=FakeSizePolicy,
+    )
+    monkeypatch.setattr(_common, "load_qt", lambda: (None, object(), qtwidgets))
+
+    group, layout = _common.build_group_box(qtwidgets, "Placement Settings", layout_kind="form")
+
+    assert group.object_name == "OCWSectionGroup"
+    assert group.flat is True
+    assert group.minimum_size == (0, 0)
+    assert group.size_policy == (FakeSizePolicy.Expanding, FakeSizePolicy.MinimumExpanding)
+    assert layout.margins == (0, _common.SPACE_1, 0, 0)
+    assert layout.constraint == FakeQLayout.SetMinAndMaxSize
+    assert layout.vertical_spacing == _common.SPACE_2
+    assert layout.horizontal_spacing == _common.SPACE_2
+
+
+def test_task_panel_builders_use_shared_layout_defaults(monkeypatch):
+    class FakeWidget:
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.layout_ref = None
+            self.minimum_size = None
+            self.size_policy = None
+            self.read_only = False
+            self.line_wrap_mode = None
+
+        def setLayout(self, layout) -> None:
+            self.layout_ref = layout
+
+        def layout(self):
+            return self.layout_ref
+
+        def setMinimumSize(self, width: int, height: int) -> None:
+            self.minimum_size = (width, height)
+
+        def setSizePolicy(self, horizontal, vertical) -> None:
+            self.size_policy = (horizontal, vertical)
+
+        def setReadOnly(self, value: bool) -> None:
+            self.read_only = value
+
+        def setLineWrapMode(self, value) -> None:
+            self.line_wrap_mode = value
+
+        def setMinimumHeight(self, value: int) -> None:
+            self.minimum_height = value
+
+    class FakeComboBox(FakeWidget):
+        AdjustToMinimumContentsLengthWithIcon = 1
+
+        def addItems(self, items) -> None:
+            self.items = list(items)
+
+        def setMinimumContentsLength(self, value: int) -> None:
+            self.minimum_contents_length = value
+
+        def setSizeAdjustPolicy(self, value) -> None:
+            self.size_adjust_policy = value
+
+    class FakeSpinBox(FakeWidget):
+        def setRange(self, low: float, high: float) -> None:
+            self.range = (low, high)
+
+        def setValue(self, value: float) -> None:
+            self.value = value
+
+    class FakePlainTextEdit(FakeWidget):
+        WidgetWidth = 1
+
+    class FakeLayout:
+        def __init__(self, parent=None) -> None:
+            self.margins = None
+            self.spacing = None
+            self.vertical_spacing = None
+            self.horizontal_spacing = None
+            self.constraint = None
+            self.widgets = []
+            self.layouts = []
+            if parent is not None and hasattr(parent, "setLayout"):
+                parent.setLayout(self)
+
+        def setContentsMargins(self, *margins) -> None:
+            self.margins = margins
+
+        def setSpacing(self, spacing) -> None:
+            self.spacing = spacing
+
+        def setVerticalSpacing(self, spacing) -> None:
+            self.vertical_spacing = spacing
+
+        def setHorizontalSpacing(self, spacing) -> None:
+            self.horizontal_spacing = spacing
+
+        def setFieldGrowthPolicy(self, value) -> None:
+            self.field_growth_policy = value
+
+        def setLabelAlignment(self, value) -> None:
+            self.label_alignment = value
+
+        def setFormAlignment(self, value) -> None:
+            self.form_alignment = value
+
+        def setSizeConstraint(self, value) -> None:
+            self.constraint = value
+
+        def addRow(self, *_args) -> None:
+            return
+
+        def addWidget(self, widget, *_args) -> None:
+            self.widgets.append(widget)
+
+        def addLayout(self, layout, *_args) -> None:
+            self.layouts.append(layout)
+
+    class FakeQLayout:
+        SetMinAndMaxSize = 7
+
+    class FakeQFormLayout(FakeLayout):
+        AllNonFixedFieldsGrow = 11
+
+    class FakeSizePolicy:
+        Fixed = 0
+        Minimum = 1
+        Preferred = 2
+        MinimumExpanding = 3
+        Expanding = 4
+
+    qtcore = types.SimpleNamespace(Qt=types.SimpleNamespace(AlignLeft=1, AlignTop=2, AlignVCenter=4))
+    qtwidgets = types.SimpleNamespace(
+        QWidget=FakeWidget,
+        QVBoxLayout=FakeLayout,
+        QHBoxLayout=FakeLayout,
+        QFormLayout=FakeQFormLayout,
+        QComboBox=FakeComboBox,
+        QDoubleSpinBox=FakeSpinBox,
+        QPlainTextEdit=FakePlainTextEdit,
+        QSizePolicy=FakeSizePolicy,
+        QLayout=FakeQLayout,
+    )
+
+    monkeypatch.setattr(_common, "load_qt", lambda: (qtcore, object(), qtwidgets))
+    for module in (layout_taskpanel, library_taskpanel, constraints_taskpanel):
+        monkeypatch.setattr(module, "load_qt", lambda: (qtcore, object(), qtwidgets))
+
+    layout_form = layout_taskpanel._build_layout_form()
+    library_form = library_taskpanel._build_library_form()
+    constraints_form = constraints_taskpanel._build_constraints_form()
+
+    assert layout_form["widget"].minimum_size == (0, 0)
+    assert layout_form["widget"].size_policy == (FakeSizePolicy.Expanding, FakeSizePolicy.Expanding)
+    assert layout_form["strategy"].size_policy == (FakeSizePolicy.Expanding, FakeSizePolicy.Preferred)
+    assert library_form["widget"].minimum_size == (0, 0)
+    assert library_form["category"].size_policy == (FakeSizePolicy.Expanding, FakeSizePolicy.Preferred)
+    assert constraints_form["widget"].minimum_size == (0, 0)
+    assert constraints_form["results"].read_only is True
 
 
 def test_show_message_prefers_exec(monkeypatch):

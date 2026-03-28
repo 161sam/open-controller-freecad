@@ -208,6 +208,8 @@ def wrap_widget_in_scroll_area(widget: Any) -> Any:
         return widget
     scroll_area = qtwidgets.QScrollArea()
     scroll_area.setWidgetResizable(True)
+    if hasattr(scroll_area, "setContentsMargins"):
+        scroll_area.setContentsMargins(0, 0, 0, 0)
     if hasattr(scroll_area, "setHorizontalScrollBarPolicy") and qtcore is not None:
         scroll_area.setHorizontalScrollBarPolicy(qtcore.Qt.ScrollBarAsNeeded)
     if hasattr(scroll_area, "setVerticalScrollBarPolicy") and qtcore is not None:
@@ -244,7 +246,7 @@ def build_panel_container(
     qtwidgets: Any,
     *,
     spacing: int = SPACE_3,
-    margins: tuple[int, int, int, int] = (0, 0, 0, 0),
+    margins: tuple[int, int, int, int] = (0, SPACE_1, 0, 0),
 ) -> tuple[Any, Any]:
     widget = qtwidgets.QWidget()
     layout = qtwidgets.QVBoxLayout(widget)
@@ -262,7 +264,7 @@ def build_group_box(
     *,
     layout_kind: str = "vbox",
     spacing: int = SPACE_2,
-    margins: tuple[int, int, int, int] = (0, 0, 0, 0),
+    margins: tuple[int, int, int, int] = (0, SPACE_1, 0, 0),
 ) -> tuple[Any, Any]:
     group = qtwidgets.QGroupBox(title)
     if hasattr(group, "setObjectName"):
@@ -292,7 +294,7 @@ def build_collapsible_section(
     *,
     expanded: bool = True,
     spacing: int = SPACE_2,
-    margins: tuple[int, int, int, int] = (0, 0, 0, 0),
+    margins: tuple[int, int, int, int] = (0, SPACE_1, 0, 0),
 ) -> tuple[Any, Any, Any]:
     qtcore, _qtgui, _qtwidgets = load_qt()
     widget = qtwidgets.QWidget()
@@ -366,6 +368,13 @@ def build_form_layout(
         layout.setFormAlignment(qtcore.Qt.AlignTop | qtcore.Qt.AlignLeft)
     _set_form_layout_spacing(layout)
     return layout
+
+
+def finalize_panel_widget(widget: Any) -> Any:
+    if hasattr(widget, "setMinimumSize"):
+        widget.setMinimumSize(0, 0)
+    set_size_policy(widget, horizontal="expanding", vertical="expanding")
+    return widget
 
 
 def create_label(qtwidgets: Any, text: str = "", *, word_wrap: bool = False) -> Any:

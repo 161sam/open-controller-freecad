@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from ocw_workbench.gui.panels._common import (
+    build_panel_container,
+    configure_text_panel,
+    finalize_panel_widget,
+    load_qt,
+)
 from ocw_workbench.services.controller_service import ControllerService
 
 
@@ -22,19 +28,15 @@ class ConstraintsTaskPanel:
 
 
 def _build_constraints_form() -> dict[str, Any]:
-    try:
-        from PySide2 import QtWidgets
-    except ImportError:
-        try:
-            from PySide import QtGui as QtWidgets  # type: ignore
-        except ImportError:
-            return {"results": _FallbackText()}
+    _qtcore, _qtgui, qtwidgets = load_qt()
+    if qtwidgets is None:
+        return {"results": _FallbackText()}
 
-    widget = QtWidgets.QWidget()
-    layout = QtWidgets.QVBoxLayout(widget)
-    results = QtWidgets.QPlainTextEdit()
-    results.setReadOnly(True)
+    widget, layout = build_panel_container(qtwidgets, spacing=12, margins=(12, 12, 12, 12))
+    results = qtwidgets.QPlainTextEdit()
+    configure_text_panel(results, max_height=180)
     layout.addWidget(results)
+    finalize_panel_widget(widget)
     return {"widget": widget, "results": results}
 
 

@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from ocw_workbench.gui.panels._common import (
+    build_form_layout,
+    build_panel_container,
+    configure_combo_box,
+    finalize_panel_widget,
+    load_qt,
+    set_size_policy,
+)
 from ocw_workbench.services.controller_service import ControllerService
 
 
@@ -44,49 +52,50 @@ class LayoutTaskPanel:
 
 
 def _build_layout_form() -> dict[str, Any]:
-    try:
-        from PySide2 import QtWidgets
-    except ImportError:
-        try:
-            from PySide import QtGui as QtWidgets  # type: ignore
-        except ImportError:
-            return {
-                "strategy": _FallbackCombo(["grid", "row", "column", "zone"]),
-                "component": _FallbackCombo(),
-                "grid": _FallbackValue(1.0),
-                "spacing": _FallbackValue(24.0),
-                "padding": _FallbackValue(10.0),
-                "x": _FallbackValue(10.0),
-                "y": _FallbackValue(10.0),
-                "rotation": _FallbackValue(0.0),
-            }
+    _qtcore, _qtgui, qtwidgets = load_qt()
+    if qtwidgets is None:
+        return {
+            "strategy": _FallbackCombo(["grid", "row", "column", "zone"]),
+            "component": _FallbackCombo(),
+            "grid": _FallbackValue(1.0),
+            "spacing": _FallbackValue(24.0),
+            "padding": _FallbackValue(10.0),
+            "x": _FallbackValue(10.0),
+            "y": _FallbackValue(10.0),
+            "rotation": _FallbackValue(0.0),
+        }
 
-    widget = QtWidgets.QWidget()
-    layout = QtWidgets.QFormLayout(widget)
-    strategy = QtWidgets.QComboBox()
-    component = QtWidgets.QComboBox()
-    grid = QtWidgets.QDoubleSpinBox()
-    spacing = QtWidgets.QDoubleSpinBox()
-    padding = QtWidgets.QDoubleSpinBox()
-    x = QtWidgets.QDoubleSpinBox()
-    y = QtWidgets.QDoubleSpinBox()
-    rotation = QtWidgets.QDoubleSpinBox()
+    widget, layout = build_panel_container(qtwidgets, spacing=12, margins=(12, 12, 12, 12))
+    form = build_form_layout(qtwidgets, spacing=8)
+    strategy = qtwidgets.QComboBox()
+    component = qtwidgets.QComboBox()
+    grid = qtwidgets.QDoubleSpinBox()
+    spacing = qtwidgets.QDoubleSpinBox()
+    padding = qtwidgets.QDoubleSpinBox()
+    x = qtwidgets.QDoubleSpinBox()
+    y = qtwidgets.QDoubleSpinBox()
+    rotation = qtwidgets.QDoubleSpinBox()
     strategy.addItems(["grid", "row", "column", "zone"])
     for spinbox in (grid, spacing, padding, x, y, rotation):
         spinbox.setRange(-1000.0, 1000.0)
+        set_size_policy(spinbox, horizontal="expanding", vertical="preferred")
+    for combo in (strategy, component):
+        configure_combo_box(combo)
     grid.setValue(1.0)
     spacing.setValue(24.0)
     padding.setValue(10.0)
     x.setValue(10.0)
     y.setValue(10.0)
-    layout.addRow("Strategy", strategy)
-    layout.addRow("Component", component)
-    layout.addRow("Grid (mm)", grid)
-    layout.addRow("Spacing (mm)", spacing)
-    layout.addRow("Padding (mm)", padding)
-    layout.addRow("X (mm)", x)
-    layout.addRow("Y (mm)", y)
-    layout.addRow("Rotation", rotation)
+    form.addRow("Strategy", strategy)
+    form.addRow("Component", component)
+    form.addRow("Grid (mm)", grid)
+    form.addRow("Spacing (mm)", spacing)
+    form.addRow("Padding (mm)", padding)
+    form.addRow("X (mm)", x)
+    form.addRow("Y (mm)", y)
+    form.addRow("Rotation", rotation)
+    layout.addLayout(form)
+    finalize_panel_widget(widget)
     return {
         "widget": widget,
         "strategy": strategy,
