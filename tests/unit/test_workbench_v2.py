@@ -430,7 +430,7 @@ def test_components_panel_uses_clearer_action_labels_and_details():
 
     details = panel.form["details"].text
 
-    assert panel.form["update_button"].text == "Apply Changes"
+    assert panel.form["update_button"].text == "Apply"
     assert panel.form["arm_move_button"].text == "Pick In 3D"
     assert "Edit placement here. Re-run Validate after geometry changes." in details
 
@@ -523,13 +523,32 @@ def test_components_panel_uses_contextual_summary_and_quick_add_visibility():
     empty_panel = ComponentsPanel(doc, controller_service=service)
 
     assert "Start with Quick Add" in empty_panel.form["context_summary"].text
+    assert empty_panel.form["empty_state_box"].visible is True
+    assert "No components placed yet" in empty_panel.form["empty_state"].text
     assert empty_panel.form["quick_add_box"].visible is True
 
     service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=10.0, y=10.0)
     panel = ComponentsPanel(doc, controller_service=service)
 
-    assert "Single selection" in panel.form["context_summary"].text
-    assert panel.form["quick_add_box"].visible is False
+    assert "Selected component ready" in panel.form["context_summary"].text
+    assert panel.form["empty_state_box"].visible is False
+    assert panel.form["quick_add_box"].visible is True
+
+
+def test_components_panel_exposes_clear_work_sections_and_selected_state():
+    doc = FakeDocument()
+    service = ControllerService()
+    service.create_controller(doc, {"id": "demo", "width": 160.0, "depth": 100.0, "height": 30.0})
+    service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=10.0, y=10.0)
+    panel = ComponentsPanel(doc, controller_service=service)
+
+    assert panel.form["quick_add_section"] is not None
+    assert panel.form["selected_component_box"] is not None
+    assert panel.form["component_list_box"] is not None
+    assert panel.form["bulk_section"] is not None
+    assert panel.form["add_button"].text == "Add"
+    assert panel.form["selected_empty_state"].visible is False
+    assert panel.form["component_list_box"].visible is True
 
 
 def test_components_panel_applies_bulk_changes_to_selected_components():

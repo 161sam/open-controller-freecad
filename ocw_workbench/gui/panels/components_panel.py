@@ -11,6 +11,7 @@ from ocw_workbench.gui.panels._common import (
     create_collapsible_section_widget,
     create_compact_header_widget,
     create_form_section_widget,
+    create_hint_label,
     create_inline_status_widget,
     create_section_widget,
     create_status_label,
@@ -93,6 +94,8 @@ class ComponentsPanel:
         selected_id = state["meta"].get("selection")
         selected_ids = list(state["meta"].get("selected_ids", []))
         self._set_context_summary(component_count=len(labels), selection_count=len(selected_ids))
+        self._set_widget_visible(self.form["empty_state_box"], not bool(labels))
+        self._set_widget_visible(self.form["component_list_box"], bool(labels))
         if selected_id is not None:
             self._set_selected_component(selected_id)
         if labels:
@@ -108,7 +111,6 @@ class ComponentsPanel:
                 f"{len(labels)} components available. {selection_count} selected.{suffix}",
                 level="info",
             )
-            self._set_widget_visible(self.form["quick_add_box"], False)
         else:
             self._clear_component_details()
             set_text(self.form["details"], "No components yet. Use Quick Add to place the first one.")
@@ -117,7 +119,6 @@ class ComponentsPanel:
                 "Add a component to start building the controller.",
                 level="info",
             )
-            self._set_widget_visible(self.form["quick_add_box"], True)
 
     def refresh_add_library(self) -> None:
         categories = sorted({item["category"] for item in self.library_service.list_by_category()})
@@ -157,6 +158,8 @@ class ComponentsPanel:
         set_text(self.form["selected_type"], f"Type: {self._property_model['category']}")
         set_text(self.form["selected_library"], f"Library: {self._property_model['library_label']}")
         self._set_widget_visible(self.form["selector_details"], True)
+        self._set_widget_visible(self.form["selected_component_box"], True)
+        self._set_widget_visible(self.form["selected_empty_state"], False)
         self._populate_library_ref_options(self._property_model)
         self._set_specific_fields(self._property_model)
         set_text(self.form["details"], self._build_details_text(component, self._property_model))
@@ -175,6 +178,7 @@ class ComponentsPanel:
         self._populate_bulk_fields(self._bulk_model)
         set_text(self.form["bulk_summary"], self._bulk_model["details"])
         self._set_widget_visible(self.form["selector_details"], False)
+        self._set_widget_visible(self.form["selected_empty_state"], True)
         set_text(
             self.form["details"],
             "\n".join(
@@ -403,17 +407,17 @@ class ComponentsPanel:
 
     def _set_context_summary(self, *, component_count: int, selection_count: int) -> None:
         if component_count <= 0:
-            message = "No selection yet. Start with Quick Add."
+            message = "No components yet. Start with Quick Add."
         elif selection_count > 1:
-            message = f"{selection_count} selected. Bulk edit is active."
+            message = f"{selection_count} selected. Use the list to keep track and open Bulk Edit if needed."
         elif selection_count == 1:
-            message = "Single selection. Edit placement and the relevant component properties."
+            message = "Selected component ready. Adjust placement, metadata, and type-specific settings here."
         else:
-            message = "Pick a component to edit, or open Quick Add to insert another one."
+            message = "Pick a component from the list to edit it, or use Quick Add to insert another one."
         set_text(self.form["context_summary"], message)
 
     def _set_bulk_mode(self, enabled: bool) -> None:
-        self._set_widget_visible(self.form["selector_box"], not enabled)
+        self._set_widget_visible(self.form["selected_component_box"], not enabled)
         self._set_widget_visible(self.form["bulk_box"], enabled)
 
     def _populate_bulk_fields(self, model: dict[str, Any]) -> None:
@@ -555,6 +559,8 @@ class ComponentsPanel:
         self.form["specific_editor"].clear()
         self._set_bulk_mode(False)
         self._set_widget_visible(self.form["selector_details"], False)
+        self._set_widget_visible(self.form["selected_empty_state"], True)
+        set_text(self.form["selected_empty_state"], "Select a component from the list to edit its placement and properties.")
 
     def _build_details_text(self, component: dict[str, Any], model: dict[str, Any]) -> str:
         return "\n".join(
@@ -582,12 +588,18 @@ def _build_form() -> dict[str, Any]:
     if qtwidgets is None:
         return {
             "widget": object(),
+            "quick_add_section": FallbackLabel(),
+            "selected_component_box": FallbackLabel(),
+            "component_list_box": FallbackLabel(),
+            "empty_state_box": FallbackLabel(),
+            "bulk_section": FallbackLabel(),
             "selector_box": FallbackLabel(),
             "selector_details": FallbackLabel(),
             "quick_add_box": FallbackLabel(),
             "bulk_box": FallbackLabel(),
-            "context_summary": FallbackText(),
+            "context_summary": FallbackText("No components yet. Start with Quick Add."),
             "component": FallbackCombo(),
+            "selected_empty_state": FallbackLabel("Select a component from the list to edit its placement and properties."),
             "selected_id": FallbackLabel("ID: -"),
             "selected_type": FallbackLabel("Type: -"),
             "selected_library": FallbackLabel("Library: -"),
@@ -599,7 +611,7 @@ def _build_form() -> dict[str, Any]:
             "tags": FallbackText(),
             "visible": FallbackCheckBox(True),
             "specific_editor": specific_editor,
-            "update_button": FallbackButton("Apply Changes"),
+            "update_button": FallbackButton("Apply"),
             "arm_move_button": FallbackButton("Pick In 3D"),
             "snap_button": FallbackButton("Snap"),
             "reset_button": FallbackButton("Reset"),
@@ -634,16 +646,20 @@ def _build_form() -> dict[str, Any]:
             "add_x": FallbackValue(10.0),
             "add_y": FallbackValue(10.0),
             "add_rotation": FallbackValue(0.0),
-            "add_button": FallbackButton("Add To Controller"),
-            "details": FallbackText(),
-            "status": FallbackLabel(),
+            "add_button": FallbackButton("Add"),
+            "details": FallbackText("No components yet. Use Quick Add to place the first one."),
+            "status": FallbackLabel("Ready to add or edit components."),
         }
 
     content, layout = build_panel_container(qtwidgets)
-    selector_box, selector_layout = create_form_section_widget(qtwidgets, "Selected Component", spacing=4)
-    context_summary = create_status_label(qtwidgets, "No selection yet. Start with Quick Add.")
+    quick_add_section, quick_add_layout = create_form_section_widget(qtwidgets, "Quick Add", spacing=4)
+    selected_component_box, selector_layout = create_form_section_widget(qtwidgets, "Selected Component", spacing=4)
+    component_list_box, component_list_layout = create_form_section_widget(qtwidgets, "Components List", spacing=4)
+    empty_state_box, empty_state_layout = create_section_widget(qtwidgets, "Components List", spacing=6)
+    context_summary = create_status_label(qtwidgets, "No components yet. Start with Quick Add.")
     component = qtwidgets.QComboBox()
     configure_combo_box(component)
+    list_hint = create_hint_label(qtwidgets, "Select a component from the list to edit it.")
     selected_id = qtwidgets.QLabel("ID: -")
     selected_type = qtwidgets.QLabel("Type: -")
     selected_library = qtwidgets.QLabel("Library: -")
@@ -663,7 +679,7 @@ def _build_form() -> dict[str, Any]:
     tags = qtwidgets.QLineEdit()
     visible = qtwidgets.QCheckBox()
     visible.setChecked(True)
-    update_button = set_button_role(qtwidgets.QPushButton("Apply Changes"), "primary")
+    update_button = set_button_role(qtwidgets.QPushButton("Apply"), "primary")
     arm_move_button = set_button_role(qtwidgets.QPushButton("Pick In 3D"), "secondary")
     snap_button = set_button_role(qtwidgets.QPushButton("Snap"), "ghost")
     reset_button = set_button_role(qtwidgets.QPushButton("Reset"), "ghost")
@@ -685,18 +701,12 @@ def _build_form() -> dict[str, Any]:
         spinbox.setDecimals(2)
         set_size_policy(spinbox, horizontal="expanding", vertical="preferred")
     selector_summary = create_status_label(qtwidgets, "Edit only the selected component context.")
-    selector_actions = qtwidgets.QGridLayout()
-    selector_actions.setContentsMargins(0, 0, 0, 0)
-    selector_actions.setHorizontalSpacing(6)
-    selector_actions.setVerticalSpacing(6)
-    selector_actions.addWidget(update_button, 0, 0)
-    selector_actions.addWidget(arm_move_button, 0, 1)
-    selector_actions.addWidget(snap_button, 1, 0)
-    selector_actions.addWidget(reset_button, 1, 1)
-    selector_layout.addRow("Component", component)
-    selector_layout.addRow("", context_summary)
+    selected_empty_state = create_hint_label(qtwidgets, "Select a component from the list to edit its placement and properties.")
+    primary_actions = create_button_row_layout(qtwidgets, update_button, arm_move_button, spacing=6)
+    secondary_actions = create_button_row_layout(qtwidgets, snap_button, reset_button, spacing=6)
     selector_layout.addRow("", selector_details)
     selector_layout.addRow("", selector_summary)
+    selector_layout.addRow("", selected_empty_state)
     selector_layout.addRow("X (mm)", x)
     selector_layout.addRow("Y (mm)", y)
     selector_layout.addRow("Rotation", rotation)
@@ -705,7 +715,8 @@ def _build_form() -> dict[str, Any]:
     selector_layout.addRow("Tags", tags)
     selector_layout.addRow("Visible", visible)
     selector_layout.addRow("Type-Specific", specific_editor.widget)
-    selector_layout.addRow("", selector_actions)
+    selector_layout.addRow("", primary_actions)
+    selector_layout.addRow("", secondary_actions)
     bulk_section, bulk_layout, _bulk_toggle = create_collapsible_section_widget(
         qtwidgets,
         "Bulk Edit",
@@ -761,12 +772,7 @@ def _build_form() -> dict[str, Any]:
     bulk_form.addRow(bulk_label_cap_width, _bulk_row_widget(qtwidgets, bulk_apply_cap_width, bulk_cap_width))
     bulk_form.addRow("", bulk_actions)
     bulk_layout.addWidget(bulk_box)
-    quick_add_box, quick_add_layout, _quick_add_toggle = create_collapsible_section_widget(
-        qtwidgets,
-        "Quick Add",
-        expanded=False,
-        spacing=6,
-    )
+    quick_add_hint = create_hint_label(qtwidgets, "Choose a category and library part, then add it to the controller.")
     add_box, add_layout = create_form_section_widget(qtwidgets, "Insert Component", spacing=4)
     add_category = qtwidgets.QComboBox()
     add_component = qtwidgets.QComboBox()
@@ -794,36 +800,47 @@ def _build_form() -> dict[str, Any]:
     add_layout.addRow("Y (mm)", add_y)
     add_layout.addRow("Rotation", add_rotation)
     add_layout.addRow("", add_button)
-    quick_add_layout.addWidget(add_box)
+    quick_add_layout.addRow(quick_add_hint)
+    quick_add_layout.addRow(add_box)
+    empty_state = create_hint_label(
+        qtwidgets,
+        "No components placed yet. Use Quick Add to insert the first component, then pick it from the list to refine placement.",
+    )
+    empty_state_layout.addWidget(empty_state)
+    component_list_layout.addRow("", context_summary)
+    component_list_layout.addRow("", list_hint)
+    component_list_layout.addRow("Selection", component)
     details_box, details_layout = create_section_widget(qtwidgets, "Selection Details", spacing=6)
     details = create_text_panel(qtwidgets, max_height=72)
     details_layout.addWidget(details)
-    status = create_status_label(qtwidgets)
-    status_box, status_layout = create_section_widget(qtwidgets, "Status", spacing=6)
-    status_layout.addWidget(status)
-    for child in (selector_box, bulk_box, bulk_section, add_box, component, add_category, add_component):
+    status = create_status_label(qtwidgets, "Ready to add or edit components.")
+    for child in (quick_add_section, selected_component_box, component_list_box, empty_state_box, bulk_box, bulk_section, add_box, component, add_category, add_component):
         set_size_policy(child, horizontal="expanding", vertical="preferred")
-    top_row = qtwidgets.QHBoxLayout()
-    top_row.setSpacing(6)
-    side_column = qtwidgets.QVBoxLayout()
-    side_column.setSpacing(6)
-    side_column.addWidget(quick_add_box)
-    side_column.addWidget(details_box)
-    side_column.addWidget(status_box)
-    top_row.addWidget(selector_box, 3)
-    top_row.addLayout(side_column, 2)
-    layout.addLayout(top_row)
+    layout.addWidget(quick_add_section)
+    layout.addWidget(selected_component_box)
+    layout.addWidget(component_list_box)
+    layout.addWidget(empty_state_box)
+    layout.addWidget(details_box)
     layout.addWidget(bulk_section)
+    layout.addWidget(status)
     layout.addStretch(1)
+    if hasattr(empty_state_box, "setVisible"):
+        empty_state_box.setVisible(False)
     widget = wrap_widget_in_scroll_area(content)
     return {
         "widget": widget,
-        "selector_box": selector_box,
+        "quick_add_section": quick_add_section,
+        "selected_component_box": selected_component_box,
+        "component_list_box": component_list_box,
+        "empty_state_box": empty_state_box,
+        "bulk_section": bulk_section,
+        "selector_box": selected_component_box,
         "selector_details": selector_details,
-        "quick_add_box": quick_add_box,
+        "quick_add_box": quick_add_section,
         "bulk_box": bulk_box,
         "context_summary": context_summary,
         "component": component,
+        "selected_empty_state": selected_empty_state,
         "selected_id": selected_id,
         "selected_type": selected_type,
         "selected_library": selected_library,
@@ -871,6 +888,7 @@ def _build_form() -> dict[str, Any]:
         "add_y": add_y,
         "add_rotation": add_rotation,
         "add_button": add_button,
+        "empty_state": empty_state,
         "details": details,
         "status": status,
     }
