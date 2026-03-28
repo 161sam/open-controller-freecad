@@ -122,6 +122,52 @@ def test_add_layout_content_routes_widgets_and_layouts(monkeypatch):
     assert parent.layouts == [row_layout]
 
 
+def test_add_layout_content_wraps_nested_layout_for_form_layout_without_add_layout(monkeypatch):
+    class FakeWidget:
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.layout_ref = None
+            self.minimum_size = None
+            self.size_policy = None
+
+        def setLayout(self, layout) -> None:
+            self.layout_ref = layout
+
+        def setMinimumSize(self, width: int, height: int) -> None:
+            self.minimum_size = (width, height)
+
+        def setSizePolicy(self, horizontal, vertical) -> None:
+            self.size_policy = (horizontal, vertical)
+
+    class FakeLayout:
+        pass
+
+    class FakeFormLayout:
+        def __init__(self) -> None:
+            self.rows = []
+
+        def addRow(self, widget) -> None:
+            self.rows.append(widget)
+
+    class FakeSizePolicy:
+        Fixed = 0
+        Minimum = 1
+        Preferred = 2
+        MinimumExpanding = 3
+        Expanding = 4
+
+    qtwidgets = types.SimpleNamespace(QLayout=FakeLayout, QWidget=FakeWidget, QSizePolicy=FakeSizePolicy)
+    monkeypatch.setattr(_common, "load_qt", lambda: (None, object(), qtwidgets))
+
+    parent = FakeFormLayout()
+    nested = FakeLayout()
+
+    _common.add_layout_content(parent, nested)
+
+    assert len(parent.rows) == 1
+    assert parent.rows[0].layout_ref is nested
+    assert parent.rows[0].minimum_size == (0, 0)
+
+
 def test_wrap_widget_in_scroll_area_sets_resizable_container_and_layout_constraint(monkeypatch):
     class FakeLayout:
         SetMinAndMaxSize = 7

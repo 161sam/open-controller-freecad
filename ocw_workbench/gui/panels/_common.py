@@ -551,10 +551,22 @@ def add_layout_content(layout: Any, content: Any, *, stretch: int | None = None)
         and isinstance(content, qtwidgets.QLayout)
     )
     if is_layout:
-        if stretch is None:
-            layout.addLayout(content)
-        else:
-            layout.addLayout(content, stretch)
+        if hasattr(layout, "addLayout"):
+            if stretch is None:
+                layout.addLayout(content)
+            else:
+                layout.addLayout(content, stretch)
+            return
+        if hasattr(layout, "addRow") and qtwidgets is not None and hasattr(qtwidgets, "QWidget"):
+            container = qtwidgets.QWidget()
+            if hasattr(container, "setLayout"):
+                container.setLayout(content)
+            if hasattr(container, "setMinimumSize"):
+                container.setMinimumSize(0, 0)
+            set_size_policy(container, horizontal="expanding", vertical="preferred")
+            layout.addRow(container)
+            return
+        raise AttributeError(f"Layout object {layout!r} does not support nested layout insertion")
         return
     if stretch is None:
         layout.addWidget(content)
