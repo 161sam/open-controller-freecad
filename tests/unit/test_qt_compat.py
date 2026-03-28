@@ -642,6 +642,91 @@ def test_create_or_reuse_dock_tabifies_existing_right_dock(monkeypatch):
     assert all("setFloating" not in message for _level, message in logs)
 
 
+def test_create_or_reuse_dock_reuses_existing_named_dock(monkeypatch):
+    class FakeDockWidget:
+        DockWidgetClosable = 1
+        DockWidgetMovable = 2
+
+        def __init__(self, title, parent):
+            self.title = title
+            self.parent = parent
+            self._object_name = ""
+            self._widget = None
+            self.shown = False
+            self.raised = False
+            self.activated = False
+
+        def setObjectName(self, name):
+            self._object_name = name
+
+        def objectName(self):
+            return self._object_name
+
+        def setAllowedAreas(self, *_args):
+            return
+
+        def setFeatures(self, *_args):
+            return
+
+        def widget(self):
+            return self._widget
+
+        def setWidget(self, widget):
+            self._widget = widget
+
+        def show(self):
+            self.shown = True
+
+        def raise_(self):
+            self.raised = True
+
+        def activateWindow(self):
+            self.activated = True
+
+        def setWindowTitle(self, title):
+            self.title = title
+
+    class FakeMainWindow:
+        def __init__(self):
+            self.children = []
+            self.added = []
+
+        def findChild(self, cls, object_name):
+            for child in self.children:
+                if isinstance(child, cls) and child.objectName() == object_name:
+                    return child
+            return None
+
+        def addDockWidget(self, area, dock):
+            self.children.append(dock)
+            self.added.append((area, dock.objectName()))
+
+        def findChildren(self, cls):
+            return [child for child in self.children if isinstance(child, cls)]
+
+    fake_main_window = FakeMainWindow()
+    existing = FakeDockWidget("Existing", fake_main_window)
+    existing.setObjectName("OCWWorkbenchDock")
+    existing.setWidget("old")
+    fake_main_window.children.append(existing)
+
+    qtcore = types.SimpleNamespace(Qt=types.SimpleNamespace(LeftDockWidgetArea=1, RightDockWidgetArea=2))
+    qtwidgets = types.SimpleNamespace(QDockWidget=FakeDockWidget)
+
+    monkeypatch.setattr("ocw_workbench.gui.docking.load_qt", lambda: (qtcore, object(), qtwidgets))
+    monkeypatch.setattr("ocw_workbench.gui.docking.get_main_window", lambda: fake_main_window)
+    monkeypatch.setattr("ocw_workbench.gui.docking.log_to_console", lambda *args, **kwargs: None)
+
+    dock_ref = docking.create_or_reuse_dock("Open Controller", "new")
+
+    assert dock_ref is existing
+    assert dock_ref.widget() == "new"
+    assert fake_main_window.added == []
+    assert dock_ref.shown is True
+    assert dock_ref.raised is True
+    assert dock_ref.activated is True
+
+
 def test_product_workbench_panel_uses_tab_shell():
     from ocw_workbench.services.controller_service import ControllerService
     from ocw_workbench.workbench import ProductWorkbenchPanel
@@ -661,6 +746,124 @@ def test_product_workbench_panel_uses_tab_shell():
     assert "tabs" not in panel.form or panel.form["tabs"] is not None
     assert panel.form["title"].text == "Open Controller Workbench"
     assert panel.form["context_summary"].text.startswith("Create |")
+
+
+def test_create_collapsible_section_widget_returns_widget_body_and_toggle(monkeypatch):
+    class FakeSignal:
+        def __init__(self) -> None:
+            self._callbacks = []
+
+        def connect(self, callback) -> None:
+            self._callbacks.append(callback)
+
+        def emit(self, *args) -> None:
+            for callback in list(self._callbacks):
+                callback(*args)
+
+    class FakeWidget:
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.layout_ref = None
+            self.minimum_size = None
+            self.size_policy = None
+            self.visible = True
+            self.object_name = ""
+
+        def setLayout(self, layout) -> None:
+            self.layout_ref = layout
+
+        def setMinimumSize(self, width: int, height: int) -> None:
+            self.minimum_size = (width, height)
+
+        def setSizePolicy(self, horizontal, vertical) -> None:
+            self.size_policy = (horizontal, vertical)
+
+        def setVisible(self, visible: bool) -> None:
+            self.visible = visible
+
+        def setObjectName(self, name: str) -> None:
+            self.object_name = name
+
+    class FakeToolButton(FakeWidget):
+        def __init__(self, *_args, **_kwargs) -> None:
+            super().__init__()
+            self.text_value = ""
+            self.checked = False
+            self.arrow = None
+            self.toggled = FakeSignal()
+
+        def setText(self, text: str) -> None:
+            self.text_value = text
+
+        def setCheckable(self, *_args) -> None:
+            return
+
+        def setChecked(self, checked: bool) -> None:
+            self.checked = checked
+
+        def setToolButtonStyle(self, *_args) -> None:
+            return
+
+        def setArrowType(self, arrow) -> None:
+            self.arrow = arrow
+
+    class FakeLayout:
+        def __init__(self, parent=None) -> None:
+            self.widgets = []
+            self.layouts = []
+            self.constraint = None
+            if parent is not None and hasattr(parent, "setLayout"):
+                parent.setLayout(self)
+
+        def setContentsMargins(self, *_args) -> None:
+            return
+
+        def setSpacing(self, *_args) -> None:
+            return
+
+        def setSizeConstraint(self, value) -> None:
+            self.constraint = value
+
+        def addWidget(self, widget, *_args) -> None:
+            self.widgets.append(widget)
+
+        def addLayout(self, layout, *_args) -> None:
+            self.layouts.append(layout)
+
+    class FakeQLayout:
+        SetMinAndMaxSize = 7
+
+    class FakeSizePolicy:
+        Fixed = 0
+        Minimum = 1
+        Preferred = 2
+        MinimumExpanding = 3
+        Expanding = 4
+
+    qtcore = types.SimpleNamespace(Qt=types.SimpleNamespace(ToolButtonTextBesideIcon=1, DownArrow=2, RightArrow=3))
+    qtwidgets = types.SimpleNamespace(
+        QWidget=FakeWidget,
+        QFrame=FakeWidget,
+        QToolButton=FakeToolButton,
+        QVBoxLayout=FakeLayout,
+        QHBoxLayout=FakeLayout,
+        QLayout=FakeQLayout,
+        QSizePolicy=FakeSizePolicy,
+    )
+    monkeypatch.setattr(_common, "load_qt", lambda: (qtcore, object(), qtwidgets))
+
+    widget, body_layout, toggle = _common.create_collapsible_section_widget(qtwidgets, "Helpers", expanded=False)
+
+    assert widget.minimum_size == (0, 0)
+    assert body_layout.constraint == FakeQLayout.SetMinAndMaxSize
+    assert toggle.text_value == "Helpers"
+    assert toggle.arrow == qtcore.Qt.RightArrow
+    body = widget.layout_ref.widgets[1]
+    assert body.visible is False
+
+    toggle.toggled.emit(True)
+
+    assert body.visible is True
+    assert toggle.arrow == qtcore.Qt.DownArrow
 
 
 def test_plugin_list_build_uses_widget_safe_row_insertion(monkeypatch):

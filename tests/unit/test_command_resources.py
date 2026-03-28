@@ -26,6 +26,7 @@ from ocw_workbench.commands.toggle_measurements import ToggleMeasurementsCommand
 from ocw_workbench.commands.toggle_overlay import ToggleOverlayCommand
 from ocw_workbench.commands.validate_constraints import ValidateConstraintsCommand
 from ocw_workbench.commands.validate_project import ValidateProjectCommand
+from ocw_workbench.gui.runtime import component_icon_path, icon_path
 from ocw_workbench.workbench import OpenControllerWorkbench
 
 
@@ -76,3 +77,13 @@ def test_legacy_schema_commands_now_expose_non_default_pixmaps() -> None:
 
 def test_workbench_icon_exists() -> None:
     assert Path(OpenControllerWorkbench.Icon).exists()
+
+
+def test_runtime_icon_helpers_fall_back_to_default_assets() -> None:
+    missing_icon = Path(icon_path("missing-icon-name"))
+    missing_component_icon = Path(component_icon_path("missing-component-icon.svg"))
+
+    assert missing_icon.exists()
+    assert missing_icon.name == "default.svg"
+    assert missing_component_icon.exists()
+    assert missing_component_icon.name == "generic.svg"

@@ -248,6 +248,25 @@ def test_workbench_document_change_cleans_active_interaction():
     assert workbench.interaction_manager.active_name is None
 
 
+def test_workbench_reject_cancels_active_interaction():
+    doc = FakeDocument("A")
+    service = ControllerService()
+    workbench = ProductWorkbenchPanel(doc, controller_service=service)
+    view = FakeView()
+    workbench.place_controller._active_view = lambda current_doc: view if current_doc is doc else None
+
+    assert workbench.start_place_mode("omron_b3f_1000") is True
+    workbench.place_controller.update_preview_from_screen(10.0, 10.0)
+
+    assert workbench.reject() is True
+
+    settings = workbench.interaction_service.get_settings(doc)
+    assert load_preview_state(doc) is None
+    assert len(view.callbacks) == 0
+    assert workbench.interaction_manager.active_name is None
+    assert settings["active_interaction"] is None
+
+
 def test_workbench_start_modes_update_compact_interaction_context():
     doc = FakeDocument("A")
     service = ControllerService()
