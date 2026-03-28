@@ -761,7 +761,7 @@ class ProductWorkbenchPanel:
             step_buttons[panel_name] = button
             if index >= len(_WORKFLOW_STEPS) - 1:
                 continue
-            flow_label = qtwidgets.QLabel("›")
+            flow_label = qtwidgets.QLabel("››")
             if hasattr(flow_label, "setObjectName"):
                 flow_label.setObjectName("OCWStepFlow")
             stepper_layout.addWidget(flow_label)
@@ -1204,42 +1204,42 @@ QLabel#OCWContextSummary {
     font-size: 10px;
 }
 QFrame#OCWStepperBar {
-    background: #101826;
+    background: #0e1622;
     border: 1px solid #1c2737;
-    border-radius: 10px;
+    border-radius: 12px;
 }
 QPushButton#OCWStepButton {
     min-height: 36px;
-    padding: 0 14px;
-    border-radius: 9px;
-    border: 1px solid #1d2938;
-    background: #111a27;
-    color: #72849a;
+    padding: 0 16px;
+    border-radius: 10px;
+    border: 1px solid #1a2534;
+    background: #101927;
+    color: #6f8198;
     font-size: 11px;
     font-weight: 700;
     text-align: center;
 }
 QPushButton#OCWStepButton:hover {
-    background: #172131;
+    background: #162131;
     color: #dbe5f1;
     border-color: #314156;
 }
 QPushButton#OCWStepButton[done="true"] {
-    background: #132235;
-    color: #cdd8e6;
-    border-color: #2f557f;
+    background: #122236;
+    color: #c7d6e8;
+    border-color: #335b86;
 }
 QPushButton#OCWStepButton[future="true"] {
-    background: #0f1723;
-    color: #5f7186;
-    border-color: #192333;
+    background: #0d141f;
+    color: #53657b;
+    border-color: #152031;
 }
 QPushButton#OCWStepButton:checked,
 QPushButton#OCWStepButton[active="true"] {
-    background: #1c4db7;
+    background: #2156c6;
     color: #f7fbff;
-    border: 1px solid #75a0ef;
-    padding: 0 16px;
+    border: 1px solid #86adf4;
+    padding: 0 18px;
 }
 QPushButton#OCWStepButton[disabled_step="true"] {
     background: #0c121c;
@@ -1247,19 +1247,19 @@ QPushButton#OCWStepButton[disabled_step="true"] {
     border-color: #141e2b;
 }
 QLabel#OCWStepFlow {
-    color: #435266;
-    font-size: 14px;
+    color: #334256;
+    font-size: 13px;
     font-weight: 700;
-    padding: 0 2px 1px 2px;
+    padding: 0 1px 1px 1px;
 }
 QLabel#OCWStepFlow[done="true"] {
-    color: #6f95cb;
+    color: #6c92cb;
 }
 QLabel#OCWStepFlow[active="true"] {
-    color: #9ab9ef;
+    color: #9cbcf3;
 }
 QLabel#OCWStepFlow[future="true"] {
-    color: #344255;
+    color: #2a3748;
 }
 QFrame#OCWFooterBar {
     background: transparent;
