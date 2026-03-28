@@ -17,6 +17,7 @@ from ocw_workbench.gui.panels._common import (
     set_label_text,
     set_text,
     set_tooltip,
+    wrap_layout_in_widget,
     widget_value,
 )
 
@@ -140,7 +141,8 @@ class ParameterEditorWidget:
                 source_label = qtwidgets.QLabel(source)
                 source_label.setMinimumWidth(56)
                 row_layout.addWidget(source_label)
-                container.layout().addRow(label, row_layout)
+                row_widget = wrap_layout_in_widget(qtwidgets, row_layout)
+                container.layout().addRow(label, row_widget)
             else:
                 container.rows.append({"label": label, "widget": widget, "source": source})
             help_text = definition.get("help")

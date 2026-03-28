@@ -4,7 +4,7 @@ import types
 from ocw_workbench.gui import docking
 from ocw_workbench.gui.panels import _common
 from ocw_workbench.gui.taskpanels import constraints_taskpanel, layout_taskpanel, library_taskpanel
-from ocw_workbench.gui.widgets import plugin_list
+from ocw_workbench.gui.widgets import parameter_editor, plugin_list
 from ocw_workbench.gui.runtime import _show_message
 from ocw_workbench.workbench import OpenControllerWorkbench
 
@@ -166,6 +166,114 @@ def test_add_layout_content_wraps_nested_layout_for_form_layout_without_add_layo
     assert len(parent.rows) == 1
     assert parent.rows[0].layout_ref is nested
     assert parent.rows[0].minimum_size == (0, 0)
+
+
+def test_parameter_editor_wraps_row_layout_before_adding_form_row(monkeypatch):
+    class FakeWidget:
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.layout_ref = None
+            self.minimum_size = None
+            self.size_policy = None
+
+        def setLayout(self, layout) -> None:
+            self.layout_ref = layout
+
+        def setMinimumSize(self, width: int, height: int) -> None:
+            self.minimum_size = (width, height)
+
+        def setSizePolicy(self, horizontal, vertical) -> None:
+            self.size_policy = (horizontal, vertical)
+
+    class FakeControl:
+        pass
+
+    class FakeRowLayout:
+        def __init__(self, *_args, **_kwargs) -> None:
+            self.widgets = []
+
+        def addWidget(self, widget, *_args) -> None:
+            self.widgets.append(widget)
+
+    class FakeLabel(FakeWidget):
+        def __init__(self, text: str = "") -> None:
+            super().__init__()
+            self.text = text
+            self.minimum_width = None
+
+        def setMinimumWidth(self, width: int) -> None:
+            self.minimum_width = width
+
+        def setText(self, text: str) -> None:
+            self.text = text
+
+    class FakeFormLayout:
+        def __init__(self) -> None:
+            self.rows = []
+
+        def count(self) -> int:
+            return 0
+
+        def takeAt(self, _index: int):
+            raise AssertionError("takeAt should not be called for an empty layout")
+
+        def addRow(self, label, widget) -> None:
+            self.rows.append((label, widget))
+
+    class FakeContainer:
+        def __init__(self, layout) -> None:
+            self._layout = layout
+
+        def layout(self):
+            return self._layout
+
+    class FakeSizePolicy:
+        Fixed = 0
+        Minimum = 1
+        Preferred = 2
+        MinimumExpanding = 3
+        Expanding = 4
+
+    qtwidgets = types.SimpleNamespace(
+        QWidget=FakeWidget,
+        QHBoxLayout=FakeRowLayout,
+        QLabel=FakeLabel,
+        QSizePolicy=FakeSizePolicy,
+    )
+
+    monkeypatch.setattr(parameter_editor, "load_qt", lambda: (None, object(), qtwidgets))
+    monkeypatch.setattr(_common, "load_qt", lambda: (None, object(), qtwidgets))
+
+    editor = parameter_editor.ParameterEditorWidget.__new__(parameter_editor.ParameterEditorWidget)
+    editor.parts = {
+        "controls_container": FakeContainer(FakeFormLayout()),
+        "summary": FakeLabel(),
+    }
+    editor._definitions = [
+        {
+            "id": "speed",
+            "label": "Speed",
+            "default": 0,
+            "type": "int",
+            "control": "spinbox",
+        }
+    ]
+    editor._controls = {}
+    editor.changed = parameter_editor.FallbackSignal()
+    editor.preset_changed = parameter_editor.FallbackSignal()
+    editor._build_control = lambda _definition, _value: FakeControl()
+    editor._connect_widget = lambda _definition, _widget: None
+
+    editor._rebuild_controls(values={"speed": 12}, sources={"speed": "preset"})
+
+    rows = editor.parts["controls_container"].layout().rows
+    assert len(rows) == 1
+    label, row_widget = rows[0]
+    assert label == "Speed"
+    assert isinstance(row_widget, FakeWidget)
+    assert isinstance(row_widget.layout_ref, FakeRowLayout)
+    assert row_widget.minimum_size == (0, 0)
+    assert row_widget.size_policy == (FakeSizePolicy.Expanding, FakeSizePolicy.Preferred)
+    assert editor.parts["summary"].text == "1 parameters available."
 
 
 def test_wrap_widget_in_scroll_area_sets_resizable_container_and_layout_constraint(monkeypatch):
