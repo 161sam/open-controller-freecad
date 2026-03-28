@@ -8,9 +8,11 @@ from ocw_workbench.gui.panels._common import (
     FallbackCombo,
     FallbackLabel,
     FallbackText,
+    build_group_box,
+    build_panel_container,
     FallbackValue,
     configure_combo_box,
-    configure_text_panel,
+    create_text_panel,
     current_text,
     load_qt,
     set_combo_items,
@@ -194,12 +196,8 @@ def _build_form() -> dict[str, Any]:
             "status": FallbackLabel(),
         }
 
-    content = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(content)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(8)
-    meta_box = qtwidgets.QGroupBox("Project")
-    meta_layout = qtwidgets.QFormLayout(meta_box)
+    content, layout = build_panel_container(qtwidgets)
+    meta_box, meta_layout = build_group_box(qtwidgets, "Project", layout_kind="form")
     template = qtwidgets.QLabel("-")
     variant = qtwidgets.QLabel("-")
     selection = qtwidgets.QLabel("-")
@@ -211,9 +209,7 @@ def _build_form() -> dict[str, Any]:
     meta_layout.addRow("Selected count", selection_count)
     meta_layout.addRow("Components", component_count)
 
-    settings_box = qtwidgets.QGroupBox("Geometry")
-    settings_layout = qtwidgets.QFormLayout(settings_box)
-    settings_layout.setSpacing(6)
+    settings_box, settings_layout = build_group_box(qtwidgets, "Geometry", layout_kind="form")
     width = qtwidgets.QDoubleSpinBox()
     depth = qtwidgets.QDoubleSpinBox()
     height = qtwidgets.QDoubleSpinBox()
@@ -264,8 +260,7 @@ def _build_form() -> dict[str, Any]:
     settings_layout.addRow("Corner radius (mm)", corner_radius)
     settings_layout.addRow("", apply_button)
 
-    info = qtwidgets.QPlainTextEdit()
-    configure_text_panel(info, max_height=88)
+    info = create_text_panel(qtwidgets, max_height=88)
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
     top_row = qtwidgets.QHBoxLayout()

@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from ocw_workbench.gui.panels._common import (
+    build_group_box,
     configure_combo_box,
-    configure_text_panel,
+    create_text_panel,
     FallbackButton,
     FallbackCombo,
     FallbackLabel,
@@ -142,8 +143,7 @@ def _build_widget() -> dict[str, Any]:
             "download_button": FallbackButton("Download ZIP"),
         }
 
-    widget = qtwidgets.QGroupBox("Installed Plugins")
-    layout = qtwidgets.QVBoxLayout(widget)
+    widget, layout = build_group_box(qtwidgets, "Installed Plugins")
     filter_combo = qtwidgets.QComboBox()
     filter_combo.addItems(["all", "enabled", "disabled", "errors"])
     plugin_combo = qtwidgets.QComboBox()
@@ -163,8 +163,7 @@ def _build_widget() -> dict[str, Any]:
     remote_summary.setWordWrap(True)
     for combo in (filter_combo, plugin_combo, remote_plugin_combo):
         configure_combo_box(combo)
-    remote_details = qtwidgets.QPlainTextEdit()
-    configure_text_panel(remote_details, max_height=120)
+    remote_details = create_text_panel(qtwidgets, max_height=120)
     download_path = qtwidgets.QLineEdit(".plugin_downloads")
     download_button = qtwidgets.QPushButton("Download")
     for child in (filter_combo, plugin_combo, export_path, import_path, remote_url, remote_plugin_combo, download_path):

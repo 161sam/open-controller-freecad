@@ -5,7 +5,8 @@ from typing import Any
 from ocw_workbench.gui.panels._common import (
     FallbackLabel,
     FallbackText,
-    configure_text_panel,
+    build_group_box,
+    create_text_panel,
     load_qt,
     set_label_text,
     set_text,
@@ -64,11 +65,9 @@ def _build_widget() -> dict[str, Any]:
             "details": FallbackText(),
         }
 
-    widget = qtwidgets.QGroupBox("Plugin Details")
-    layout = qtwidgets.QVBoxLayout(widget)
+    widget, layout = build_group_box(qtwidgets, "Plugin Details")
     title = qtwidgets.QLabel("Plugin Details")
-    details = qtwidgets.QPlainTextEdit()
-    configure_text_panel(details, max_height=150)
+    details = create_text_panel(qtwidgets, max_height=150)
     layout.addWidget(title)
     layout.addWidget(badge.widget)
     layout.addWidget(details)

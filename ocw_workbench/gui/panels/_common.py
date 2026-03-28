@@ -218,6 +218,72 @@ def wrap_widget_in_scroll_area(widget: Any) -> Any:
     return scroll_area
 
 
+def configure_layout(
+    layout: Any,
+    *,
+    margins: tuple[int, int, int, int] = (0, 0, 0, 0),
+    spacing: int | None = None,
+) -> Any:
+    if hasattr(layout, "setContentsMargins"):
+        layout.setContentsMargins(*margins)
+    if spacing is not None and hasattr(layout, "setSpacing"):
+        layout.setSpacing(spacing)
+    return layout
+
+
+def build_panel_container(
+    qtwidgets: Any,
+    *,
+    spacing: int = 8,
+    margins: tuple[int, int, int, int] = (0, 0, 0, 0),
+) -> tuple[Any, Any]:
+    widget = qtwidgets.QWidget()
+    layout = qtwidgets.QVBoxLayout(widget)
+    configure_layout(layout, margins=margins, spacing=spacing)
+    return widget, layout
+
+
+def build_group_box(
+    qtwidgets: Any,
+    title: str,
+    *,
+    layout_kind: str = "vbox",
+    spacing: int = 6,
+    margins: tuple[int, int, int, int] = (8, 8, 8, 8),
+) -> tuple[Any, Any]:
+    group = qtwidgets.QGroupBox(title)
+    layout_factory = {
+        "vbox": qtwidgets.QVBoxLayout,
+        "hbox": qtwidgets.QHBoxLayout,
+        "form": qtwidgets.QFormLayout,
+        "grid": qtwidgets.QGridLayout,
+    }.get(layout_kind, qtwidgets.QVBoxLayout)
+    layout = layout_factory(group)
+    configure_layout(layout, margins=margins, spacing=spacing)
+    return group, layout
+
+
+def create_text_panel(qtwidgets: Any, *, max_height: int = 160) -> Any:
+    widget = qtwidgets.QPlainTextEdit()
+    configure_text_panel(widget, max_height=max_height)
+    return widget
+
+
+def create_label(qtwidgets: Any, text: str = "", *, word_wrap: bool = False) -> Any:
+    widget = qtwidgets.QLabel(text)
+    if word_wrap and hasattr(widget, "setWordWrap"):
+        widget.setWordWrap(True)
+    return widget
+
+
+def create_button_row(qtwidgets: Any, *buttons: Any, spacing: int = 8) -> Any:
+    layout = qtwidgets.QHBoxLayout()
+    configure_layout(layout, spacing=spacing)
+    for button in buttons:
+        layout.addWidget(button, 1)
+    return layout
+
+
 def set_size_policy(widget: Any, horizontal: str = "preferred", vertical: str = "preferred") -> None:
     _qtcore, _qtgui, qtwidgets = load_qt()
     if qtwidgets is None or not hasattr(widget, "setSizePolicy") or not hasattr(qtwidgets, "QSizePolicy"):

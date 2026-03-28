@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from ocw_workbench.gui.panels._common import FallbackButton, FallbackCombo, FallbackText, current_text, load_qt, set_combo_items
+from ocw_workbench.gui.panels._common import (
+    FallbackButton,
+    FallbackCombo,
+    FallbackText,
+    build_group_box,
+    create_button_row,
+    current_text,
+    load_qt,
+    set_combo_items,
+)
 
 
 class PresetListWidget:
@@ -31,15 +40,12 @@ def _build_widget() -> dict[str, Any]:
             "save_button": FallbackButton("Save"),
         }
 
-    widget = qtwidgets.QGroupBox("Presets")
-    layout = qtwidgets.QFormLayout(widget)
+    widget, layout = build_group_box(qtwidgets, "Presets", layout_kind="form")
     combo = qtwidgets.QComboBox()
     name = qtwidgets.QLineEdit()
     load_button = qtwidgets.QPushButton("Load")
     save_button = qtwidgets.QPushButton("Save")
-    actions = qtwidgets.QHBoxLayout()
-    actions.addWidget(load_button)
-    actions.addWidget(save_button)
+    actions = create_button_row(qtwidgets, load_button, save_button)
     layout.addRow("Saved", combo)
     layout.addRow("Name", name)
     layout.addRow("", actions)

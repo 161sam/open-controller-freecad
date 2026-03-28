@@ -5,8 +5,10 @@ from typing import Any
 
 from ocw_workbench.gui.feedback import apply_status_message, friendly_ui_error
 from ocw_workbench.gui.panels._common import (
+    build_group_box,
+    build_panel_container,
     configure_combo_box,
-    configure_text_panel,
+    create_text_panel,
     FallbackButton,
     FallbackCombo,
     FallbackLabel,
@@ -613,13 +615,8 @@ def _build_form() -> dict[str, Any]:
             "status": FallbackLabel(),
         }
 
-    content = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(content)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(8)
-    selector_box = qtwidgets.QGroupBox("Selected Component")
-    selector_layout = qtwidgets.QFormLayout(selector_box)
-    selector_layout.setSpacing(6)
+    content, layout = build_panel_container(qtwidgets)
+    selector_box, selector_layout = build_group_box(qtwidgets, "Selected Component", layout_kind="form")
     component = qtwidgets.QComboBox()
     configure_combo_box(component)
     selected_id = qtwidgets.QLabel("ID: -")
@@ -678,9 +675,7 @@ def _build_form() -> dict[str, Any]:
     selector_layout.addRow("Visible", visible)
     selector_layout.addRow("Type-Specific", specific_editor.widget)
     selector_layout.addRow("", selector_actions)
-    bulk_box = qtwidgets.QGroupBox("Bulk Edit")
-    bulk_layout = qtwidgets.QFormLayout(bulk_box)
-    bulk_layout.setSpacing(6)
+    bulk_box, bulk_layout = build_group_box(qtwidgets, "Bulk Edit", layout_kind="form")
     bulk_count = qtwidgets.QLabel("Selected: 0")
     bulk_types = qtwidgets.QLabel("Types: -")
     bulk_summary = qtwidgets.QLabel("Bulk edit works best with similar components.")
@@ -732,9 +727,7 @@ def _build_form() -> dict[str, Any]:
     bulk_layout.addRow(bulk_label_bezel, _bulk_row_widget(qtwidgets, bulk_apply_bezel, bulk_bezel))
     bulk_layout.addRow(bulk_label_cap_width, _bulk_row_widget(qtwidgets, bulk_apply_cap_width, bulk_cap_width))
     bulk_layout.addRow("", bulk_actions)
-    add_box = qtwidgets.QGroupBox("Add Component")
-    add_layout = qtwidgets.QFormLayout(add_box)
-    add_layout.setSpacing(6)
+    add_box, add_layout = build_group_box(qtwidgets, "Add Component", layout_kind="form")
     add_category = qtwidgets.QComboBox()
     add_component = qtwidgets.QComboBox()
     configure_combo_box(add_category)
@@ -761,8 +754,7 @@ def _build_form() -> dict[str, Any]:
     add_layout.addRow("Y (mm)", add_y)
     add_layout.addRow("Rotation", add_rotation)
     add_layout.addRow("", add_button)
-    details = qtwidgets.QPlainTextEdit()
-    configure_text_panel(details, max_height=88)
+    details = create_text_panel(qtwidgets, max_height=88)
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
     for child in (selector_box, bulk_box, add_box, component, add_category, add_component):

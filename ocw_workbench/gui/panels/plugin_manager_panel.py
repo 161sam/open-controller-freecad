@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ocw_workbench.gui.panels._common import load_qt, set_size_policy, set_text, text_value, wrap_widget_in_scroll_area
+from ocw_workbench.gui.panels._common import build_panel_container, load_qt, set_size_policy, set_text, text_value, wrap_widget_in_scroll_area
 from ocw_workbench.gui.widgets.plugin_details import PluginDetailsWidget
 from ocw_workbench.gui.widgets.plugin_list import PluginListWidget
 from ocw_workbench.services.plugin_manager_service import PluginManagerService
@@ -207,10 +207,7 @@ def _build_form() -> dict[str, Any]:
             "plugin_details": plugin_details,
         }
 
-    content = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(content)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(8)
+    content, layout = build_panel_container(qtwidgets)
     set_size_policy(plugin_list.widget, horizontal="expanding", vertical="preferred")
     set_size_policy(plugin_details.widget, horizontal="expanding", vertical="preferred")
     if hasattr(qtwidgets, "QSplitter"):

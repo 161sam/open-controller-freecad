@@ -4,6 +4,8 @@ from typing import Any
 
 from ocw_workbench.gui.feedback import apply_status_message, format_validation_message, friendly_ui_error
 from ocw_workbench.gui.panels._common import (
+    build_panel_container,
+    create_button_row,
     FallbackButton,
     FallbackLabel,
     FallbackText,
@@ -249,20 +251,14 @@ def _build_form() -> dict[str, Any]:
             "status": FallbackLabel(),
         }
 
-    content = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(content)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(8)
+    content, layout = build_panel_container(qtwidgets)
     intro = qtwidgets.QLabel("Validate the current layout and review issues by severity.")
     intro.setWordWrap(True)
     validate_button = qtwidgets.QPushButton("Validate Layout")
     set_tooltip(validate_button, "Run spacing, overlap and edge-distance checks for the current controller.")
     focus_button = qtwidgets.QPushButton("Focus Selected Issue")
     set_enabled(focus_button, False)
-    actions = qtwidgets.QHBoxLayout()
-    actions.setSpacing(8)
-    actions.addWidget(validate_button, 1)
-    actions.addWidget(focus_button, 1)
+    actions = create_button_row(qtwidgets, validate_button, focus_button)
 
     summary_row = qtwidgets.QHBoxLayout()
     summary_row.setSpacing(8)

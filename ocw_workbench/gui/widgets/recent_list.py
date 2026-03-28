@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ocw_workbench.gui.panels._common import FallbackButton, FallbackCombo, current_text, load_qt, set_combo_items
+from ocw_workbench.gui.panels._common import FallbackButton, FallbackCombo, build_group_box, current_text, load_qt, set_combo_items
 
 
 class RecentListWidget:
@@ -29,8 +29,7 @@ def _build_widget() -> dict[str, Any]:
             "apply_button": FallbackButton("Load"),
         }
 
-    widget = qtwidgets.QGroupBox("Recent")
-    layout = qtwidgets.QVBoxLayout(widget)
+    widget, layout = build_group_box(qtwidgets, "Recent")
     combo = qtwidgets.QComboBox()
     apply_button = qtwidgets.QPushButton("Load")
     layout.addWidget(combo)

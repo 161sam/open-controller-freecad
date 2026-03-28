@@ -20,6 +20,7 @@ from ocw_workbench.gui.docking import create_or_reuse_dock, focus_dock, remove_d
 from ocw_workbench.gui.feedback import apply_status_message, format_toggle_message, format_validation_message
 from ocw_workbench.gui.overlay.renderer import OverlayRenderer
 from ocw_workbench.gui.panels._common import FallbackLabel, load_qt, log_exception, log_to_console, set_label_text, set_size_policy
+from ocw_workbench.gui.panels._common import build_panel_container
 from ocw_workbench.gui.panels.component_palette_panel import ComponentPalettePanel
 from ocw_workbench.gui.panels.components_panel import ComponentsPanel
 from ocw_workbench.gui.panels.constraints_panel import ConstraintsPanel
@@ -937,8 +938,7 @@ def _show_fallback_dock(exc: Exception) -> Any | None:
     _qtcore, _qtgui, qtwidgets = load_qt()
     if qtwidgets is None:
         return None
-    widget = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(widget)
+    widget, layout = build_panel_container(qtwidgets)
     title = qtwidgets.QLabel("Open Controller Workbench")
     title.setStyleSheet("font-weight: 600;")
     message = qtwidgets.QLabel("The Workbench UI could not be loaded. Check the FreeCAD report view for details.")
@@ -953,11 +953,7 @@ def _show_fallback_dock(exc: Exception) -> Any | None:
 
 
 def _tab_page(qtwidgets: Any) -> tuple[Any, Any]:
-    page = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(page)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(8)
-    return page, layout
+    return build_panel_container(qtwidgets)
 
 
 def _section_splitter(orientation: str, widgets: list[Any], stretch_factors: list[int] | None = None) -> Any:

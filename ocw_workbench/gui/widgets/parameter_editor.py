@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from ocw_workbench.gui.panels._common import (
+    build_group_box,
+    create_button_row,
     FallbackButton,
     FallbackCombo,
     FallbackLabel,
@@ -270,13 +272,10 @@ def _build_widget() -> dict[str, Any]:
             "summary": FallbackLabel("No parameters for the selected template."),
         }
 
-    widget = qtwidgets.QGroupBox("Parameters")
-    layout = qtwidgets.QVBoxLayout(widget)
-    preset_row = qtwidgets.QHBoxLayout()
+    widget, layout = build_group_box(qtwidgets, "Parameters")
     preset = qtwidgets.QComboBox()
     apply_preset_button = qtwidgets.QPushButton("Apply Preset")
-    preset_row.addWidget(preset, 1)
-    preset_row.addWidget(apply_preset_button)
+    preset_row = create_button_row(qtwidgets, preset, apply_preset_button)
     controls_container = qtwidgets.QWidget()
     controls_layout = qtwidgets.QFormLayout(controls_container)
     summary = qtwidgets.QLabel("No parameters for the selected template.")

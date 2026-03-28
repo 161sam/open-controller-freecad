@@ -5,6 +5,8 @@ from typing import Any
 
 from ocw_workbench.gui.feedback import apply_status_message, friendly_ui_error
 from ocw_workbench.gui.panels._common import (
+    build_panel_container,
+    create_text_panel,
     FallbackButton,
     FallbackCombo,
     FallbackLabel,
@@ -361,8 +363,7 @@ def _build_form() -> dict[str, Any]:
             "status": FallbackLabel(),
         }
 
-    widget = qtwidgets.QWidget()
-    root = qtwidgets.QVBoxLayout(widget)
+    widget, root = build_panel_container(qtwidgets)
     controls = qtwidgets.QHBoxLayout()
     search = qtwidgets.QLineEdit()
     search.setPlaceholderText("Search components")
@@ -395,8 +396,7 @@ def _build_form() -> dict[str, Any]:
     if hasattr(grid, "setUniformItemSizes"):
         grid.setUniformItemSizes(True)
 
-    details = qtwidgets.QPlainTextEdit()
-    details.setReadOnly(True)
+    details = create_text_panel(qtwidgets, max_height=120)
     status = qtwidgets.QLabel("Component palette ready.")
     status.setWordWrap(True)
 

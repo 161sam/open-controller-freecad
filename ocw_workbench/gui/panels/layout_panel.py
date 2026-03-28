@@ -5,8 +5,10 @@ from typing import Any
 
 from ocw_workbench.gui.feedback import apply_status_message, format_layout_message, format_toggle_message, friendly_ui_error
 from ocw_workbench.gui.panels._common import (
+    build_panel_container,
     configure_combo_box,
-    configure_text_panel,
+    create_button_row,
+    create_text_panel,
     FallbackButton,
     FallbackCombo,
     FallbackLabel,
@@ -315,10 +317,7 @@ def _build_form() -> dict[str, Any]:
             "status": FallbackLabel(),
         }
 
-    content = qtwidgets.QWidget()
-    layout = qtwidgets.QVBoxLayout(content)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(8)
+    content, layout = build_panel_container(qtwidgets)
     intro = qtwidgets.QLabel("Run Auto Place first. Use the overlay tools when needed.")
     intro.setWordWrap(True)
     form = qtwidgets.QFormLayout()
@@ -357,10 +356,7 @@ def _build_form() -> dict[str, Any]:
     set_tooltip(measurements_button, "Show or hide measurement guides.")
     set_tooltip(conflict_lines_button, "Show or hide conflict lines.")
     set_tooltip(constraint_labels_button, "Show or hide issue labels.")
-    primary_actions = qtwidgets.QHBoxLayout()
-    primary_actions.setSpacing(8)
-    primary_actions.addWidget(apply_button, 1)
-    primary_actions.addWidget(rerun_button, 1)
+    primary_actions = create_button_row(qtwidgets, apply_button, rerun_button)
     button_row = qtwidgets.QGridLayout()
     button_row.setContentsMargins(0, 0, 0, 0)
     button_row.setHorizontalSpacing(8)
@@ -376,10 +372,8 @@ def _build_form() -> dict[str, Any]:
     for index, button in enumerate(actions):
         row, column = divmod(index, 2)
         button_row.addWidget(button, row, column)
-    summary = qtwidgets.QPlainTextEdit()
-    configure_text_panel(summary, max_height=88)
-    overlay_status = qtwidgets.QPlainTextEdit()
-    configure_text_panel(overlay_status, max_height=88)
+    summary = create_text_panel(qtwidgets, max_height=88)
+    overlay_status = create_text_panel(qtwidgets, max_height=88)
     status = qtwidgets.QLabel()
     status.setWordWrap(True)
     diagnostics_row = qtwidgets.QHBoxLayout()
