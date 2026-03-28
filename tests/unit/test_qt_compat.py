@@ -955,18 +955,19 @@ def test_create_panel_build_wraps_nested_form_inside_selection_form(monkeypatch)
     assert form["template_section"] is not None
     assert form["geometry_section"] is not None
     assert form["action_section"] is not None
+    assert form["document_actions_section"] is not None
     assert len(selection_form.rows) == 4
     assert selection_form.rows[0] == ("Template", form["template"])
     assert selection_form.rows[2] == ("Variant", form["variant"])
     assert len(wrapped_forms) == 2
     assert wrapped_forms[0][0] is selection_form
     assert wrapped_forms[1][0] is not selection_form
-    assert len(template_layout.rows) == 4
-    assert template_layout.rows[1][0].text == "wrapped-form"
+    assert len(template_layout.rows) == 3
+    assert template_layout.rows[0][0].text == "wrapped-form"
     assert len(geometry_layout.rows) == 4
     assert geometry_layout.rows[0][0] is form["geometry_summary"]
-    assert len(action_layout.rows) == 4
-    assert action_layout.rows[2][0].text == "wrapped-form"
+    assert len(action_layout.rows) == 3
+    assert action_layout.rows[1][0].text == "wrapped-form"
 
 
 def test_create_or_reuse_dock_tabifies_existing_right_dock(monkeypatch):

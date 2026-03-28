@@ -189,6 +189,7 @@ def test_create_panel_uses_three_clear_sections_and_initial_state():
     assert panel.form["template_section"] is not None
     assert panel.form["geometry_section"] is not None
     assert panel.form["action_section"] is not None
+    assert panel.form["document_actions_section"] is not None
     assert "No controller loaded yet" in panel.form["active_project"].text
     assert "Choose a template to load its default controller setup." == panel.form["template_summary"].text
     assert "Choose a template to unlock geometry controls." == panel.form["parameter_status"].text

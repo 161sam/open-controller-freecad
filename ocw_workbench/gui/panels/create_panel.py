@@ -547,7 +547,8 @@ class CreatePanel:
             return
         description = template.get("description") or "No template description available."
         is_favorite = self.userdata_service.is_favorite("template", template_id)
-        set_label_text(self.form["template_summary"], f"{template['name']} | {description}")
+        summary = description if len(description) <= 88 else f"{description[:85].rstrip()}..."
+        set_label_text(self.form["template_summary"], summary)
         set_label_text(
             self.form["favorite_template_status"],
             f"Favorite: {'yes' if is_favorite else 'no'}",
@@ -581,7 +582,7 @@ class CreatePanel:
     def _set_variant_summary(self) -> None:
         variant_id = self.selected_variant_id()
         if not variant_id:
-            set_label_text(self.form["variant_summary"], "Template Default | Use the base template without a variant override.")
+            set_label_text(self.form["variant_summary"], "Use the base template defaults.")
             set_label_text(self.form["favorite_variant_status"], "Favorite: n/a")
             return
         variant = next((item["variant"] for item in self._variants if item["variant"]["id"] == variant_id), None)
@@ -591,7 +592,8 @@ class CreatePanel:
             return
         description = variant.get("description") or "No variant description available."
         is_favorite = self.userdata_service.is_favorite("variant", variant_id)
-        set_label_text(self.form["variant_summary"], f"{variant['name']} | {description}")
+        summary = description if len(description) <= 76 else f"{description[:73].rstrip()}..."
+        set_label_text(self.form["variant_summary"], summary)
         set_label_text(
             self.form["favorite_variant_status"],
             f"Favorite: {'yes' if is_favorite else 'no'}",
@@ -771,12 +773,13 @@ def _build_form() -> dict[str, Any]:
     if qtwidgets is None:
         return {
             "widget": object(),
-            "header": FallbackLabel("Choose a template, review geometry, then create the controller."),
+            "header": FallbackLabel("Choose a template, adjust geometry if needed, then create."),
             "template_section": object(),
             "geometry_section": object(),
             "action_section": object(),
             "quick_access_section": object(),
             "library_section": object(),
+            "document_actions_section": object(),
             "presets_section": object(),
             "favorites_widget": favorites_widget,
             "recents_widget": recents_widget,
@@ -797,7 +800,7 @@ def _build_form() -> dict[str, Any]:
             "favorite_template_status": FallbackLabel(),
             "favorite_template_button": FallbackButton("Favorite"),
             "variant": FallbackCombo(["Template Default"]),
-            "variant_summary": FallbackLabel("Template Default | Use the base template without a variant override."),
+            "variant_summary": FallbackLabel("Use the base template defaults."),
             "favorite_variant_status": FallbackLabel(),
             "favorite_variant_button": FallbackButton("Favorite"),
             "geometry_summary": FallbackLabel("Geometry follows the selected template. Width, depth, height, and construction settings appear here after selection."),
@@ -809,7 +812,7 @@ def _build_form() -> dict[str, Any]:
         }
 
     content, root = build_panel_container(qtwidgets)
-    header = create_hint_label(qtwidgets, "Choose a template, review geometry, then create the controller.")
+    header = create_hint_label(qtwidgets, "Choose a template, adjust geometry if needed, then create.")
     active_project = create_status_label(qtwidgets, "No controller loaded yet. Choose a template, review geometry, then create the controller.")
     template_section, template_layout = create_form_section_widget(qtwidgets, "Template Selection")
     geometry_section, geometry_layout = create_form_section_widget(qtwidgets, "Geometry")
@@ -829,7 +832,7 @@ def _build_form() -> dict[str, Any]:
     marketplace_filter.addItems(["all", "local", "remote"])
     marketplace_list = qtwidgets.QComboBox()
     marketplace_summary = create_status_label(qtwidgets, "No template selected.")
-    marketplace_details = create_text_panel(qtwidgets, max_height=72)
+    marketplace_details = create_text_panel(qtwidgets, max_height=54)
     marketplace_apply_button = qtwidgets.QPushButton("Use")
     marketplace_details_button = qtwidgets.QPushButton("Details")
     marketplace_actions = create_button_row_layout(
@@ -861,12 +864,11 @@ def _build_form() -> dict[str, Any]:
         "Geometry follows the selected template. Width, depth, height, and construction settings appear here after selection.",
     )
     parameter_status = create_status_label(qtwidgets, "Choose a template to unlock geometry controls.")
-    preview = create_text_panel(qtwidgets, max_height=64)
+    preview = create_text_panel(qtwidgets, max_height=48)
     set_text(preview, "Controller summary will appear here once a template is selected.")
-    apply_parameters_button = set_button_role(qtwidgets.QPushButton("Apply"), "secondary")
+    apply_parameters_button = set_button_role(qtwidgets.QPushButton("Apply Geometry"), "ghost")
     create_button = set_button_role(qtwidgets.QPushButton("Create Controller"), "primary")
     status = create_status_label(qtwidgets, "Ready to create a new controller.")
-    action_hint = create_hint_label(qtwidgets, "Create a new controller, or apply geometry updates to the current matching document.")
     for combo in (
         favorites_widget.parts["combo"],
         recents_widget.parts["combo"],
@@ -877,29 +879,14 @@ def _build_form() -> dict[str, Any]:
         variant,
     ):
         configure_combo_box(combo)
-    template_info = create_compact_header_widget(
-        qtwidgets,
-        template_summary,
-        secondary=favorite_template_status,
-        trailing=favorite_template_button,
-        spacing=6,
-        detail_spacing=3,
-    )
-
-    variant_info = create_compact_header_widget(
-        qtwidgets,
-        variant_summary,
-        secondary=favorite_variant_status,
-        trailing=favorite_variant_button,
-        spacing=6,
-        detail_spacing=3,
-    )
+    template_info = create_compact_header_widget(qtwidgets, template_summary, trailing=favorite_template_button, spacing=6, detail_spacing=2)
+    variant_info = create_compact_header_widget(qtwidgets, variant_summary, trailing=favorite_variant_button, spacing=6, detail_spacing=2)
 
     quick_access_section, quick_access_layout, _quick_access_toggle = create_collapsible_section_widget(
         qtwidgets,
         "Quick Access",
         expanded=False,
-        spacing=6,
+        spacing=4,
         margins=(0, 0, 0, 0),
     )
     shortcuts_row = qtwidgets.QHBoxLayout()
@@ -928,7 +915,6 @@ def _build_form() -> dict[str, Any]:
     selection_form.addRow("", template_info)
     selection_form.addRow("Variant", variant)
     selection_form.addRow("", variant_info)
-    template_layout.addRow(active_project)
     template_layout.addRow(wrap_layout_in_widget(qtwidgets, selection_form))
     template_layout.addRow(quick_access_section)
     template_layout.addRow(library_section)
@@ -937,7 +923,14 @@ def _build_form() -> dict[str, Any]:
         qtwidgets,
         "Presets",
         expanded=False,
-        spacing=6,
+        spacing=4,
+        margins=(0, 0, 0, 0),
+    )
+    document_actions_section, document_actions_layout, _document_actions_toggle = create_collapsible_section_widget(
+        qtwidgets,
+        "Current Document",
+        expanded=False,
+        spacing=4,
         margins=(0, 0, 0, 0),
     )
     presets_layout.addWidget(presets_widget.widget)
@@ -946,11 +939,13 @@ def _build_form() -> dict[str, Any]:
     geometry_layout.addRow(parameter_editor.widget)
     geometry_layout.addRow(presets_section)
 
-    actions_row = create_button_row_layout(qtwidgets, apply_parameters_button, create_button)
-    action_layout.addRow(action_hint)
+    create_only_row = create_button_row_layout(qtwidgets, create_button)
+    document_actions_layout.addWidget(active_project)
+    document_actions_layout.addWidget(apply_parameters_button)
+    document_actions_layout.addWidget(status)
     action_layout.addRow(preview)
-    action_layout.addRow(wrap_layout_in_widget(qtwidgets, actions_row))
-    action_layout.addRow(status)
+    action_layout.addRow(wrap_layout_in_widget(qtwidgets, create_only_row))
+    action_layout.addRow(document_actions_section)
 
     root.addWidget(header)
     root.addWidget(template_section)
@@ -966,6 +961,7 @@ def _build_form() -> dict[str, Any]:
         "action_section": action_section,
         "quick_access_section": quick_access_section,
         "library_section": library_section,
+        "document_actions_section": document_actions_section,
         "presets_section": presets_section,
         "favorites_widget": favorites_widget,
         "recents_widget": recents_widget,
