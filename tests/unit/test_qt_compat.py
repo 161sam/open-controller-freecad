@@ -1341,6 +1341,7 @@ def test_product_workbench_panel_uses_stepper_shell(monkeypatch):
     assert panel.form["navigation_items"] == ["Template", "Components", "Layout", "Validate", "Plugins"]
     assert panel.form["header_bar"] is not None
     assert panel.form["stepper_bar"] is not None
+    assert len(panel.form["step_flow_markers"]) == 4
     assert panel.form["content_host"] is not None
     assert panel.form["footer_bar"] is not None
     assert panel.form["content_host"] is panel.form["stack"]
@@ -1348,16 +1349,22 @@ def test_product_workbench_panel_uses_stepper_shell(monkeypatch):
     assert panel.form["title"].text == "Open Controller Workbench"
     assert panel.form["context_summary"].text.startswith("Template |")
     assert panel.form["active_step"] == "create"
+    assert panel.form["step_buttons"]["create"].properties["active"] is True
+    assert panel.form["step_buttons"]["components"].properties["future"] is True
 
     panel.focus_panel("components")
     assert panel.form["content_host"].currentIndex() == 1
     assert panel.form["step_buttons"]["components"].isChecked() is True
     assert panel.form["step_buttons"]["create"].isChecked() is False
     assert panel.form["active_step"] == "components"
+    assert panel.form["step_buttons"]["create"].properties["done"] is True
+    assert panel.form["step_buttons"]["create"].text.startswith("✓ ")
+    assert panel.form["step_buttons"]["layout"].properties["future"] is True
 
     panel.focus_panel("plugins")
     assert panel.form["content_host"].currentIndex() == 4
     assert panel.form["step_buttons"]["plugins"].isChecked() is True
+    assert panel.form["step_buttons"]["constraints"].properties["done"] is True
     assert panel.form["active_step"] == "plugins"
 
 

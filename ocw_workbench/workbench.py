@@ -739,9 +739,11 @@ class ProductWorkbenchPanel:
             stepper_box.setObjectName("OCWStepperBar")
         stepper_layout = qtwidgets.QHBoxLayout(stepper_box)
         stepper_layout.setContentsMargins(12, 0, 12, 0)
-        stepper_layout.setSpacing(8)
+        stepper_layout.setSpacing(6)
         step_buttons: dict[str, Any] = {}
-        for panel_name, label in _WORKFLOW_STEPS:
+        step_button_labels = dict(_WORKFLOW_STEPS)
+        step_flow_markers: list[Any] = []
+        for index, (panel_name, label) in enumerate(_WORKFLOW_STEPS):
             button = qtwidgets.QPushButton(label)
             if hasattr(button, "setObjectName"):
                 button.setObjectName("OCWStepButton")
@@ -749,11 +751,21 @@ class ProductWorkbenchPanel:
                 button.setCheckable(True)
             if hasattr(button, "setProperty"):
                 button.setProperty("active", panel_name == "create")
+                button.setProperty("done", False)
+                button.setProperty("future", panel_name != "create")
+                button.setProperty("disabled_step", False)
             if hasattr(button, "clicked"):
                 button.clicked.connect(lambda _checked=False, target=panel_name: self.focus_panel(target))
             set_size_policy(button, horizontal="expanding", vertical="preferred")
             stepper_layout.addWidget(button, 1)
             step_buttons[panel_name] = button
+            if index >= len(_WORKFLOW_STEPS) - 1:
+                continue
+            flow_label = qtwidgets.QLabel("›")
+            if hasattr(flow_label, "setObjectName"):
+                flow_label.setObjectName("OCWStepFlow")
+            stepper_layout.addWidget(flow_label)
+            step_flow_markers.append(flow_label)
 
         # The stepper is the only primary navigation. Content pages stay in a
         # stacked host so existing panels can be reused without tab chrome.
@@ -797,6 +809,8 @@ class ProductWorkbenchPanel:
             "overlay_status": overlay_status,
             "header_bar": header_box,
             "stepper_bar": stepper_box,
+            "step_flow_markers": step_flow_markers,
+            "step_button_labels": step_button_labels,
             "content_host": content_host,
             "footer_bar": footer,
             "step_buttons": step_buttons,
@@ -1009,12 +1023,22 @@ class ProductWorkbenchPanel:
 
     def _update_stepper_state(self, active_panel: str) -> None:
         self.form["active_step"] = active_panel
+        active_index = _WORKFLOW_STEP_INDEX.get(active_panel, 0)
         for panel_name, button in self.form.get("step_buttons", {}).items():
+            button_index = _WORKFLOW_STEP_INDEX.get(panel_name, 0)
             is_active = panel_name == active_panel
+            is_done = button_index < active_index
+            is_future = button_index > active_index
             if hasattr(button, "setChecked"):
                 button.setChecked(is_active)
             if hasattr(button, "setProperty"):
                 button.setProperty("active", is_active)
+                button.setProperty("done", is_done)
+                button.setProperty("future", is_future)
+                button.setProperty("disabled_step", False)
+            base_label = self.form.get("step_button_labels", {}).get(panel_name, panel_name.title())
+            if hasattr(button, "setText"):
+                button.setText(f"✓ {base_label}" if is_done else str(base_label))
             style = getattr(button, "style", None)
             if callable(style):
                 style_obj = style()
@@ -1025,6 +1049,13 @@ class ProductWorkbenchPanel:
                         style_obj.polish(button)
             if hasattr(button, "update"):
                 button.update()
+        for index, marker in enumerate(self.form.get("step_flow_markers", [])):
+            if hasattr(marker, "setProperty"):
+                marker.setProperty("done", index < active_index)
+                marker.setProperty("active", index == max(active_index - 1, 0) and active_index > 0)
+                marker.setProperty("future", index >= active_index)
+            if hasattr(marker, "update"):
+                marker.update()
 
 
 def ensure_workbench_ui(doc: Any | None = None, focus: str = "create") -> ProductWorkbenchPanel:
@@ -1173,30 +1204,62 @@ QLabel#OCWContextSummary {
     font-size: 10px;
 }
 QFrame#OCWStepperBar {
-    background: transparent;
-    border: none;
+    background: #101826;
+    border: 1px solid #1c2737;
+    border-radius: 10px;
 }
 QPushButton#OCWStepButton {
-    min-height: 32px;
-    padding: 0 12px;
-    border-radius: 8px;
-    border: 1px solid #202b3b;
-    background: #121b29;
-    color: #8ea0b5;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 9px;
+    border: 1px solid #1d2938;
+    background: #111a27;
+    color: #72849a;
     font-size: 11px;
     font-weight: 700;
     text-align: center;
 }
 QPushButton#OCWStepButton:hover {
-    background: #182334;
+    background: #172131;
     color: #dbe5f1;
-    border-color: #2b3950;
+    border-color: #314156;
+}
+QPushButton#OCWStepButton[done="true"] {
+    background: #132235;
+    color: #cdd8e6;
+    border-color: #2f557f;
+}
+QPushButton#OCWStepButton[future="true"] {
+    background: #0f1723;
+    color: #5f7186;
+    border-color: #192333;
 }
 QPushButton#OCWStepButton:checked,
 QPushButton#OCWStepButton[active="true"] {
-    background: #1b49ae;
-    color: #eff6ff;
-    border-color: #4b78d3;
+    background: #1c4db7;
+    color: #f7fbff;
+    border: 1px solid #75a0ef;
+    padding: 0 16px;
+}
+QPushButton#OCWStepButton[disabled_step="true"] {
+    background: #0c121c;
+    color: #4c5c70;
+    border-color: #141e2b;
+}
+QLabel#OCWStepFlow {
+    color: #435266;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 0 2px 1px 2px;
+}
+QLabel#OCWStepFlow[done="true"] {
+    color: #6f95cb;
+}
+QLabel#OCWStepFlow[active="true"] {
+    color: #9ab9ef;
+}
+QLabel#OCWStepFlow[future="true"] {
+    color: #344255;
 }
 QFrame#OCWFooterBar {
     background: transparent;
