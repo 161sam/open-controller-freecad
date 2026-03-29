@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import subprocess
+import sys
 import zipfile
 
 from ocw_workbench.utils.release_assets import (
@@ -56,3 +58,27 @@ def test_build_checksum_file_covers_release_files(tmp_path: Path) -> None:
     assert "ocw-workbench-0.1.0.tar.gz" in contents
     assert "ocw_workbench-0.1.0-py3-none-any.whl" in contents
     assert workbench_archive_name("v0.1.0") in contents
+
+
+def test_build_release_assets_script_runs_without_pythonpath(tmp_path: Path) -> None:
+    release_dir = tmp_path / "release"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "build_release_assets.py"),
+            "--tag",
+            "v0.1.0",
+            "--repo-root",
+            str(REPO_ROOT),
+            "--dist-dir",
+            str(release_dir),
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (release_dir / workbench_archive_name("v0.1.0")).exists()
+    assert (release_dir / checksum_file_name("v0.1.0")).exists()
