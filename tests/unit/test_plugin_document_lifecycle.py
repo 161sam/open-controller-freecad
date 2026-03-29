@@ -8,6 +8,8 @@ from ocw_workbench.plugins.document_lifecycle import (
     activate_plugin_for_document,
     can_switch_plugin_for_document,
     get_document_plugin_binding,
+    get_document_plugin_status,
+    select_domain_plugin_for_document,
 )
 from ocw_workbench.services.controller_state_service import ControllerStateService
 from ocw_workbench.services.controller_service import ControllerService
@@ -132,6 +134,17 @@ def test_new_document_is_bound_to_active_plugin_on_create_controller() -> None:
     assert state["meta"]["document_type"] == "generator_workbench_project"
 
 
+def test_domain_selection_sets_active_plugin_for_new_document() -> None:
+    doc = FakeDocument("ChooserDoc")
+
+    status = select_domain_plugin_for_document(doc, "bike_trailer")
+
+    assert status["active_plugin_id"] == "bike_trailer"
+    assert status["bound_plugin_id"] == "bike_trailer"
+    assert status["switchable"] is True
+    assert "still switchable" in status["message"]
+
+
 def test_existing_document_reactivates_bound_plugin() -> None:
     service = _service()
     doc = FakeDocument("TrailerDoc")
@@ -157,7 +170,27 @@ def test_bound_document_rejects_conflicting_plugin_activation() -> None:
     with pytest.raises(ValueError, match="bound to plugin 'midicontroller'"):
         activate_plugin_for_document(doc, requested_plugin_id="bike_trailer")
 
+    with pytest.raises(ValueError, match="already bound to domain 'midicontroller'"):
+        select_domain_plugin_for_document(doc, "bike_trailer")
+
     assert can_switch_plugin_for_document(doc, "bike_trailer") is False
+
+
+def test_document_plugin_status_reports_bound_and_switchable_states() -> None:
+    service = _service()
+    empty_doc = FakeDocument("EmptyDoc")
+    project_doc = FakeDocument("ProjectDoc")
+
+    switchable_status = select_domain_plugin_for_document(empty_doc, "midicontroller")
+    service.create_from_template(project_doc, "trailer_basic")
+    bound_status = get_document_plugin_status(project_doc)
+
+    assert switchable_status["mode"] == "switchable"
+    assert switchable_status["switchable"] is True
+    assert "still switchable" in switchable_status["message"]
+    assert bound_status["mode"] == "bound"
+    assert bound_status["switchable"] is False
+    assert "switch is blocked" in bound_status["message"]
 
 
 def test_missing_plugin_metadata_is_inferred_from_persisted_template() -> None:

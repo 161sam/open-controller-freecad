@@ -8,6 +8,10 @@ CONTROLLER_OBJECT_NAME = "OCW_Controller"
 CONTROLLER_OBJECT_LABEL = "OCW Controller"
 LEGACY_CONTROLLER_OBJECT_NAMES = ("OCF_Controller",)
 LEGACY_CONTROLLER_OBJECT_LABELS = ("OCF Controller",)
+PROJECT_OBJECT_NAME = CONTROLLER_OBJECT_NAME
+PROJECT_OBJECT_LABEL = CONTROLLER_OBJECT_LABEL
+LEGACY_PROJECT_OBJECT_NAMES = LEGACY_CONTROLLER_OBJECT_NAMES
+LEGACY_PROJECT_OBJECT_LABELS = LEGACY_CONTROLLER_OBJECT_LABELS
 GENERATED_GROUP_NAME = "OCW_Generated"
 GENERATED_GROUP_LABEL = "OCW Generated"
 COMPONENTS_GROUP_NAME = "OCW_Components"
@@ -98,6 +102,15 @@ def get_controller_object(doc: Any, create: bool = True) -> Any | None:
     _attach_controller_view_provider(controller)
     _style_controller_object(controller)
     return controller
+
+
+def get_project_object(doc: Any, create: bool = True) -> Any | None:
+    """Return the persisted generated-project object.
+
+    This is the generic core alias for the legacy controller object accessor.
+    The underlying document object name stays unchanged for compatibility.
+    """
+    return get_controller_object(doc, create=create)
 
 
 def get_generated_group(doc: Any, create: bool = True) -> Any | None:
@@ -287,6 +300,10 @@ def iter_controller_tree_children(doc: Any) -> list[Any]:
     return [generated]
 
 
+def iter_project_tree_children(doc: Any) -> list[Any]:
+    return iter_controller_tree_children(doc)
+
+
 class ControllerProxy:
     def __init__(self, obj: Any) -> None:
         self.Object = obj
@@ -389,6 +406,10 @@ class ViewProviderController:
 
     def __setstate__(self, _state: dict[str, Any]) -> None:
         return
+
+
+ProjectProxy = ControllerProxy
+ViewProviderProject = ViewProviderController
 
 
 def _sync_controller_properties(controller: Any, state: dict[str, Any]) -> None:

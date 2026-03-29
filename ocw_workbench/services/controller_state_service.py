@@ -105,6 +105,10 @@ class ControllerStateService:
         )
         return deepcopy(state)
 
+    def create_project(self, doc: Any, project_data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Generic alias for creating a new generated project state."""
+        return self.create_controller(doc, controller_data=project_data)
+
     def create_from_template(
         self,
         doc: Any,
@@ -263,6 +267,10 @@ class ControllerStateService:
             f"{controller['width']} x {controller['depth']} x {controller['height']} mm."
         )
         return deepcopy(state)
+
+    def update_project(self, doc: Any, updates: dict[str, Any]) -> dict[str, Any]:
+        """Generic alias for updating generated project geometry/state."""
+        return self.update_controller(doc, updates)
 
     def update_component(self, doc: Any, component_id: str, updates: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(updates, dict):
@@ -810,3 +818,6 @@ class ControllerStateService:
             component_type = str(component.get("type", "unknown"))
             counts[component_type] = counts.get(component_type, 0) + 1
         return counts
+
+
+ProjectStateService = ControllerStateService

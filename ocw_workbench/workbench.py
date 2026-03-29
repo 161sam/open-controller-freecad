@@ -22,7 +22,7 @@ from ocw_workbench.gui.interaction.tool_manager import get_tool_manager
 from ocw_workbench.gui.docking import create_or_reuse_dock, focus_dock, remove_dock
 from ocw_workbench.gui.feedback import apply_status_message, format_toggle_message, format_validation_message
 from ocw_workbench.gui.overlay.renderer import OverlayRenderer
-from ocw_workbench.gui.panels._common import FallbackLabel, load_qt, log_exception, log_to_console, set_label_text, set_size_policy
+from ocw_workbench.gui.panels._common import FallbackLabel, exec_dialog, load_qt, log_exception, log_to_console, set_label_text, set_size_policy
 from ocw_workbench.gui.panels._common import build_panel_container
 from ocw_workbench.gui.panels.component_palette_panel import ComponentPalettePanel
 from ocw_workbench.gui.panels.components_panel import ComponentsPanel
@@ -31,10 +31,15 @@ from ocw_workbench.gui.panels.create_panel import CreatePanel
 from ocw_workbench.gui.panels.info_panel import InfoPanel
 from ocw_workbench.gui.panels.layout_panel import LayoutPanel
 from ocw_workbench.gui.panels.plugin_manager_panel import PluginManagerPanel
-from ocw_workbench.gui.runtime import component_icon_path, icon_path
+from ocw_workbench.gui.runtime import component_icon_path, icon_path, show_error
 from ocw_workbench.freecad_api.metadata import get_document_data
 from ocw_workbench.freecad_api.state import has_persisted_state
-from ocw_workbench.plugins.document_lifecycle import activate_plugin_for_document
+from ocw_workbench.plugins.document_lifecycle import (
+    activate_plugin_for_document,
+    get_document_plugin_status,
+    list_domain_plugins,
+    select_domain_plugin_for_document,
+)
 from ocw_workbench.services.alignment_service import AlignmentService
 from ocw_workbench.services.component_pattern_service import ComponentPatternService
 from ocw_workbench.services.component_transform_service import ComponentTransformService
@@ -221,6 +226,7 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         from ocw_workbench.commands.open_component_palette import OpenComponentPaletteCommand
         from ocw_workbench.commands.factory import build_plugin_commands
         from ocw_workbench.commands.reload_plugins import ReloadPluginsCommand
+        from ocw_workbench.commands.select_domain_plugin import SelectDomainPluginCommand
         from ocw_workbench.commands.select_component import SelectComponentCommand
         from ocw_workbench.commands.selection_transform import SelectionTransformCommand
         from ocw_workbench.commands.show_constraint_overlay import ShowConstraintOverlayCommand
@@ -274,6 +280,7 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         Gui.addCommand("OCW_ToggleConflictLines", _LoggedCommand("OCW_ToggleConflictLines", ToggleConflictLinesCommand()))
         Gui.addCommand("OCW_ToggleConstraintLabels", _LoggedCommand("OCW_ToggleConstraintLabels", ToggleConstraintLabelsCommand()))
         Gui.addCommand("OCW_OpenPluginManager", _LoggedCommand("OCW_OpenPluginManager", OpenPluginManagerCommand()))
+        Gui.addCommand("OCW_SelectDomainPlugin", _LoggedCommand("OCW_SelectDomainPlugin", SelectDomainPluginCommand()))
         Gui.addCommand("OCW_OpenComponentPalette", _LoggedCommand("OCW_OpenComponentPalette", OpenComponentPaletteCommand()))
         Gui.addCommand("OCW_EnablePlugin", _LoggedCommand("OCW_EnablePlugin", EnablePluginCommand()))
         Gui.addCommand("OCW_DisablePlugin", _LoggedCommand("OCW_DisablePlugin", DisablePluginCommand()))
@@ -336,6 +343,7 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
             "OCW_ToggleConstraintLabels",
         ]
         plugin_commands = [
+            "OCW_SelectDomainPlugin",
             "OCW_OpenPluginManager",
         ]
         plugin_advanced_commands = [
@@ -1086,14 +1094,24 @@ class ProductWorkbenchPanel:
         if label is None:
             return
         context = self.controller_service.get_ui_context(self.doc)
+        plugin_status = get_document_plugin_status(self.doc)
         validation = context.get("validation")
         summary = validation.get("summary", {}) if isinstance(validation, dict) else {}
         ui = context.get("ui", {}) if isinstance(context.get("ui"), dict) else {}
         pieces = [
             _panel_title(active_panel or self._active_panel_name()),
+            f"plugin {plugin_status.get('active_plugin_id') or 'none'}",
             f"{int(context.get('component_count', 0))} components",
             f"grid {context.get('grid_mm', 1.0)} mm",
         ]
+        if plugin_status.get("mode") == "bound":
+            pieces.append("domain bound")
+        elif plugin_status.get("mode") == "switchable":
+            pieces.append("domain switchable")
+        elif plugin_status.get("mode") == "legacy_unbound":
+            pieces.append("legacy unbound")
+        else:
+            pieces.append("document empty")
         active_interaction = str(ui.get("active_interaction") or "").strip().lower()
         if active_interaction == "drag":
             pieces.append("drag active")
@@ -1106,6 +1124,18 @@ class ProductWorkbenchPanel:
         else:
             pieces.append("validation clear")
         set_label_text(label, " | ".join(pieces))
+
+    def domain_plugin_status(self) -> dict[str, Any]:
+        return get_document_plugin_status(self.doc)
+
+    def publish_domain_plugin_hint(self) -> None:
+        status = self.domain_plugin_status()
+        level = "info"
+        if status["mode"] == "bound":
+            level = "info"
+        elif status["mode"] in {"switchable", "legacy_unbound", "empty"}:
+            level = "info"
+        self.set_status(status["message"], level=level)
 
     def _active_panel_name(self) -> str:
         content_host = self.form.get("content_host") or self.form.get("stack")
@@ -1171,6 +1201,7 @@ def open_workbench_dock(doc: Any | None = None, focus: str = "create") -> Produc
             _ACTIVE_WORKBENCH.refresh_all()
             _show_existing_dock(_ACTIVE_DOCK)
         _ACTIVE_WORKBENCH.focus_panel(focus)
+        _ACTIVE_WORKBENCH.publish_domain_plugin_hint()
         log_to_console(
             f"Workbench UI ready for document '{getattr(doc, 'Name', '<unnamed>')}' with focus '{focus}'."
         )
@@ -1207,6 +1238,67 @@ def has_selected_plugin_in_open_manager(doc: Any | None = None) -> bool:
         return _ACTIVE_WORKBENCH.plugin_manager_panel.selected_plugin_id() is not None
     except Exception:
         return False
+
+
+def select_domain_plugin_direct(doc: Any, plugin_id: str) -> dict[str, Any]:
+    status = select_domain_plugin_for_document(doc, plugin_id)
+    if _ACTIVE_WORKBENCH is not None and _ACTIVE_WORKBENCH.doc is doc:
+        _ACTIVE_WORKBENCH.refresh_all()
+        _ACTIVE_WORKBENCH.focus_panel("create")
+        _ACTIVE_WORKBENCH.publish_domain_plugin_hint()
+    log_to_console(
+        f"Domain plugin '{plugin_id}' selected for document '{getattr(doc, 'Name', '<unnamed>')}'."
+    )
+    return status
+
+
+def choose_domain_plugin_interactive(doc: Any | None = None) -> dict[str, Any] | None:
+    if doc is None and App is not None:
+        doc = App.ActiveDocument or App.newDocument("Controller")
+    if doc is None:
+        raise RuntimeError("No active FreeCAD document")
+    status = get_document_plugin_status(doc)
+    if not status["switchable"]:
+        raise RuntimeError(status["message"])
+    plugins = list_domain_plugins()
+    if not plugins:
+        raise RuntimeError("No domain plugins are available.")
+    _qtcore, _qtgui, qtwidgets = load_qt()
+    if qtwidgets is None:
+        raise RuntimeError("Qt is unavailable; domain selection dialog cannot be opened.")
+    dialog = qtwidgets.QDialog()
+    dialog.setWindowTitle("Select Domain")
+    dialog.resize(420, 180)
+    layout = qtwidgets.QVBoxLayout(dialog)
+    intro = qtwidgets.QLabel("Choose the domain for this document before creating a project.")
+    intro.setWordWrap(True)
+    layout.addWidget(intro)
+    combo = qtwidgets.QComboBox()
+    selected_index = 0
+    for index, plugin in enumerate(plugins):
+        combo.addItem(f"{plugin['name']} ({plugin['id']})", plugin["id"])
+        if plugin["id"] == (status.get("active_plugin_id") or status.get("bound_plugin_id")):
+            selected_index = index
+    combo.setCurrentIndex(selected_index)
+    layout.addWidget(combo)
+    details = qtwidgets.QLabel(status["message"])
+    details.setWordWrap(True)
+    layout.addWidget(details)
+    buttons = qtwidgets.QDialogButtonBox(qtwidgets.QDialogButtonBox.Ok | qtwidgets.QDialogButtonBox.Cancel)
+    layout.addWidget(buttons)
+    buttons.accepted.connect(dialog.accept)
+    buttons.rejected.connect(dialog.reject)
+    result = exec_dialog(dialog)
+    accepted = False
+    accepted_token = getattr(qtwidgets.QDialog, "Accepted", 1)
+    if isinstance(result, int):
+        accepted = result == accepted_token
+    if not accepted:
+        return None
+    plugin_id = combo.currentData()
+    if not isinstance(plugin_id, str) or not plugin_id.strip():
+        raise RuntimeError("No domain plugin selected.")
+    return select_domain_plugin_direct(doc, plugin_id.strip())
 
 
 def enable_selected_plugin_direct(doc: Any | None = None) -> dict[str, Any]:

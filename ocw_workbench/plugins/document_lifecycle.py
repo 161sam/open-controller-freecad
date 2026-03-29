@@ -43,6 +43,21 @@ def get_document_plugin_id(doc: Any) -> str | None:
     return None if binding is None else binding["plugin_id"]
 
 
+def list_domain_plugins() -> list[dict[str, str]]:
+    registry = get_plugin_service().registry()
+    plugins = []
+    for plugin in registry.get_domain_plugins():
+        plugins.append(
+            {
+                "id": plugin.plugin_id,
+                "name": plugin.name,
+                "version": plugin.version,
+                "domain_type": str(plugin.domain_type or plugin.plugin_id),
+            }
+        )
+    return plugins
+
+
 def can_switch_plugin_for_document(doc: Any, plugin_id: str) -> bool:
     existing = get_document_plugin_binding(doc)
     if existing is None:
@@ -50,6 +65,45 @@ def can_switch_plugin_for_document(doc: Any, plugin_id: str) -> bool:
     if existing["plugin_id"] == plugin_id:
         return True
     return document_is_plugin_switchable(doc)
+
+
+def get_document_plugin_status(doc: Any) -> dict[str, Any]:
+    binding = get_document_plugin_binding(doc)
+    active_plugin = get_plugin_service().registry().get_active_plugin()
+    switchable = document_is_plugin_switchable(doc)
+    state = read_state(doc) if has_persisted_state(doc) else None
+    has_state = isinstance(state, dict)
+    meaningful = _has_meaningful_state(state) if isinstance(state, dict) else False
+    if binding is not None and meaningful:
+        mode = "bound"
+    elif binding is not None and switchable:
+        mode = "switchable"
+    elif binding is None and has_state:
+        mode = "legacy_unbound"
+    else:
+        mode = "empty"
+    bound_plugin_id = binding["plugin_id"] if binding is not None else None
+    active_plugin_id = active_plugin.plugin_id if active_plugin is not None else None
+    if mode == "bound":
+        message = f"Document is bound to domain '{bound_plugin_id}'. Domain switch is blocked."
+    elif mode == "switchable":
+        message = (
+            f"Domain '{bound_plugin_id or active_plugin_id or 'none'}' is active. "
+            "The document is still switchable until a project is created."
+        )
+    elif mode == "legacy_unbound":
+        message = "Legacy document detected without explicit plugin binding. A domain can still be selected."
+    else:
+        message = "Empty document. Select a domain before creating a project."
+    return {
+        "mode": mode,
+        "bound": bound_plugin_id is not None,
+        "switchable": switchable,
+        "active_plugin_id": active_plugin_id,
+        "bound_plugin_id": bound_plugin_id,
+        "binding": deepcopy(binding) if binding is not None else None,
+        "message": message,
+    }
 
 
 def bind_document_to_plugin(
@@ -111,6 +165,18 @@ def activate_plugin_for_document(
             document_type=resolved_binding["document_type"],
         )
     return resolved_binding
+
+
+def select_domain_plugin_for_document(doc: Any, plugin_id: str) -> dict[str, Any]:
+    if not can_switch_plugin_for_document(doc, plugin_id):
+        status = get_document_plugin_status(doc)
+        bound_plugin_id = status.get("bound_plugin_id") or "<unknown>"
+        raise ValueError(
+            f"Document '{getattr(doc, 'Name', '<unnamed>')}' is already bound to domain '{bound_plugin_id}'. "
+            "Create a new document to switch domains."
+        )
+    activate_plugin_for_document(doc, requested_plugin_id=plugin_id, bind_if_missing=True)
+    return get_document_plugin_status(doc)
 
 
 def merge_document_plugin_binding(

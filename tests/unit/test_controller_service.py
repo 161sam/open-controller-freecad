@@ -1,4 +1,5 @@
-from ocw_workbench.services.controller_service import ControllerService
+from ocw_workbench.services.controller_service import ControllerService, ProjectService
+from ocw_workbench.services.controller_state_service import ProjectStateService
 from ocw_workbench.services.document_sync_service import SyncMode
 
 
@@ -77,6 +78,28 @@ def test_create_controller_and_add_components_without_freecad_objects():
     assert state["controller"]["id"] == "demo"
     assert len(state["components"]) == 2
     assert doc.OCWLastSync["component_count"] == 2
+
+
+def test_generic_project_service_alias_matches_controller_service_behavior():
+    service = ProjectService()
+    state_service = ProjectStateService()
+    doc = FakeDocument()
+
+    state = service.create_project(doc, {"id": "demo_project", "width": 180.0})
+    persisted = state_service.get_state(doc)
+
+    assert state["controller"]["id"] == "demo_project"
+    assert persisted["controller"]["id"] == "demo_project"
+
+
+def test_generic_project_update_alias_preserves_existing_behavior():
+    service = ProjectService()
+    doc = FakeDocument()
+
+    service.create_project(doc, {"id": "demo_project", "width": 180.0, "depth": 100.0})
+    updated = service.update_project(doc, {"width": 220.0})
+
+    assert updated["controller"]["width"] == 220.0
 
 
 def test_auto_layout_and_validate_work_on_document_state():

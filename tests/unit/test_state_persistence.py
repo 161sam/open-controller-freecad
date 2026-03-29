@@ -13,6 +13,7 @@ from ocw_workbench.freecad_api.model import (
     get_component_group,
     get_components_group,
     get_controller_object,
+    get_project_object,
     get_generated_group,
     group_generated_object,
     iter_generated_objects,
@@ -135,6 +136,17 @@ def test_write_state_creates_controller_object_with_persistent_properties():
     assert controller.WallThickness == 4.0
     assert controller.SurfaceShape == "rounded_rect"
     assert controller.CornerRadius == 8.0
+
+
+def test_get_project_object_is_generic_alias_for_legacy_controller_object() -> None:
+    doc = FakeDocument()
+
+    project = get_project_object(doc, create=True)
+    controller = get_controller_object(doc, create=False)
+
+    assert project is controller
+    assert project is not None
+    assert project.Name == CONTROLLER_OBJECT_NAME
 
 
 def test_read_state_prefers_controller_object_payload():

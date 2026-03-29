@@ -12,7 +12,7 @@ from ocw_workbench.freecad_api.model import (
     clear_generated_group,
     get_component_group,
     get_components_group,
-    get_controller_object,
+    get_project_object,
     get_generated_group,
     get_mounting_group,
     group_generated_object,
@@ -92,24 +92,26 @@ class DocumentSyncService:
     def _perform_full_sync(self, doc: Any, state: dict[str, Any], requested_mode: str) -> None:
         started_at = perf_counter()
         phase_timings: dict[str, float] = {}
-        controller_object = get_controller_object(doc, create=hasattr(doc, "addObject"))
+        project_object = get_project_object(doc, create=hasattr(doc, "addObject"))
         generated_group = get_generated_group(doc, create=hasattr(doc, "addObject"))
         self._set_last_sync(
             doc,
             {
                 "requested_sync_mode": requested_mode,
+                "project_id": state["controller"]["id"],
                 "controller_id": state["controller"]["id"],
                 "component_count": len(state["components"]),
                 "template_id": state["meta"].get("template_id"),
                 "variant_id": state["meta"].get("variant_id"),
                 "selection": state["meta"].get("selection"),
-                "controller_object": getattr(controller_object, "Name", CONTROLLER_OBJECT_NAME) if controller_object is not None else None,
+                "project_object": getattr(project_object, "Name", CONTROLLER_OBJECT_NAME) if project_object is not None else None,
+                "controller_object": getattr(project_object, "Name", CONTROLLER_OBJECT_NAME) if project_object is not None else None,
                 "generated_group": getattr(generated_group, "Name", GENERATED_GROUP_NAME) if generated_group is not None else None,
             },
         )
         log_to_console(
             f"Syncing document '{getattr(doc, 'Name', '<unnamed>')}' "
-            f"for controller '{state['controller']['id']}' with {len(state['components'])} components."
+            f"for project '{state['controller']['id']}' with {len(state['components'])} components."
         )
         if not hasattr(doc, "addObject"):
             recompute_started_at = perf_counter()

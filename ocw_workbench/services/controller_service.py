@@ -52,6 +52,10 @@ class ControllerService:
         self.update_document(doc, mode=SyncMode.FULL, state=state)
         return state
 
+    def create_project(self, doc: Any, project_data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Generic alias for creating a generated project document."""
+        return self.create_controller(doc, controller_data=project_data)
+
     def create_from_template(
         self,
         doc: Any,
@@ -172,6 +176,10 @@ class ControllerService:
         self.update_document(doc, mode=SyncMode.FULL, state=state)
         return state
 
+    def update_project(self, doc: Any, updates: dict[str, Any]) -> dict[str, Any]:
+        """Generic alias for updating generated project geometry/state."""
+        return self.update_controller(doc, updates)
+
     def update_component(self, doc: Any, component_id: str, updates: dict[str, Any]) -> dict[str, Any]:
         state = self.state_service.update_component(doc, component_id, updates)
         mode = self._resolve_component_update_sync_mode(updates)
@@ -258,7 +266,6 @@ class ControllerService:
 
     def get_component(self, doc: Any, component_id: str) -> dict[str, Any]:
         return self.state_service.get_component(doc, component_id)
-
     def auto_layout(
         self,
         doc: Any,
@@ -321,3 +328,9 @@ class ControllerService:
         if any(field in geometry_fields for field in updates):
             return SyncMode.FULL
         return SyncMode.STATE_ONLY
+
+
+ProjectService = ControllerService
+
+
+ProjectService = ControllerService
