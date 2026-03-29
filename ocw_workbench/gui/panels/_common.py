@@ -371,8 +371,8 @@ def _create_section_body_layout(
     layout_factory = {
         "vbox": qtwidgets.QVBoxLayout,
         "hbox": qtwidgets.QHBoxLayout,
-        "form": qtwidgets.QFormLayout,
-        "grid": qtwidgets.QGridLayout,
+        "form": getattr(qtwidgets, "QFormLayout", None) or qtwidgets.QVBoxLayout,
+        "grid": getattr(qtwidgets, "QGridLayout", None) or qtwidgets.QVBoxLayout,
     }.get(layout_kind, qtwidgets.QVBoxLayout)
     layout = layout_factory(body)
     configure_layout(layout, margins=margins, spacing=spacing)
@@ -781,6 +781,13 @@ def _set_form_layout_spacing(layout: Any) -> None:
         layout.setHorizontalSpacing(SPACE_2)
 
 
+class _FallbackVisible:
+    visible: bool = True
+
+    def setVisible(self, value: bool) -> None:
+        self.visible = bool(value)
+
+
 class FallbackSignal:
     def __init__(self) -> None:
         self._callbacks: list[Any] = []
@@ -793,7 +800,7 @@ class FallbackSignal:
             callback(*args, **kwargs)
 
 
-class FallbackCombo:
+class FallbackCombo(_FallbackVisible):
     def __init__(self, items: list[str] | None = None) -> None:
         self.items = list(items or [])
         self.index = 0
@@ -824,7 +831,7 @@ class FallbackCombo:
         self.currentIndexChanged.emit(self.index)
 
 
-class FallbackText:
+class FallbackText(_FallbackVisible):
     def __init__(self, text: str = "") -> None:
         self.text = text
 
@@ -838,7 +845,7 @@ class FallbackText:
         return self.text
 
 
-class FallbackValue:
+class FallbackValue(_FallbackVisible):
     def __init__(self, value: float = 0.0) -> None:
         self.value = float(value)
         self.enabled = True
@@ -847,7 +854,7 @@ class FallbackValue:
         self.value = float(value)
 
 
-class FallbackButton:
+class FallbackButton(_FallbackVisible):
     def __init__(self, text: str = "") -> None:
         self.text = text
         self.enabled = True
@@ -859,3 +866,17 @@ class FallbackButton:
 
 class FallbackLabel(FallbackText):
     pass
+
+
+class FallbackCheckBox(_FallbackVisible):
+    def __init__(self, checked: bool = False) -> None:
+        self.checked = bool(checked)
+        self.enabled = True
+        self.stateChanged = FallbackSignal()
+
+    def isChecked(self) -> bool:
+        return self.checked
+
+    def setChecked(self, value: bool) -> None:
+        self.checked = bool(value)
+        self.stateChanged.emit(self.checked)

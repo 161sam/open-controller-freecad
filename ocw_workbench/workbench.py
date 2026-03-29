@@ -13,9 +13,9 @@ try:
 except ImportError:
     Gui = None
 
-from ocw_workbench.gui.interaction.move_tool import MoveTool
 from ocw_workbench.gui.interaction.lifecycle import InteractionSessionManager
 from ocw_workbench.gui.interaction.view_drag_controller import ViewDragController
+from ocw_workbench.gui.interaction.view_pick_controller import ViewPickController
 from ocw_workbench.gui.interaction.view_place_controller import ViewPlaceController
 from ocw_workbench.gui.docking import create_or_reuse_dock, focus_dock, remove_dock
 from ocw_workbench.gui.feedback import apply_status_message, format_toggle_message, format_validation_message
@@ -56,6 +56,38 @@ _WORKFLOW_STEPS: tuple[tuple[str, str], ...] = (
 )
 _WORKFLOW_STEP_INDEX = {panel_name: index for index, (panel_name, _label) in enumerate(_WORKFLOW_STEPS)}
 _WORKFLOW_STEP_LABELS = [label for _panel_name, label in _WORKFLOW_STEPS]
+
+
+class _FallbackStack:
+    def __init__(self) -> None:
+        self._index: int = 0
+
+    def currentIndex(self) -> int:
+        return self._index
+
+    def setCurrentIndex(self, index: int) -> None:
+        self._index = int(index)
+
+
+class _FallbackStepButton:
+    def __init__(self, label: str) -> None:
+        self.text = label
+        self._checked: bool = False
+
+    def isChecked(self) -> bool:
+        return self._checked
+
+    def setChecked(self, value: bool) -> None:
+        self._checked = bool(value)
+
+    def setProperty(self, _name: str, _value: Any) -> None:
+        pass
+
+    def setText(self, value: str) -> None:
+        self.text = value
+
+    def update(self) -> None:
+        pass
 
 
 def _emit_runtime_traceback(context: str, exc: Exception) -> None:
@@ -109,10 +141,19 @@ class _LoggedCommand:
 class _FavoriteComponentCommand:
     def __init__(self, slot_index: int, userdata_service: UserDataService | None = None) -> None:
         self.slot_index = slot_index
-        self.userdata_service = userdata_service or UserDataService()
+        svc = userdata_service or UserDataService()
+        favorite_ids = svc.list_favorite_component_ids()
+        self._component: dict[str, Any] | None = None
+        if slot_index < len(favorite_ids):
+            component_id = favorite_ids[slot_index]
+            try:
+                from ocw_workbench.services.library_service import LibraryService
+                self._component = LibraryService().get(component_id)
+            except Exception:
+                pass
 
     def GetResources(self) -> dict[str, str]:
-        component = self._favorite_component()
+        component = self._component
         if component is None:
             return {
                 "MenuText": f"Favorite {self.slot_index + 1}",
@@ -128,10 +169,10 @@ class _FavoriteComponentCommand:
         }
 
     def IsActive(self) -> bool:
-        return self._favorite_component() is not None
+        return self._component is not None
 
     def Activated(self) -> None:
-        component = self._favorite_component()
+        component = self._component
         if component is None:
             ensure_component_palette_ui()
             return
@@ -148,16 +189,6 @@ class _FavoriteComponentCommand:
             from ocw_workbench.gui.runtime import show_error
 
             show_error("Favorite Component", exc)
-
-    def _favorite_component(self) -> dict[str, Any] | None:
-        favorite_ids = self.userdata_service.list_favorite_component_ids()
-        if self.slot_index >= len(favorite_ids):
-            return None
-        component_id = favorite_ids[self.slot_index]
-        try:
-            return ControllerService().library_service.get(component_id)
-        except Exception:
-            return None
 
 
 class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
@@ -180,7 +211,6 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         from ocw_workbench.commands.drag_move_component import DragMoveComponentCommand
         from ocw_workbench.commands.enable_plugin import EnablePluginCommand
         from ocw_workbench.commands.import_template_from_fcstd import ImportTemplateFromFCStdCommand
-        from ocw_workbench.commands.move_component_interactive import MoveComponentInteractiveCommand
         from ocw_workbench.commands.open_plugin_manager import OpenPluginManagerCommand
         from ocw_workbench.commands.open_component_palette import OpenComponentPaletteCommand
         from ocw_workbench.commands.reload_plugins import ReloadPluginsCommand
@@ -202,7 +232,6 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         Gui.addCommand("OCW_ValidateConstraints", _LoggedCommand("OCW_ValidateConstraints", ValidateConstraintsCommand()))
         Gui.addCommand("OCW_ToggleOverlay", _LoggedCommand("OCW_ToggleOverlay", ToggleOverlayCommand()))
         Gui.addCommand("OCW_ShowConstraintOverlay", _LoggedCommand("OCW_ShowConstraintOverlay", ShowConstraintOverlayCommand()))
-        Gui.addCommand("OCW_MoveComponentInteractive", _LoggedCommand("OCW_MoveComponentInteractive", MoveComponentInteractiveCommand()))
         Gui.addCommand("OCW_DragMoveComponent", _LoggedCommand("OCW_DragMoveComponent", DragMoveComponentCommand()))
         Gui.addCommand("OCW_SnapToGrid", _LoggedCommand("OCW_SnapToGrid", SnapToGridCommand()))
         Gui.addCommand("OCW_DuplicateSelected", _LoggedCommand("OCW_DuplicateSelected", DuplicateSelectionCommand()))
@@ -245,12 +274,10 @@ class OpenControllerWorkbench((Gui.Workbench if Gui is not None else object)):
         project_commands = ["OCW_CreateController", "OCW_ImportTemplateFromFCStd"]
         component_commands = [
             "OCW_AddComponent",
-            "OCW_SelectComponent",
             "OCW_OpenComponentPalette",
         ]
         layout_commands = [
             "OCW_ApplyLayout",
-            "OCW_MoveComponentInteractive",
             "OCW_DragMoveComponent",
             "OCW_SnapToGrid",
             "OCW_DuplicateSelected",
@@ -338,16 +365,13 @@ class ProductWorkbenchPanel:
         self.overlay_service = OverlayService(self.controller_service)
         self.overlay_renderer = OverlayRenderer(self.overlay_service)
         self.interaction_manager = InteractionSessionManager()
-        self.move_tool = MoveTool(
-            interaction_service=self.interaction_service,
-            controller_service=self.controller_service,
-        )
         self.place_controller = ViewPlaceController(
             controller_service=self.controller_service,
             interaction_service=self.interaction_service,
             overlay_renderer=self.overlay_renderer,
             on_status=self.set_status,
             on_finished=self._handle_interaction_finished,
+            on_committed=self._handle_placement_committed,
         )
         self.drag_controller = ViewDragController(
             controller_service=self.controller_service,
@@ -355,6 +379,13 @@ class ProductWorkbenchPanel:
             overlay_renderer=self.overlay_renderer,
             on_status=self.set_status,
             on_finished=self._handle_interaction_finished,
+        )
+        self.pick_controller = ViewPickController(
+            controller_service=self.controller_service,
+            overlay_renderer=self.overlay_renderer,
+            on_status=self.set_status,
+            on_finished=self._handle_pick_finished,
+            on_selected=self._handle_pick_selected,
         )
         self.form = self._build_shell()
         self.widget = self.form["widget"]
@@ -379,6 +410,7 @@ class ProductWorkbenchPanel:
             on_selection_changed=self._handle_selection_changed,
             on_components_changed=self._handle_components_changed,
             on_status=self.set_status,
+            on_drag_requested=self.start_drag_mode,
         )
         self.constraints_panel = ConstraintsPanel(
             doc,
@@ -397,6 +429,7 @@ class ProductWorkbenchPanel:
         self._mount_panels()
         self.refresh_all()
         self.focus_panel("create")
+        self.pick_controller.start(self.doc)
 
     def refresh_all(self) -> None:
         self.create_panel.refresh()
@@ -427,12 +460,17 @@ class ProductWorkbenchPanel:
             widget.setFocus()
         self._update_context_summary(active_panel=normalized_panel)
 
-    def set_status(self, message: str) -> None:
-        level = "error" if message.lower().startswith("could not") or message.lower().startswith("validation found") else "info"
-        if "created" in message.lower() or "updated controller geometry" in message.lower() or "validation passed" in message.lower():
-            level = "success"
-        if "warning" in message.lower():
-            level = "warning"
+    def set_status(self, message: str, level: str | None = None) -> None:
+        if level is None:
+            lower = message.lower()
+            if lower.startswith("could not") or lower.startswith("validation found"):
+                level = "error"
+            elif "created" in lower or "updated controller geometry" in lower or "validation passed" in lower:
+                level = "success"
+            elif "warning" in lower:
+                level = "warning"
+            else:
+                level = "info"
         apply_status_message(self.form["status"], message, level=level)
         set_label_text(self.form["overlay_status"], self._overlay_status_text())
         self._update_context_summary()
@@ -519,23 +557,6 @@ class ProductWorkbenchPanel:
             )
         )
         return settings
-
-    def arm_move_for_selection(self) -> dict[str, Any]:
-        settings = self.move_tool.arm(self.doc)
-        self.components_panel.refresh()
-        self.info_panel.refresh()
-        self.refresh_overlay()
-        self.focus_panel("components")
-        self.set_status(f"3D move is ready for '{settings['move_component_id']}'. Click in the view or edit X/Y in Components.")
-        return settings
-
-    def move_to(self, x: float, y: float) -> dict[str, Any]:
-        result = self.move_tool.move_to(self.doc, x, y)
-        self.refresh_context_panels(refresh_components=True)
-        self.refresh_overlay()
-        self.focus_panel("components")
-        self.set_status(f"Moved '{result['component_id']}' to {result['x']:.2f}, {result['y']:.2f} mm.")
-        return result
 
     def snap_selection_to_grid(self) -> dict[str, Any]:
         result = self.interaction_service.snap_selected_component(self.doc)
@@ -659,6 +680,7 @@ class ProductWorkbenchPanel:
         return True
 
     def start_place_mode(self, template_id: str) -> bool:
+        self.pick_controller.cancel(publish_status=False)
         self.interaction_manager.cancel_active(reason="switch", publish_status=False)
         started = self.place_controller.start(self.doc, template_id)
         if started:
@@ -666,6 +688,7 @@ class ProductWorkbenchPanel:
         return started
 
     def start_drag_mode(self) -> bool:
+        self.pick_controller.cancel(publish_status=False)
         self.interaction_manager.cancel_active(reason="switch", publish_status=False)
         started = self.drag_controller.start(self.doc)
         if started:
@@ -681,6 +704,11 @@ class ProductWorkbenchPanel:
     def _build_shell(self) -> dict[str, Any]:
         _qtcore, _qtgui, qtwidgets = load_qt()
         if qtwidgets is None:
+            _fallback_stack = _FallbackStack()
+            _fallback_buttons = {
+                panel_name: _FallbackStepButton(label)
+                for panel_name, label in _WORKFLOW_STEPS
+            }
             return {
                 "widget": object(),
                 "title": FallbackLabel(_WORKBENCH_TITLE),
@@ -689,8 +717,12 @@ class ProductWorkbenchPanel:
                 "overlay_status": FallbackLabel("Overlay ready."),
                 "header_bar": object(),
                 "stepper_bar": object(),
-                "content_host": object(),
+                "content_host": _fallback_stack,
+                "stack": _fallback_stack,
                 "footer_bar": object(),
+                "step_buttons": _fallback_buttons,
+                "step_flow_markers": [],
+                "step_button_labels": dict(_WORKFLOW_STEPS),
                 "primary_navigation": "stepper",
                 "navigation_items": list(_WORKFLOW_STEP_LABELS),
                 "navigation_count": 1,
@@ -851,16 +883,16 @@ class ProductWorkbenchPanel:
         report = self.constraints_panel.validate()
         self.refresh_overlay()
         self.focus_panel("constraints")
-        message, _level = format_validation_message(report)
-        self.set_status(message)
+        message, level = format_validation_message(report)
+        self.set_status(message, level=level)
 
     def _handle_components_changed(self, _state: dict[str, Any]) -> None:
         self.refresh_context_panels(refresh_components=False)
         report = self.constraints_panel.validate()
         self.refresh_overlay()
         self.focus_panel("components")
-        message, _level = format_validation_message(report)
-        self.set_status(f"Components updated. {message}")
+        message, level = format_validation_message(report)
+        self.set_status(f"Components updated. {message}", level=level)
 
     def _handle_controller_updated(self, _state: dict[str, Any]) -> None:
         self.refresh_context_panels(refresh_components=True)
@@ -882,8 +914,8 @@ class ProductWorkbenchPanel:
     def _handle_validated(self, _report: dict[str, Any]) -> None:
         self.info_panel.refresh()
         self.refresh_overlay()
-        message, _level = format_validation_message(_report)
-        self.set_status(message)
+        message, level = format_validation_message(_report)
+        self.set_status(message, level=level)
 
     def _handle_plugins_changed(self) -> None:
         self.create_panel.refresh()
@@ -914,8 +946,29 @@ class ProductWorkbenchPanel:
                 error_message,
             )
 
+    def _handle_placement_committed(self, state: dict[str, Any]) -> None:
+        try:
+            self.refresh_context_panels(refresh_components=True)
+        except Exception as exc:
+            log_exception("Failed to refresh UI after placement commit", exc)
+
     def _handle_interaction_finished(self, controller: Any) -> None:
         self.interaction_manager.clear(controller.cancel)
+        try:
+            self.refresh_context_panels(refresh_components=True)
+        except Exception as exc:
+            log_exception("Failed to refresh UI after interaction finished", exc)
+        self.pick_controller.start(self.doc)
+
+    def _handle_pick_finished(self, controller: Any) -> None:
+        pass
+
+    def _handle_pick_selected(self, component_id: str) -> None:
+        try:
+            self.components_panel.refresh()
+            self.focus_panel("components")
+        except Exception as exc:
+            log_exception("Failed to refresh UI after pick selection", exc)
 
     def _selected_components_in_order(self) -> list[dict[str, Any]]:
         state = self.controller_service.get_state(self.doc)
@@ -1180,295 +1233,12 @@ def _panel_title(panel_name: str) -> str:
 
 
 def _workbench_shell_stylesheet() -> str:
-    return """
-QWidget#OCWWorkbenchShell {
-    background: #0f1622;
-}
-QLabel {
-    color: #d9e2ec;
-    font-size: 12px;
-}
-QFrame#OCWHeaderBar {
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid #1f2937;
-    border-radius: 0px;
-}
-QLabel#OCWHeaderTitle {
-    color: #f3f7fb;
-    font-size: 14px;
-    font-weight: 700;
-}
-QLabel#OCWContextSummary {
-    color: #8ea0b5;
-    font-size: 10px;
-}
-QFrame#OCWStepperBar {
-    background: #0e1622;
-    border: 1px solid #1c2737;
-    border-radius: 12px;
-}
-QPushButton#OCWStepButton {
-    min-height: 36px;
-    padding: 0 16px;
-    border-radius: 10px;
-    border: 1px solid #1a2534;
-    background: #101927;
-    color: #6f8198;
-    font-size: 11px;
-    font-weight: 700;
-    text-align: center;
-}
-QPushButton#OCWStepButton:hover {
-    background: #162131;
-    color: #dbe5f1;
-    border-color: #314156;
-}
-QPushButton#OCWStepButton[done="true"] {
-    background: #122236;
-    color: #c7d6e8;
-    border-color: #335b86;
-}
-QPushButton#OCWStepButton[future="true"] {
-    background: #0d141f;
-    color: #53657b;
-    border-color: #152031;
-}
-QPushButton#OCWStepButton:checked,
-QPushButton#OCWStepButton[active="true"] {
-    background: #2156c6;
-    color: #f7fbff;
-    border: 1px solid #86adf4;
-    padding: 0 18px;
-}
-QPushButton#OCWStepButton[disabled_step="true"] {
-    background: #0c121c;
-    color: #4c5c70;
-    border-color: #141e2b;
-}
-QLabel#OCWStepFlow {
-    color: #334256;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 0 1px 1px 1px;
-}
-QLabel#OCWStepFlow[done="true"] {
-    color: #6c92cb;
-}
-QLabel#OCWStepFlow[active="true"] {
-    color: #9cbcf3;
-}
-QLabel#OCWStepFlow[future="true"] {
-    color: #2a3748;
-}
-QFrame#OCWFooterBar {
-    background: transparent;
-    border: none;
-    border-top: 1px solid #1f2937;
-    border-radius: 0px;
-}
-QLabel#OCWStatusText {
-    color: #d9e2ec;
-    font-size: 11px;
-}
-QLabel#OCWOverlayText {
-    color: #7f92a8;
-    font-size: 10px;
-}
-QToolButton#OCWCollapsibleToggle {
-    color: #c2d0de;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid #1b2433;
-    border-radius: 0px;
-    min-height: 34px;
-    padding: 8px 2px 8px 2px;
-    font-weight: 600;
-    text-align: left;
-}
-QToolButton#OCWCollapsibleToggle:hover {
-    color: #f3f7fb;
-}
-QFrame#OCWCollapsibleBody {
-    background: transparent;
-    border: none;
-}
-QFrame#OCWScrollContentRoot {
-    background: transparent;
-    border: none;
-}
-QFrame#OCWSectionGroup,
-QFrame#OCWCollapsibleSection {
-    background: transparent;
-    border: none;
-}
-QFrame#OCWSectionHeader,
-QFrame#OCWCollapsibleHeader {
-    background: transparent;
-    border: none;
-}
-QLabel#OCWSectionHeaderTitle {
-    color: #8798ac;
-    font-size: 10px;
-    font-weight: 700;
-}
-QLabel#OCWSectionHeaderSubtitle {
-    color: #72849a;
-    font-size: 10px;
-}
-QFrame#OCWDivider {
-    background: transparent;
-    border: none;
-    min-height: 12px;
-}
-QFrame#OCWDividerLine {
-    background: #1f2a39;
-    border: none;
-    min-height: 1px;
-    max-height: 1px;
-}
-QLabel#OCWHelperText {
-    color: #72849a;
-    font-size: 10px;
-}
-QLabel#OCWStatusLabel {
-    color: #9fb0c2;
-    font-size: 11px;
-}
-QPushButton {
-    min-height: 28px;
-    padding: 0 10px;
-    border-radius: 5px;
-    border: 1px solid #293446;
-    background: #182131;
-    color: #dbe5f1;
-    font-size: 11px;
-    font-weight: 600;
-}
-QPushButton:hover {
-    background: #202b3d;
-    border-color: #334155;
-}
-QPushButton:pressed {
-    background: #141c29;
-}
-QPushButton:disabled {
-    background: #101723;
-    color: #5e7287;
-    border-color: #1b2433;
-}
-QPushButton#OCWButtonPrimary {
-    background: #2157c9;
-    border-color: #2157c9;
-    color: #eff6ff;
-}
-QPushButton#OCWButtonPrimary:hover {
-    background: #1b49ae;
-    border-color: #1b49ae;
-}
-QPushButton#OCWButtonGhost {
-    background: transparent;
-    border-color: #202b3b;
-    color: #aebdcb;
-}
-QPushButton#OCWButtonGhost:hover {
-    background: #131d2c;
-    border-color: #293446;
-}
-QLineEdit, QComboBox, QDoubleSpinBox, QPlainTextEdit, QTreeWidget {
-    background: #0c1420;
-    color: #dbe5f1;
-    border: 1px solid #202b3b;
-    border-radius: 6px;
-    padding: 4px 6px;
-    selection-background-color: #2157c9;
-}
-QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus, QPlainTextEdit:focus, QTreeWidget:focus {
-    border-color: #4b78d3;
-}
-QComboBox::drop-down {
-    border: none;
-    width: 18px;
-}
-QGroupBox#OCWSectionGroup, QGroupBox {
-    color: #aebdcb;
-    font-size: 10px;
-    font-weight: 700;
-    border: none;
-    margin-top: 18px;
-    padding-top: 8px;
-    background: transparent;
-}
-QGroupBox::title {
-    subcontrol-origin: margin;
-    left: 0px;
-    padding: 0 0 5px 0;
-    color: #8798ac;
-}
-QFrame#OCWQuickAddSection,
-QGroupBox#OCWQuickAddSection {
-    border: 1px solid #2b4b78;
-    border-radius: 8px;
-    background: rgba(24, 45, 76, 0.35);
-}
-QFrame#OCWQuickAddSection QLabel#OCWSectionHeaderTitle,
-QGroupBox#OCWQuickAddSection::title {
-    color: #d8e7ff;
-}
-QFrame#OCWSelectedComponentSection,
-QGroupBox#OCWSelectedComponentSection {
-    border: 1px solid #223247;
-    border-radius: 8px;
-    background: rgba(14, 22, 34, 0.45);
-}
-QFrame#OCWEmptyStateCard {
-    border: 1px dashed #31507e;
-    border-radius: 10px;
-    background: rgba(18, 34, 56, 0.28);
-}
-QFrame#OCWValidationSuccessCard,
-QGroupBox#OCWValidationSuccessCard {
-    border: 1px solid #2f5a47;
-    border-radius: 10px;
-    background: rgba(16, 46, 37, 0.42);
-}
-QFrame#OCWValidationSuccessCard QLabel#OCWSectionHeaderTitle,
-QGroupBox#OCWValidationSuccessCard::title {
-    color: #b8e5cf;
-}
-QFrame#OCWValidationEmptyCard,
-QGroupBox#OCWValidationEmptyCard {
-    border: 1px dashed #38516d;
-    border-radius: 10px;
-    background: rgba(18, 28, 42, 0.38);
-}
-QFrame#OCWValidationEmptyCard QLabel#OCWSectionHeaderTitle,
-QGroupBox#OCWValidationEmptyCard::title {
-    color: #c7d2e0;
-}
-QFrame#OCWValidationIssuesSection,
-QGroupBox#OCWValidationIssuesSection {
-    border: 1px solid #4b2f35;
-    border-radius: 10px;
-    background: rgba(45, 17, 24, 0.16);
-}
-QFrame#OCWValidationIssuesSection QLabel#OCWSectionHeaderTitle,
-QGroupBox#OCWValidationIssuesSection::title {
-    color: #f0b3b8;
-}
-QScrollArea {
-    background: transparent;
-    border: none;
-}
-QSplitter::handle {
-    background: #111827;
-}
-QSplitter::handle:vertical {
-    height: 8px;
-    border-top: 1px solid #1f2937;
-    border-bottom: 1px solid #1f2937;
-}
-"""
+    from pathlib import Path
+    qss_path = Path(__file__).resolve().parents[1] / "resources" / "ui" / "workbench_shell.qss"
+    try:
+        return qss_path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
 
 
 def _bootstrap_document_if_needed(doc: Any) -> None:

@@ -26,7 +26,11 @@ class FallbackCheckBox:
     def __init__(self, checked: bool = False) -> None:
         self.checked = bool(checked)
         self.enabled = True
+        self.visible = True
         self.stateChanged = FallbackSignal()
+
+    def setVisible(self, value: bool) -> None:
+        self.visible = bool(value)
 
     def isChecked(self) -> bool:
         return self.checked

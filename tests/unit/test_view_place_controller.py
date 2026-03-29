@@ -262,3 +262,48 @@ def test_overlay_service_styles_invalid_preview_as_error():
     assert preview_item["style"]["kind"] == "component_preview_error"
     assert preview_label["style"]["kind"] == "preview_label_error"
     assert "Out of bounds" in preview_label["label"]
+
+
+def test_view_place_controller_on_committed_fires_after_each_click():
+    doc = FakeDocument()
+    controller_service = ControllerService()
+    interaction_service = InteractionService(controller_service)
+    controller_service.create_controller(doc, {"id": "demo", "width": 100.0, "depth": 80.0, "height": 30.0})
+    committed_states: list[dict] = []
+    controller = ViewPlaceController(
+        controller_service=controller_service,
+        interaction_service=interaction_service,
+        on_committed=committed_states.append,
+    )
+    view = FakeView()
+    controller._active_view = lambda _doc: view
+
+    assert controller.start(doc, "omron_b3f_1000") is True
+    controller.handle_view_event({"Type": "SoMouseButtonEvent", "State": "DOWN", "Button": "BUTTON1", "Position": (12, 19)})
+    controller.handle_view_event({"Type": "SoMouseButtonEvent", "State": "DOWN", "Button": "BUTTON1", "Position": (30, 41)})
+
+    assert len(committed_states) == 2
+    assert controller.doc is doc
+    assert controller.active_template_id == "omron_b3f_1000"
+
+
+def test_view_place_controller_on_committed_not_fired_on_cancel():
+    doc = FakeDocument()
+    controller_service = ControllerService()
+    interaction_service = InteractionService(controller_service)
+    controller_service.create_controller(doc, {"id": "demo", "width": 100.0, "depth": 80.0, "height": 30.0})
+    committed_states: list[dict] = []
+    controller = ViewPlaceController(
+        controller_service=controller_service,
+        interaction_service=interaction_service,
+        on_committed=committed_states.append,
+    )
+    view = FakeView()
+    controller._active_view = lambda _doc: view
+
+    assert controller.start(doc, "omron_b3f_1000") is True
+    controller.handle_view_event({"Type": "SoLocation2Event", "Position": (12, 18)})
+    controller.handle_view_event({"Type": "SoKeyboardEvent", "State": "DOWN", "Key": "ESCAPE"})
+
+    assert committed_states == []
+    assert controller.doc is None

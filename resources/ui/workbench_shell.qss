@@ -1,0 +1,287 @@
+QWidget#OCWWorkbenchShell {
+    background: #0f1622;
+}
+QLabel {
+    color: #d9e2ec;
+    font-size: 12px;
+}
+QFrame#OCWHeaderBar {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #1f2937;
+    border-radius: 0px;
+}
+QLabel#OCWHeaderTitle {
+    color: #f3f7fb;
+    font-size: 14px;
+    font-weight: 700;
+}
+QLabel#OCWContextSummary {
+    color: #8ea0b5;
+    font-size: 10px;
+}
+QFrame#OCWStepperBar {
+    background: #0e1622;
+    border: 1px solid #1c2737;
+    border-radius: 12px;
+}
+QPushButton#OCWStepButton {
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: 10px;
+    border: 1px solid #1a2534;
+    background: #101927;
+    color: #6f8198;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+}
+QPushButton#OCWStepButton:hover {
+    background: #162131;
+    color: #dbe5f1;
+    border-color: #314156;
+}
+QPushButton#OCWStepButton[done="true"] {
+    background: #122236;
+    color: #c7d6e8;
+    border-color: #335b86;
+}
+QPushButton#OCWStepButton[future="true"] {
+    background: #0d141f;
+    color: #53657b;
+    border-color: #152031;
+}
+QPushButton#OCWStepButton:checked,
+QPushButton#OCWStepButton[active="true"] {
+    background: #2156c6;
+    color: #f7fbff;
+    border: 1px solid #86adf4;
+    padding: 0 18px;
+}
+QPushButton#OCWStepButton[disabled_step="true"] {
+    background: #0c121c;
+    color: #4c5c70;
+    border-color: #141e2b;
+}
+QLabel#OCWStepFlow {
+    color: #334256;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 0 1px 1px 1px;
+}
+QLabel#OCWStepFlow[done="true"] {
+    color: #6c92cb;
+}
+QLabel#OCWStepFlow[active="true"] {
+    color: #9cbcf3;
+}
+QLabel#OCWStepFlow[future="true"] {
+    color: #2a3748;
+}
+QFrame#OCWFooterBar {
+    background: transparent;
+    border: none;
+    border-top: 1px solid #1f2937;
+    border-radius: 0px;
+}
+QLabel#OCWStatusText {
+    color: #d9e2ec;
+    font-size: 11px;
+}
+QLabel#OCWOverlayText {
+    color: #7f92a8;
+    font-size: 10px;
+}
+QToolButton#OCWCollapsibleToggle {
+    color: #c2d0de;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #1b2433;
+    border-radius: 0px;
+    min-height: 34px;
+    padding: 8px 2px 8px 2px;
+    font-weight: 600;
+    text-align: left;
+}
+QToolButton#OCWCollapsibleToggle:hover {
+    color: #f3f7fb;
+}
+QFrame#OCWCollapsibleBody {
+    background: transparent;
+    border: none;
+}
+QFrame#OCWScrollContentRoot {
+    background: transparent;
+    border: none;
+}
+QFrame#OCWSectionGroup,
+QFrame#OCWCollapsibleSection {
+    background: transparent;
+    border: none;
+}
+QFrame#OCWSectionHeader,
+QFrame#OCWCollapsibleHeader {
+    background: transparent;
+    border: none;
+}
+QLabel#OCWSectionHeaderTitle {
+    color: #8798ac;
+    font-size: 10px;
+    font-weight: 700;
+}
+QLabel#OCWSectionHeaderSubtitle {
+    color: #72849a;
+    font-size: 10px;
+}
+QFrame#OCWDivider {
+    background: transparent;
+    border: none;
+    min-height: 12px;
+}
+QFrame#OCWDividerLine {
+    background: #1f2a39;
+    border: none;
+    min-height: 1px;
+    max-height: 1px;
+}
+QLabel#OCWHelperText {
+    color: #72849a;
+    font-size: 10px;
+}
+QLabel#OCWStatusLabel {
+    color: #9fb0c2;
+    font-size: 11px;
+}
+QPushButton {
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 5px;
+    border: 1px solid #293446;
+    background: #182131;
+    color: #dbe5f1;
+    font-size: 11px;
+    font-weight: 600;
+}
+QPushButton:hover {
+    background: #202b3d;
+    border-color: #334155;
+}
+QPushButton:pressed {
+    background: #141c29;
+}
+QPushButton:disabled {
+    background: #101723;
+    color: #5e7287;
+    border-color: #1b2433;
+}
+QPushButton#OCWButtonPrimary {
+    background: #2157c9;
+    border-color: #2157c9;
+    color: #eff6ff;
+}
+QPushButton#OCWButtonPrimary:hover {
+    background: #1b49ae;
+    border-color: #1b49ae;
+}
+QPushButton#OCWButtonGhost {
+    background: transparent;
+    border-color: #202b3b;
+    color: #aebdcb;
+}
+QPushButton#OCWButtonGhost:hover {
+    background: #131d2c;
+    border-color: #293446;
+}
+QLineEdit, QComboBox, QDoubleSpinBox, QPlainTextEdit, QTreeWidget {
+    background: #0c1420;
+    color: #dbe5f1;
+    border: 1px solid #202b3b;
+    border-radius: 6px;
+    padding: 4px 6px;
+    selection-background-color: #2157c9;
+}
+QLineEdit:focus, QComboBox:focus, QDoubleSpinBox:focus, QPlainTextEdit:focus, QTreeWidget:focus {
+    border-color: #4b78d3;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 18px;
+}
+QGroupBox#OCWSectionGroup, QGroupBox {
+    color: #aebdcb;
+    font-size: 10px;
+    font-weight: 700;
+    border: none;
+    margin-top: 18px;
+    padding-top: 8px;
+    background: transparent;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 0px;
+    padding: 0 0 5px 0;
+    color: #8798ac;
+}
+QFrame#OCWQuickAddSection,
+QGroupBox#OCWQuickAddSection {
+    border: 1px solid #2b4b78;
+    border-radius: 8px;
+    background: rgba(24, 45, 76, 0.35);
+}
+QFrame#OCWQuickAddSection QLabel#OCWSectionHeaderTitle,
+QGroupBox#OCWQuickAddSection::title {
+    color: #d8e7ff;
+}
+QFrame#OCWSelectedComponentSection,
+QGroupBox#OCWSelectedComponentSection {
+    border: 1px solid #223247;
+    border-radius: 8px;
+    background: rgba(14, 22, 34, 0.45);
+}
+QFrame#OCWEmptyStateCard {
+    border: 1px dashed #31507e;
+    border-radius: 10px;
+    background: rgba(18, 34, 56, 0.28);
+}
+QFrame#OCWValidationSuccessCard,
+QGroupBox#OCWValidationSuccessCard {
+    border: 1px solid #2f5a47;
+    border-radius: 10px;
+    background: rgba(16, 46, 37, 0.42);
+}
+QFrame#OCWValidationSuccessCard QLabel#OCWSectionHeaderTitle,
+QGroupBox#OCWValidationSuccessCard::title {
+    color: #b8e5cf;
+}
+QFrame#OCWValidationEmptyCard,
+QGroupBox#OCWValidationEmptyCard {
+    border: 1px dashed #38516d;
+    border-radius: 10px;
+    background: rgba(18, 28, 42, 0.38);
+}
+QFrame#OCWValidationEmptyCard QLabel#OCWSectionHeaderTitle,
+QGroupBox#OCWValidationEmptyCard::title {
+    color: #c7d2e0;
+}
+QFrame#OCWValidationIssuesSection,
+QGroupBox#OCWValidationIssuesSection {
+    border: 1px solid #4b2f35;
+    border-radius: 10px;
+    background: rgba(45, 17, 24, 0.16);
+}
+QFrame#OCWValidationIssuesSection QLabel#OCWSectionHeaderTitle,
+QGroupBox#OCWValidationIssuesSection::title {
+    color: #f0b3b8;
+}
+QScrollArea {
+    background: transparent;
+    border: none;
+}
+QSplitter::handle {
+    background: #111827;
+}
+QSplitter::handle:vertical {
+    height: 8px;
+    border-top: 1px solid #1f2937;
+    border-bottom: 1px solid #1f2937;
+}

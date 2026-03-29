@@ -5,6 +5,15 @@ from typing import Any
 
 from ocw_workbench.gui.interaction.hit_test import hit_test_components
 from ocw_workbench.gui.interaction.lifecycle import ViewEventCallbackRegistry
+from ocw_workbench.gui.interaction.view_event_helpers import (
+    extract_position,
+    get_active_view,
+    get_view_point,
+    is_escape_event,
+    is_left_click_down,
+    is_left_click_up,
+    is_mouse_move,
+)
 from ocw_workbench.gui.interaction.view_place_controller import map_view_point_to_controller_xy
 from ocw_workbench.gui.interaction.view_place_preview import load_preview_state
 from ocw_workbench.gui.overlay.renderer import OverlayRenderer
@@ -109,24 +118,25 @@ class ViewDragController:
                 return
             payload = info if isinstance(info, dict) else {}
             event_type = str(payload.get("Type") or payload.get("type") or "")
-            if self._is_escape_event(event_type, payload):
+            if is_escape_event(event_type, payload):
                 self.cancel()
                 return
-            position = self._extract_position(payload)
+            position = extract_position(payload)
             if position is None:
                 return
             screen_x = float(position[0])
             screen_y = float(position[1])
-            if self._is_left_click_down(event_type, payload):
-                self._begin_drag(screen_x, screen_y)
+            if is_left_click_down(event_type, payload):
+                if self.session is None or not self.session.dragging:
+                    self._begin_drag(screen_x, screen_y)
                 return
-            if self._is_mouse_move(event_type, payload):
+            if is_mouse_move(event_type, payload):
                 if self.session is not None and self.session.dragging:
                     self.update_preview_from_screen(screen_x, screen_y)
                 else:
                     self.update_hover_from_screen(screen_x, screen_y)
                 return
-            if self.session is not None and self.session.dragging and self._is_left_click_up(event_type, payload):
+            if self.session is not None and self.session.dragging and is_left_click_up(event_type, payload):
                 preview = self.update_preview_from_screen(screen_x, screen_y)
                 if preview is not None and self._preview_allows_commit(preview):
                     self.commit()
@@ -136,14 +146,13 @@ class ViewDragController:
     def _begin_drag(self, screen_x: float, screen_y: float) -> bool:
         if self.doc is None or self.view is None:
             return False
-        point = self._view_point(self.view, screen_x, screen_y)
+        point = get_view_point(self.view, screen_x, screen_y)
         if point is None:
             return False
-        overlay = getattr(self.doc, "OCWOverlayState", None)
-        if not isinstance(overlay, dict):
-            overlay = self.overlay_renderer.refresh(self.doc)
+        overlay = self.overlay_renderer.refresh(self.doc)
         component_id = hit_test_components(list(overlay.get("items", [])), x=float(point[0]), y=float(point[1]))
         if component_id is None:
+            self._publish_status("No component at that position. Hover over a component to highlight it, then click to drag.")
             return False
         self._set_hover_component(component_id, announce=False)
         component = self.controller_service.get_component(self.doc, component_id)
@@ -173,7 +182,7 @@ class ViewDragController:
     def update_hover_from_screen(self, screen_x: float, screen_y: float) -> str | None:
         if self.doc is None or self.view is None:
             return None
-        point = self._view_point(self.view, screen_x, screen_y)
+        point = get_view_point(self.view, screen_x, screen_y)
         if point is None:
             return None
         overlay = getattr(self.doc, "OCWOverlayState", None)
@@ -188,7 +197,7 @@ class ViewDragController:
             return None
         if not self._ensure_view_binding():
             return None
-        point = self._view_point(self.view, screen_x, screen_y)
+        point = get_view_point(self.view, screen_x, screen_y)
         if point is None:
             return None
         state = self.controller_service.get_state(self.doc)
@@ -239,77 +248,7 @@ class ViewDragController:
         return state
 
     def _active_view(self, doc: Any) -> Any | None:
-        try:
-            import FreeCADGui as Gui
-        except ImportError:
-            return None
-        gui_doc = None
-        doc_name = getattr(doc, "Name", None)
-        if isinstance(doc_name, str) and hasattr(Gui, "getDocument"):
-            try:
-                gui_doc = Gui.getDocument(doc_name)
-            except Exception:
-                gui_doc = None
-        active_gui_doc = getattr(Gui, "ActiveDocument", None)
-        active_gui_doc_name = getattr(active_gui_doc, "Document", None)
-        active_gui_doc_name = getattr(active_gui_doc_name, "Name", getattr(active_gui_doc, "Name", None))
-        if gui_doc is None and not isinstance(doc_name, str):
-            gui_doc = getattr(Gui, "ActiveDocument", None)
-        if gui_doc is None and isinstance(doc_name, str) and active_gui_doc_name == doc_name:
-            gui_doc = active_gui_doc
-        if gui_doc is None or not hasattr(gui_doc, "activeView"):
-            return None
-        try:
-            return gui_doc.activeView()
-        except Exception:
-            return None
-
-    def _view_point(self, view: Any, screen_x: float, screen_y: float) -> tuple[float, float, float] | None:
-        if not hasattr(view, "getPoint"):
-            return None
-        try:
-            point = view.getPoint(int(round(screen_x)), int(round(screen_y)))
-        except Exception:
-            return None
-        if isinstance(point, (list, tuple)) and len(point) >= 3:
-            return (float(point[0]), float(point[1]), float(point[2]))
-        if hasattr(point, "__iter__"):
-            values = list(point)
-            if len(values) >= 3:
-                return (float(values[0]), float(values[1]), float(values[2]))
-        return None
-
-    def _extract_position(self, payload: dict[str, Any]) -> tuple[float, float] | None:
-        for key in ("Position", "position", "pos"):
-            value = payload.get(key)
-            if isinstance(value, (list, tuple)) and len(value) >= 2:
-                return (float(value[0]), float(value[1]))
-        return None
-
-    def _is_mouse_move(self, event_type: str, payload: dict[str, Any]) -> bool:
-        state = str(payload.get("State") or payload.get("state") or "")
-        return event_type in {"SoLocation2Event", "SoEvent"} and state.lower() != "down"
-
-    def _is_left_click_down(self, event_type: str, payload: dict[str, Any]) -> bool:
-        if event_type not in {"SoMouseButtonEvent", "SoEvent"}:
-            return False
-        button = str(payload.get("Button") or payload.get("button") or "").upper()
-        state = str(payload.get("State") or payload.get("state") or "").upper()
-        return button in {"BUTTON1", "LEFT"} and state == "DOWN"
-
-    def _is_left_click_up(self, event_type: str, payload: dict[str, Any]) -> bool:
-        if event_type not in {"SoMouseButtonEvent", "SoEvent"}:
-            return False
-        button = str(payload.get("Button") or payload.get("button") or "").upper()
-        state = str(payload.get("State") or payload.get("state") or "").upper()
-        return button in {"BUTTON1", "LEFT"} and state == "UP"
-
-    def _is_escape_event(self, event_type: str, payload: dict[str, Any]) -> bool:
-        if event_type not in {"SoKeyboardEvent", "SoEvent"}:
-            return False
-        key = str(payload.get("Key") or payload.get("key") or payload.get("Printable") or "").upper()
-        state = str(payload.get("State") or payload.get("state") or "").upper()
-        return key in {"ESCAPE", "ESC"} and state in {"DOWN", ""}
+        return get_active_view(doc)
 
     def _publish_status(self, message: str) -> None:
         log_to_console(message)

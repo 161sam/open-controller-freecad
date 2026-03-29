@@ -381,23 +381,15 @@ def _build_form() -> dict[str, Any]:
         expanded=False,
         spacing=6,
     )
+    helper_layout.addWidget(overlay_status)
     helper_layout.addLayout(secondary_actions)
     helper_layout.addLayout(button_row)
-    state_box, state_layout, _state_toggle = create_collapsible_section_widget(
-        qtwidgets,
-        "Current State",
-        expanded=False,
-        spacing=6,
-        margins=(0, 0, 0, 0),
-    )
-    state_layout.addWidget(summary)
-    state_layout.addWidget(validation_status)
-    state_layout.addWidget(overlay_status)
     layout.addWidget(intro)
     layout.addWidget(settings_box)
     layout.addLayout(primary_action)
+    layout.addWidget(summary)
+    layout.addWidget(validation_status)
     layout.addWidget(helper_box)
-    layout.addWidget(state_box)
     layout.addWidget(status)
     layout.addStretch(1)
     widget = wrap_widget_in_scroll_area(content)
@@ -405,7 +397,7 @@ def _build_form() -> dict[str, Any]:
         "widget": widget,
         "settings_box": settings_box,
         "helper_box": helper_box,
-        "state_box": state_box,
+        "state_box": helper_box,
         "preset": preset,
         "grid_mm": grid_mm,
         "spacing_mm": spacing_mm,

@@ -17,6 +17,9 @@ class SelectionTransformCommand(BaseCommand):
         menu_text, tooltip = _command_text(self.operation)
         return self.resources(menu_text, tooltip)
 
+    def IsActive(self):
+        return self._has_selection()
+
     def Activated(self):
         menu_text, _tooltip = _command_text(self.operation)
         try:

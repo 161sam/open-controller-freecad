@@ -14,6 +14,9 @@ class ValidateConstraintsCommand(BaseCommand):
             "Check spacing, edge distance, and placement rules.",
         )
 
+    def IsActive(self):
+        return self._has_controller()
+
     def Activated(self):
         try:
             import FreeCAD as App

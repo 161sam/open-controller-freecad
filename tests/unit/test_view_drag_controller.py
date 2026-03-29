@@ -270,3 +270,69 @@ def test_view_drag_controller_commit_keeps_dragged_component_selected():
 
     assert context["selection"] == "btn1"
     assert settings["active_interaction"] is None
+
+
+def test_view_drag_controller_miss_publishes_hint_status():
+    doc = FakeDocument()
+    controller_service = ControllerService()
+    interaction_service = InteractionService(controller_service)
+    controller_service.create_controller(doc, {"id": "demo", "width": 100.0, "depth": 80.0, "height": 30.0})
+    controller_service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=20.0, y=20.0)
+    overlay = RecordingOverlayRenderer(
+        items=[
+            {
+                "id": "component:btn1",
+                "type": "rect",
+                "geometry": {"x": 20.0, "y": 20.0, "width": 14.0, "height": 14.0, "rotation": 0.0},
+                "source_component_id": "btn1",
+            }
+        ]
+    )
+    statuses: list[str] = []
+    controller = ViewDragController(
+        controller_service=controller_service,
+        interaction_service=interaction_service,
+        overlay_renderer=overlay,
+        on_status=statuses.append,
+    )
+    controller.doc = doc
+    controller.view = FakeView()
+    controller.armed = True
+
+    controller.handle_view_event({"Type": "SoMouseButtonEvent", "State": "DOWN", "Button": "BUTTON1", "Position": (80, 70)})
+
+    assert controller.session is None
+    assert any("No component at that position" in s for s in statuses)
+
+
+def test_view_drag_controller_second_click_during_active_drag_is_ignored():
+    doc = FakeDocument()
+    controller_service = ControllerService()
+    interaction_service = InteractionService(controller_service)
+    controller_service.create_controller(doc, {"id": "demo", "width": 100.0, "depth": 80.0, "height": 30.0})
+    controller_service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=20.0, y=20.0)
+    overlay = RecordingOverlayRenderer(
+        items=[
+            {
+                "id": "component:btn1",
+                "type": "rect",
+                "geometry": {"x": 20.0, "y": 20.0, "width": 14.0, "height": 14.0, "rotation": 0.0},
+                "source_component_id": "btn1",
+            }
+        ]
+    )
+    controller = ViewDragController(
+        controller_service=controller_service,
+        interaction_service=interaction_service,
+        overlay_renderer=overlay,
+    )
+    controller.doc = doc
+    controller.view = FakeView()
+    controller.armed = True
+
+    controller.handle_view_event({"Type": "SoMouseButtonEvent", "State": "DOWN", "Button": "BUTTON1", "Position": (20, 20)})
+    first_session = controller.session
+
+    controller.handle_view_event({"Type": "SoMouseButtonEvent", "State": "DOWN", "Button": "BUTTON1", "Position": (25, 25)})
+
+    assert controller.session is first_session

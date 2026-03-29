@@ -12,6 +12,7 @@ from ocw_workbench.gui.panels._common import (
     create_form_layout,
     create_form_section_widget,
     create_hint_label,
+    create_row_widget,
     create_status_label,
     create_text_panel,
     FallbackButton,
@@ -897,6 +898,8 @@ def _build_form() -> dict[str, Any]:
     shortcuts_row.addWidget(recents_widget.widget, 1)
     quick_access_layout.addLayout(shortcuts_row)
 
+    template_fav_row = create_row_widget(qtwidgets, template, favorite_template_button, stretch_index=0)
+    variant_fav_row = create_row_widget(qtwidgets, variant, favorite_variant_button, stretch_index=0)
     for child in (
         favorites_widget.widget,
         recents_widget.widget,
@@ -907,14 +910,16 @@ def _build_form() -> dict[str, Any]:
         template_section,
         geometry_section,
         action_section,
-        template,
-        variant,
+        template_fav_row,
+        variant_fav_row,
         apply_parameters_button,
         create_button,
     ):
         set_size_policy(child, horizontal="expanding", vertical="preferred")
-    selection_form.addRow("Template", template)
-    selection_form.addRow("Variant", variant)
+    selection_form.addRow("Template", template_fav_row)
+    selection_form.addRow(template_summary)
+    selection_form.addRow("Variant", variant_fav_row)
+    selection_form.addRow(variant_summary)
     template_layout.addRow(wrap_layout_in_widget(qtwidgets, selection_form))
     template_layout.addRow(quick_access_section)
     template_layout.addRow(library_section)
@@ -940,10 +945,10 @@ def _build_form() -> dict[str, Any]:
     geometry_layout.addWidget(presets_section)
 
     create_only_row = create_button_row_layout(qtwidgets, create_button)
-    document_actions_layout.addWidget(active_project)
     document_actions_layout.addWidget(preview)
     document_actions_layout.addWidget(apply_parameters_button)
     document_actions_layout.addWidget(status)
+    action_layout.addRow(active_project)
     action_layout.addRow(wrap_layout_in_widget(qtwidgets, create_only_row))
     action_layout.addRow(document_actions_section)
 

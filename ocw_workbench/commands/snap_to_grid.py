@@ -13,6 +13,9 @@ class SnapToGridCommand(BaseCommand):
             "Snap the selected component to the current grid.",
         )
 
+    def IsActive(self):
+        return self._has_selection()
+
     def Activated(self):
         try:
             import FreeCAD as App

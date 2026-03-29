@@ -13,6 +13,9 @@ class ApplyLayoutCommand(BaseCommand):
             "Place the current components with the active layout preset.",
         )
 
+    def IsActive(self):
+        return self._has_controller()
+
     def Activated(self):
         try:
             import FreeCAD as App

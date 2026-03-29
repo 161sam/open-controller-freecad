@@ -16,6 +16,9 @@ class DuplicateSelectionCommand(BaseCommand):
             "Duplicate the current selection once with an offset.",
         )
 
+    def IsActive(self):
+        return self._has_selection()
+
     def Activated(self):
         title = "Duplicate Selected"
         try:
@@ -48,6 +51,9 @@ class LinearArrayCommand(BaseCommand):
         tooltip = "Create a linear array from the current selection."
         return self.resources(title, tooltip)
 
+    def IsActive(self):
+        return self._has_selection()
+
     def Activated(self):
         title = "Array Horizontally" if self.axis == "x" else "Array Vertically"
         try:
@@ -74,6 +80,9 @@ class GridArrayCommand(BaseCommand):
             "Grid Array",
             "Create a grid array from the current selection.",
         )
+
+    def IsActive(self):
+        return self._has_selection()
 
     def Activated(self):
         title = "Grid Array"

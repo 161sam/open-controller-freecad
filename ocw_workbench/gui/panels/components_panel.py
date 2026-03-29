@@ -55,6 +55,7 @@ class ComponentsPanel:
         on_selection_changed: Any | None = None,
         on_components_changed: Any | None = None,
         on_status: Any | None = None,
+        on_drag_requested: Any | None = None,
     ) -> None:
         self.doc = doc
         self.controller_service = controller_service or ControllerService()
@@ -64,6 +65,7 @@ class ComponentsPanel:
         self.on_selection_changed = on_selection_changed
         self.on_components_changed = on_components_changed
         self.on_status = on_status
+        self.on_drag_requested = on_drag_requested
         self._component_lookup: dict[str, str] = {}
         self._add_library_lookup: dict[str, str] = {}
         self._property_model: dict[str, Any] | None = None
@@ -318,7 +320,10 @@ class ComponentsPanel:
 
     def handle_arm_move_clicked(self) -> None:
         try:
-            self.arm_move_for_selected()
+            if self.on_drag_requested is not None:
+                self.on_drag_requested()
+            else:
+                self.arm_move_for_selected()
         except Exception as exc:
             self._publish_status(_friendly_component_error("Could not start 3D move", exc))
 
@@ -595,14 +600,16 @@ def _build_form() -> dict[str, Any]:
     _qtcore, _qtgui, qtwidgets = load_qt()
     specific_editor = ParameterEditorWidget()
     if qtwidgets is None:
+        # selector_box and selected_component_box are the same widget in the Qt build
+        _selector_box = FallbackLabel()
         return {
             "widget": object(),
             "quick_add_section": FallbackLabel(),
-            "selected_component_box": FallbackLabel(),
+            "selected_component_box": _selector_box,
             "component_list_box": FallbackLabel(),
             "empty_state_box": FallbackLabel(),
             "bulk_section": FallbackLabel(),
-            "selector_box": FallbackLabel(),
+            "selector_box": _selector_box,
             "selector_details": FallbackLabel(),
             "quick_add_box": FallbackLabel(),
             "bulk_box": FallbackLabel(),
@@ -656,6 +663,7 @@ def _build_form() -> dict[str, Any]:
             "add_y": FallbackValue(10.0),
             "add_rotation": FallbackValue(0.0),
             "add_button": FallbackButton("Add"),
+            "empty_state": FallbackLabel("No components placed yet"),
             "empty_state_cta": FallbackLabel("Add first component"),
             "empty_state_cta_button": FallbackButton("Add first component"),
             "details": FallbackText("No components yet. Use Quick Add to place the first one."),

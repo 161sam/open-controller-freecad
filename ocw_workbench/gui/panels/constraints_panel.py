@@ -60,7 +60,6 @@ class ConstraintsPanel:
             self._messages = []
             self._set_summary_counts(errors=0, warnings=0)
             self._set_review_state("Not run", "info")
-            self._set_result_overview("Validate the layout to see blocking issues, warnings, and export readiness.")
             self._set_widget_visible(self.form["success_box"], False)
             self._set_widget_visible(self.form["list_box"], False)
             self._set_widget_visible(self.form["detail_box"], False)
@@ -127,7 +126,6 @@ class ConstraintsPanel:
             errors=int(summary.get("error_count", 0)),
             warnings=int(summary.get("warning_count", 0)),
         )
-        self._set_result_overview(_result_overview_text(summary))
         self._set_widget_visible(self.form["empty_state_box"], False)
         self._set_widget_visible(self.form["success_box"], not has_issues)
         self._set_widget_visible(self.form["list_box"], has_issues)
@@ -184,9 +182,6 @@ class ConstraintsPanel:
             self.form["state_value"].setStyleSheet(_summary_value_style(state_level))
         self._set_review_state(_review_state_text(errors, warnings), state_level)
         self._set_next_step_message(_next_step_text(errors, warnings))
-
-    def _set_result_overview(self, message: str) -> None:
-        set_label_text(self.form["results_overview"], message)
 
     def _set_review_state(self, message: str, level: str) -> None:
         set_label_text(self.form["review_value"], message)
@@ -333,11 +328,11 @@ def _build_form() -> dict[str, Any]:
             "warning_count": FallbackLabel("0"),
             "state_value": FallbackLabel("Ready"),
             "review_value": FallbackLabel("Not run"),
-            "results_overview": FallbackLabel(),
             "success_box": FallbackLabel(),
             "success_title": FallbackLabel("Layout valid - ready for export"),
             "success_message": FallbackLabel(),
             "empty_state_box": FallbackLabel(),
+            "empty_state_title": FallbackLabel("No validation results yet"),
             "list_box": FallbackLabel(),
             "detail_box": FallbackLabel(),
             "results": FallbackText(),
@@ -372,7 +367,6 @@ def _build_form() -> dict[str, Any]:
     summary_row.addWidget(state_value["card"], 1)
     summary_row.addWidget(review_value["card"], 1)
 
-    results_overview = create_status_label(qtwidgets, "Run validation to populate the issue list.")
     next_step = create_hint_label(qtwidgets, "Run Validate after layout or component edits.")
     success_box, success_layout = create_section_widget(qtwidgets, "Validation Result", spacing=6)
     if hasattr(success_box, "setObjectName"):
@@ -460,7 +454,6 @@ def _build_form() -> dict[str, Any]:
     layout.addWidget(validation_scope)
     layout.addLayout(actions)
     layout.addLayout(summary_row)
-    layout.addWidget(results_overview)
     layout.addWidget(next_step)
     layout.addWidget(success_box)
     layout.addWidget(empty_state_box)
@@ -484,7 +477,6 @@ def _build_form() -> dict[str, Any]:
         "warning_count": warning_count["value"],
         "state_value": state_value["value"],
         "review_value": review_value["value"],
-        "results_overview": results_overview,
         "success_box": success_box,
         "success_title": success_title,
         "success_message": success_message,
@@ -508,17 +500,6 @@ def _format_message(severity: str, item: dict[str, Any]) -> str:
     component_id = item.get("source_component") or "-"
     description = item.get("description") or item["message"]
     return f"[{severity}] {component_id}: {item['message']} ({description})"
-
-
-def _result_overview_text(summary: dict[str, Any]) -> str:
-    errors = int(summary.get("error_count", 0))
-    warnings = int(summary.get("warning_count", 0))
-    total = int(summary.get("total_count", errors + warnings))
-    if errors:
-        return f"{total} findings. Fix blocking errors first."
-    if warnings:
-        return f"{total} findings. Review warnings next."
-    return "No findings. The layout is currently clear."
 
 
 def _review_state_text(errors: int, warnings: int) -> str:

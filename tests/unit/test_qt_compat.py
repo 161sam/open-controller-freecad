@@ -699,6 +699,7 @@ def test_create_panel_widget_uses_roomier_vertical_defaults(monkeypatch):
         QLayout=FakeQLayout,
         QSizePolicy=FakeSizePolicy,
     )
+    monkeypatch.setattr(_common, "load_qt", lambda: (None, None, qtwidgets))
 
     widget, layout = _common.create_panel_widget(qtwidgets)
 
@@ -1216,6 +1217,7 @@ def test_create_panel_build_wraps_nested_form_inside_selection_form(monkeypatch)
     monkeypatch.setattr(create_panel, "create_status_label", lambda _qtwidgets, text="": FakeWidget(text))
     monkeypatch.setattr(create_panel, "create_text_panel", lambda *_args, **_kwargs: FakeWidget("text-panel"))
     monkeypatch.setattr(create_panel, "create_button_row_layout", lambda *_args, **_kwargs: FakeLayout())
+    monkeypatch.setattr(create_panel, "create_row_widget", lambda _qtwidgets, *_widgets, **_kwargs: FakeWidget("fav-row"))
     monkeypatch.setattr(create_panel, "configure_combo_box", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(create_panel, "set_button_role", lambda button, *_args, **_kwargs: button)
     monkeypatch.setattr(create_panel, "set_size_policy", lambda *_args, **_kwargs: None)
@@ -1237,9 +1239,15 @@ def test_create_panel_build_wraps_nested_form_inside_selection_form(monkeypatch)
     assert form["geometry_section"] is not None
     assert form["action_section"] is not None
     assert form["document_actions_section"] is not None
-    assert len(selection_form.rows) == 2
-    assert selection_form.rows[0] == ("Template", form["template"])
-    assert selection_form.rows[1] == ("Variant", form["variant"])
+    # selection_form now has 4 rows: template row, template_summary span,
+    # variant row, variant_summary span
+    assert len(selection_form.rows) == 4
+    assert selection_form.rows[0][0] == "Template"
+    assert selection_form.rows[0][1].text == "fav-row"
+    assert selection_form.rows[1] == (form["template_summary"],)
+    assert selection_form.rows[2][0] == "Variant"
+    assert selection_form.rows[2][1].text == "fav-row"
+    assert selection_form.rows[3] == (form["variant_summary"],)
     assert len(wrapped_forms) == 2
     assert wrapped_forms[0][0] is selection_form
     assert wrapped_forms[1][0] is not selection_form
@@ -1247,8 +1255,10 @@ def test_create_panel_build_wraps_nested_form_inside_selection_form(monkeypatch)
     assert template_layout.rows[0][0].text == "wrapped-form"
     assert len(geometry_layout.widgets) == 4
     assert geometry_layout.widgets[0] is form["geometry_summary"]
-    assert len(action_layout.rows) == 2
-    assert action_layout.rows[0][0].text == "wrapped-form"
+    # action_layout now has 3 rows: active_project span, create row, document_actions
+    assert len(action_layout.rows) == 3
+    assert action_layout.rows[0] == (form["active_project"],)
+    assert action_layout.rows[1][0].text == "wrapped-form"
 
 
 def test_create_or_reuse_dock_tabifies_existing_right_dock(monkeypatch):

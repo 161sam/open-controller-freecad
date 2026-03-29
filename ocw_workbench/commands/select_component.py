@@ -14,6 +14,9 @@ class SelectComponentCommand(BaseCommand):
             "Review, edit, and move components.",
         )
 
+    def IsActive(self):
+        return self._has_controller()
+
     def Activated(self):
         try:
             import FreeCAD as App

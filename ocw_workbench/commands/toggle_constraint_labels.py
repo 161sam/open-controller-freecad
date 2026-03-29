@@ -13,6 +13,9 @@ class ToggleConstraintLabelsCommand(BaseCommand):
             "Show or hide issue labels in the 3D view.",
         )
 
+    def IsActive(self):
+        return self._has_controller()
+
     def Activated(self):
         try:
             import FreeCAD as App
