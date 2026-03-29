@@ -1,0 +1,89 @@
+template:
+  id: bike_trailer.trailer_box
+  name: Box Trailer
+  description: Cargo trailer with frame, hitch and a mounted box module
+  category: bike_trailer
+  tags:
+    - trailer
+    - cargo
+controller:
+  width: 240.0
+  depth: 140.0
+  height: 32.0
+  top_thickness: 3.0
+  wall_thickness: 3.0
+  bottom_thickness: 3.0
+  lid_inset: 1.0
+  inner_clearance: 0.35
+  surface:
+    type: rounded_rect
+    shape: rounded_rect
+    width: 240.0
+    height: 140.0
+    corner_radius: 10.0
+components:
+  - id: wheel_left
+    type: wheel
+    library_ref: bike_trailer.wheel_20in_spoked
+    x: 46.0
+    y: 108.0
+    rotation: 0.0
+    group_id: running_gear
+    group_role: running_gear
+    label: Left Wheel
+  - id: wheel_right
+    type: wheel
+    library_ref: bike_trailer.wheel_20in_spoked
+    x: 194.0
+    y: 108.0
+    rotation: 0.0
+    group_id: running_gear
+    group_role: running_gear
+    label: Right Wheel
+  - id: hitch_front
+    type: hitch
+    library_ref: bike_trailer.drawbar_hitch_standard
+    x: 120.0
+    y: 18.0
+    rotation: 0.0
+    group_id: running_gear
+    group_role: hitch
+    label: Front Hitch
+  - id: crossbar_front
+    type: frame_connector
+    library_ref: bike_trailer.frame_connector_crossbar
+    x: 120.0
+    y: 52.0
+    rotation: 0.0
+    group_id: frame_core
+    group_role: frame
+    label: Front Crossbar
+  - id: crossbar_rear
+    type: frame_connector
+    library_ref: bike_trailer.frame_connector_crossbar
+    x: 120.0
+    y: 92.0
+    rotation: 0.0
+    group_id: frame_core
+    group_role: frame
+    label: Rear Crossbar
+  - id: cargo_box
+    type: cargo_box_module
+    library_ref: bike_trailer.cargo_box_module_standard
+    x: 120.0
+    y: 74.0
+    rotation: 0.0
+    group_id: cargo_area
+    group_role: cargo
+    label: Cargo Box
+layout:
+  strategy: manual
+  config:
+    grid_mm: 5.0
+    padding_mm: 12.0
+defaults:
+  component_defaults:
+    by_type:
+      cargo_box_module:
+        tags:
+          - cargo

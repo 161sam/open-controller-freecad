@@ -1,0 +1,9 @@
+id: place_frame_connector
+type: place_component
+component: frame_connector
+category: Frame
+icon: generic.svg
+label: Place Frame Connector
+tooltip: Start 3D placement for a frame connector.
+library_ref: bike_trailer.frame_connector_crossbar
+command_id: OCW_PlaceFrameConnector

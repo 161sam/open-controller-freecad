@@ -1,0 +1,35 @@
+id: wheel_20in_spoked
+type: wheel
+category: wheel
+manufacturer: Generic
+part_number: BT-WHEEL-20
+description: 20 inch modular trailer wheel with axle hub
+tags:
+  - trailer
+  - running_gear
+  - wheel
+mechanical:
+  cutout:
+    shape: circle
+    diameter: 18.0
+  keepout_top:
+    shape: circle
+    diameter: 120.0
+  keepout_bottom:
+    shape: circle
+    diameter: 120.0
+  body_height: 32.0
+  visual:
+    rim_diameter_mm: 120.0
+    hub_diameter_mm: 28.0
+electrical: {}
+pcb: {}
+ocf:
+  control_type: wheel
+ui:
+  label: Trailer Wheel
+  category: running_gear
+  icon: generic.svg
+  tags:
+    - wheel
+    - trailer

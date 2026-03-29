@@ -1,0 +1,34 @@
+id: drawbar_hitch_standard
+type: hitch
+category: hitch
+manufacturer: Generic
+part_number: BT-HITCH-STD
+description: Standard trailer hitch with drawbar coupler
+tags:
+  - trailer
+  - hitch
+mechanical:
+  cutout:
+    shape: rect
+    width: 18.0
+    height: 12.0
+  keepout_top:
+    shape: rect
+    width: 48.0
+    height: 24.0
+  keepout_bottom:
+    shape: rect
+    width: 48.0
+    height: 24.0
+  body_height: 22.0
+electrical: {}
+pcb: {}
+ocf:
+  control_type: hitch
+ui:
+  label: Trailer Hitch
+  category: running_gear
+  icon: generic.svg
+  tags:
+    - hitch
+    - trailer

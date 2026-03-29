@@ -1,0 +1,35 @@
+id: frame_connector_crossbar
+type: frame_connector
+category: frame_connector
+manufacturer: Generic
+part_number: BT-FRAME-XBAR
+description: Crossbar connector for modular trailer frame sections
+tags:
+  - trailer
+  - frame
+  - connector
+mechanical:
+  cutout:
+    shape: rect
+    width: 16.0
+    height: 16.0
+  keepout_top:
+    shape: rect
+    width: 44.0
+    height: 18.0
+  keepout_bottom:
+    shape: rect
+    width: 44.0
+    height: 18.0
+  body_height: 14.0
+electrical: {}
+pcb: {}
+ocf:
+  control_type: frame_connector
+ui:
+  label: Frame Connector
+  category: frame
+  icon: generic.svg
+  tags:
+    - frame
+    - connector

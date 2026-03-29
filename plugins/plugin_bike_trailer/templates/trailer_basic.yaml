@@ -1,0 +1,104 @@
+template:
+  id: bike_trailer.trailer_basic
+  name: Basic Trailer Frame
+  description: Minimal two-wheel bike trailer with frame rails and hitch
+  category: bike_trailer
+  tags:
+    - trailer
+    - frame
+controller:
+  width: 220.0
+  depth: 120.0
+  height: 28.0
+  top_thickness: 3.0
+  wall_thickness: 3.0
+  bottom_thickness: 3.0
+  lid_inset: 1.0
+  inner_clearance: 0.35
+  surface:
+    type: rounded_rect
+    shape: rounded_rect
+    width: 220.0
+    height: 120.0
+    corner_radius: 8.0
+components:
+  - id: wheel_left
+    type: wheel
+    library_ref: bike_trailer.wheel_20in_spoked
+    x: 42.0
+    y: 92.0
+    rotation: 0.0
+    group_id: running_gear
+    group_role: running_gear
+    label: Left Wheel
+  - id: wheel_right
+    type: wheel
+    library_ref: bike_trailer.wheel_20in_spoked
+    x: 178.0
+    y: 92.0
+    rotation: 0.0
+    group_id: running_gear
+    group_role: running_gear
+    label: Right Wheel
+  - id: hitch_front
+    type: hitch
+    library_ref: bike_trailer.drawbar_hitch_standard
+    x: 110.0
+    y: 16.0
+    rotation: 0.0
+    group_id: running_gear
+    group_role: hitch
+    label: Front Hitch
+  - id: axle_left
+    type: axle_mount
+    library_ref: bike_trailer.axle_mount_plate_pair
+    x: 62.0
+    y: 88.0
+    rotation: 0.0
+    group_id: frame_core
+    group_role: frame
+    label: Left Axle Mount
+  - id: axle_right
+    type: axle_mount
+    library_ref: bike_trailer.axle_mount_plate_pair
+    x: 158.0
+    y: 88.0
+    rotation: 0.0
+    group_id: frame_core
+    group_role: frame
+    label: Right Axle Mount
+  - id: crossbar_front
+    type: frame_connector
+    library_ref: bike_trailer.frame_connector_crossbar
+    x: 110.0
+    y: 42.0
+    rotation: 0.0
+    group_id: frame_core
+    group_role: frame
+    label: Front Crossbar
+  - id: crossbar_rear
+    type: frame_connector
+    library_ref: bike_trailer.frame_connector_crossbar
+    x: 110.0
+    y: 78.0
+    rotation: 0.0
+    group_id: frame_core
+    group_role: frame
+    label: Rear Crossbar
+layout:
+  strategy: manual
+  config:
+    grid_mm: 5.0
+    padding_mm: 10.0
+defaults:
+  component_defaults:
+    by_type:
+      wheel:
+        tags:
+          - running_gear
+      hitch:
+        tags:
+          - running_gear
+      frame_connector:
+        tags:
+          - frame

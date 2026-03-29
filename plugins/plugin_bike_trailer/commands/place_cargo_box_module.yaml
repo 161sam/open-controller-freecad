@@ -1,0 +1,9 @@
+id: place_cargo_box_module
+type: place_component
+component: cargo_box_module
+category: Cargo
+icon: generic.svg
+label: Place Cargo Box
+tooltip: Start 3D placement for a cargo box module.
+library_ref: bike_trailer.cargo_box_module_standard
+command_id: OCW_PlaceCargoBoxModule

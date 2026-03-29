@@ -1,0 +1,9 @@
+id: place_wheel
+type: place_component
+component: wheel
+category: Running Gear
+icon: generic.svg
+label: Place Wheel
+tooltip: Start 3D placement for a trailer wheel.
+library_ref: bike_trailer.wheel_20in_spoked
+command_id: OCW_PlaceWheel

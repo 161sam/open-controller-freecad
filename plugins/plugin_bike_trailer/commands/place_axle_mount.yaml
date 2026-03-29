@@ -1,0 +1,9 @@
+id: place_axle_mount
+type: place_component
+component: axle_mount
+category: Frame
+icon: generic.svg
+label: Place Axle Mount
+tooltip: Start 3D placement for an axle mount.
+library_ref: bike_trailer.axle_mount_plate_pair
+command_id: OCW_PlaceAxleMount

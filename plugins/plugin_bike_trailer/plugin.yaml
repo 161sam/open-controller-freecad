@@ -1,0 +1,10 @@
+id: bike_trailer
+type: domain
+name: Bike Trailer
+version: 0.1.0
+domain_type: bike_trailer
+provides_templates: true
+provides_components: true
+provides_commands: true
+
+depends_on: []

@@ -1,0 +1,35 @@
+id: cargo_box_module_standard
+type: cargo_box_module
+category: cargo_box_module
+manufacturer: Generic
+part_number: BT-CARGO-BOX
+description: Lightweight cargo box module for a bike trailer platform
+tags:
+  - trailer
+  - cargo
+  - box
+mechanical:
+  cutout:
+    shape: rect
+    width: 40.0
+    height: 30.0
+  keepout_top:
+    shape: rect
+    width: 110.0
+    height: 70.0
+  keepout_bottom:
+    shape: rect
+    width: 110.0
+    height: 70.0
+  body_height: 38.0
+electrical: {}
+pcb: {}
+ocf:
+  control_type: cargo_box_module
+ui:
+  label: Cargo Box
+  category: cargo
+  icon: generic.svg
+  tags:
+    - cargo
+    - module
