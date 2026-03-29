@@ -10,6 +10,8 @@ LEGACY_CONTROLLER_OBJECT_NAMES = ("OCF_Controller",)
 LEGACY_CONTROLLER_OBJECT_LABELS = ("OCF Controller",)
 GENERATED_GROUP_NAME = "OCW_Generated"
 GENERATED_GROUP_LABEL = "OCW Generated"
+COMPONENTS_GROUP_NAME = "OCW_Components"
+COMPONENTS_GROUP_LABEL = "OCW Components"
 LEGACY_GENERATED_GROUP_NAMES = ("OCF_Generated",)
 LEGACY_GENERATED_GROUP_LABELS = ("OCF Generated",)
 MODEL_GROUP_NAME = "OpenController"
@@ -99,6 +101,22 @@ def get_generated_group(doc: Any, create: bool = True) -> Any | None:
     return group
 
 
+def get_components_group(doc: Any, create: bool = True) -> Any | None:
+    if not hasattr(doc, "addObject"):
+        return None
+    existing = _find_object(doc, (COMPONENTS_GROUP_NAME,), (COMPONENTS_GROUP_LABEL,))
+    if existing is not None or not create:
+        return existing
+    group = _create_object(
+        doc,
+        COMPONENTS_GROUP_NAME,
+        ("App::DocumentObjectGroup", "App::DocumentObjectGroupPython", "App::Feature"),
+    )
+    _style_components_group(group)
+    group_generated_object(doc, group)
+    return group
+
+
 def write_project_state(doc: Any, state: dict[str, Any]) -> Any | None:
     controller = get_controller_object(doc, create=True)
     if controller is None:
@@ -155,7 +173,7 @@ def iter_generated_objects(doc: Any) -> list[Any]:
     objects = []
     seen: set[int] = set()
     live_objects = set(getattr(doc, "Objects", []))
-    for obj in list(getattr(group, "Group", [])):
+    for obj in _iter_group_leaf_objects(group, live_objects):
         if obj is None or obj not in live_objects:
             continue
         marker = id(obj)
@@ -170,16 +188,24 @@ def clear_generated_group(doc: Any) -> None:
     if not hasattr(doc, "removeObject"):
         return
     group = get_generated_group(doc, create=False)
-    members = list(iter_generated_objects(doc))
+    members = list(_iter_group_members_recursive(group)) if group is not None else []
+    removed_group_names: set[str] = set()
     for obj in members:
         name = getattr(obj, "Name", "")
         if isinstance(name, str) and name:
+            if _is_group_object(obj):
+                removed_group_names.add(name)
+                continue
             doc.removeObject(name)
     if group is not None:
         try:
             group.Group = []
         except Exception:
             pass
+    for name in sorted(removed_group_names):
+        if name == getattr(group, "Name", None):
+            continue
+        doc.removeObject(name)
 
 
 def iter_controller_tree_children(doc: Any) -> list[Any]:
@@ -419,6 +445,43 @@ def _style_controller_object(controller: Any) -> None:
 def _style_generated_group(group: Any) -> None:
     if hasattr(group, "Label"):
         group.Label = GENERATED_GROUP_LABEL
+
+
+def _style_components_group(group: Any) -> None:
+    if hasattr(group, "Label"):
+        group.Label = COMPONENTS_GROUP_LABEL
+
+
+def _is_group_object(obj: Any) -> bool:
+    type_id = str(getattr(obj, "TypeId", "") or "")
+    return "DocumentObjectGroup" in type_id
+
+
+def _iter_group_members_recursive(group: Any | None) -> list[Any]:
+    if group is None:
+        return []
+    members: list[Any] = []
+    for obj in list(getattr(group, "Group", [])):
+        if obj is None:
+            continue
+        members.append(obj)
+        if _is_group_object(obj):
+            members.extend(_iter_group_members_recursive(obj))
+    return members
+
+
+def _iter_group_leaf_objects(group: Any | None, live_objects: set[Any]) -> list[Any]:
+    if group is None:
+        return []
+    leaves: list[Any] = []
+    for obj in list(getattr(group, "Group", [])):
+        if obj is None or obj not in live_objects:
+            continue
+        if _is_group_object(obj):
+            leaves.extend(_iter_group_leaf_objects(obj, live_objects))
+            continue
+        leaves.append(obj)
+    return leaves
 
 
 def _find_object(doc: Any, object_names: tuple[str, ...], labels: tuple[str, ...]) -> Any | None:

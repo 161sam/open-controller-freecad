@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 
 from ocw_workbench.freecad_api.model import (
+    COMPONENTS_GROUP_NAME,
     CONTROLLER_OBJECT_NAME,
     GENERATED_GROUP_NAME,
     OVERLAY_OBJECT_NAME,
     PROJECT_JSON_PROPERTY,
     clear_generated_group,
+    get_components_group,
     get_controller_object,
     get_generated_group,
     group_generated_object,
@@ -200,6 +202,19 @@ def test_generated_group_reuses_single_group_container():
 
     assert first is second
     assert first.Name == GENERATED_GROUP_NAME
+
+
+def test_components_group_is_created_once_and_nested_under_generated_group():
+    doc = FakeDocument()
+
+    generated = get_generated_group(doc, create=True)
+    first = get_components_group(doc, create=True)
+    second = get_components_group(doc, create=True)
+
+    assert first is second
+    assert first.Name == COMPONENTS_GROUP_NAME
+    assert generated is not None
+    assert first in generated.Group
 
 
 def test_controller_object_uses_featurepython_proxy_and_claims_generated_group_only():

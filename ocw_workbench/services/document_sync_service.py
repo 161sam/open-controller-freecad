@@ -6,9 +6,11 @@ from typing import Any, Callable
 from ocw_workbench.freecad_api import gui as freecad_gui
 from ocw_workbench.freecad_api.metadata import get_document_data, set_document_data, update_document_data
 from ocw_workbench.freecad_api.model import (
+    COMPONENTS_GROUP_NAME,
     CONTROLLER_OBJECT_NAME,
     GENERATED_GROUP_NAME,
     clear_generated_group,
+    get_components_group,
     get_controller_object,
     get_generated_group,
     group_generated_object,
@@ -135,6 +137,7 @@ class DocumentSyncService:
         body = builder.build_body(controller)
         phase_timings["builder_body_generation_ms"] = round((perf_counter() - body_started_at) * 1000.0, 3)
         self._set_generated_label(body, "OCW_ControllerBody")
+        self._style_document_object(body, role="body")
         group_generated_object(doc, body)
         top_started_at = perf_counter()
         top = builder.build_top_plate(controller)
@@ -156,7 +159,9 @@ class DocumentSyncService:
             top_cut = builder.apply_cutouts(top, components)
             phase_timings["boolean_phase_ms"] = round((perf_counter() - boolean_started_at) * 1000.0, 3)
         self._set_generated_label(top_cut, "OCW_TopPlateCut" if state["components"] else "OCW_TopPlate")
+        self._style_document_object(top_cut, role="top_plate")
         group_generated_object(doc, top_cut)
+        component_object_count = self._materialize_component_objects(doc, builder, controller, state["components"])
         self._materialize_debug_keepout_markers(doc, builder, components, float(state["controller"]["height"]))
         self._apply_selection_highlight(doc, state["meta"].get("selection"))
         recompute_started_at = perf_counter()
@@ -171,6 +176,7 @@ class DocumentSyncService:
                 "generated_object_count": generated_count,
                 "cutout_tool_count": cutout_tool_count,
                 "cutout_diagnostic_count": cutout_diagnostic_count,
+                "component_object_count": component_object_count,
                 **phase_timings,
                 "sync_duration_ms": duration_ms,
                 "sync_mode": SyncMode.FULL,
@@ -185,6 +191,7 @@ class DocumentSyncService:
                 "mode": requested_mode,
                 "actual_mode": SyncMode.FULL,
                 "generated_object_count": generated_count,
+                "component_object_count": component_object_count,
                 "cutout_tool_count": cutout_tool_count,
                 "cutout_diagnostic_count": cutout_diagnostic_count,
             },
@@ -287,6 +294,26 @@ class DocumentSyncService:
                 self._set_generated_label(marker, name)
                 group_generated_object(doc, marker)
 
+    def _materialize_component_objects(
+        self,
+        doc: Any,
+        builder: Any,
+        controller: Any,
+        components: list[Any],
+    ) -> int:
+        if not components or not hasattr(builder, "build_component_feature"):
+            return 0
+        components_group = get_components_group(doc, create=True)
+        count = 0
+        for component in components:
+            feature = builder.build_component_feature(controller, component)
+            self._set_component_metadata(feature, component)
+            self._set_component_label(feature, component)
+            self._style_document_object(feature, role="component", component=component)
+            self._group_component_object(components_group, feature)
+            count += 1
+        return count
+
     def _clear_generated_objects(self, doc: Any) -> None:
         clear_generated_group(doc)
 
@@ -304,15 +331,25 @@ class DocumentSyncService:
 
     def _apply_selection_highlight(self, doc: Any, selected_component_id: str | None) -> None:
         for obj in iter_generated_objects(doc):
-            label = str(getattr(obj, "Label", getattr(obj, "Name", "")))
             view = getattr(obj, "ViewObject", None)
             if view is None:
                 continue
-            is_selected = selected_component_id is not None and selected_component_id in label
+            component_id = getattr(obj, "OCWComponentId", None)
+            is_selected = isinstance(component_id, str) and selected_component_id is not None and component_id == selected_component_id
             if hasattr(view, "ShapeColor"):
-                view.ShapeColor = (0.9, 0.3, 0.2) if is_selected else (0.7, 0.7, 0.7)
+                if is_selected:
+                    view.ShapeColor = (0.9, 0.3, 0.2)
+                elif component_id:
+                    view.ShapeColor = (0.48, 0.62, 0.82)
+                else:
+                    view.ShapeColor = (0.7, 0.7, 0.7)
             if hasattr(view, "LineColor"):
-                view.LineColor = (0.9, 0.3, 0.2) if is_selected else (0.2, 0.2, 0.2)
+                if is_selected:
+                    view.LineColor = (0.9, 0.3, 0.2)
+                elif component_id:
+                    view.LineColor = (0.18, 0.28, 0.42)
+                else:
+                    view.LineColor = (0.2, 0.2, 0.2)
 
     def _generated_object_count(self, doc: Any) -> int:
         return len(iter_generated_objects(doc))
@@ -331,3 +368,83 @@ class DocumentSyncService:
         from ocw_workbench.domain.component import Component
 
         return Component(**component_data)
+
+    def _group_component_object(self, components_group: Any | None, obj: Any) -> None:
+        if components_group is None or obj is None:
+            return
+        if hasattr(components_group, "addObject"):
+            try:
+                components_group.addObject(obj)
+                return
+            except Exception:
+                pass
+        group_list = list(getattr(components_group, "Group", []))
+        if obj not in group_list:
+            group_list.append(obj)
+            try:
+                components_group.Group = group_list
+            except Exception:
+                pass
+
+    def _set_component_metadata(self, obj: Any, component_data: dict[str, Any]) -> None:
+        self._ensure_string_property(obj, "OCWComponentId", "OCW", "Open Controller component id")
+        self._ensure_string_property(obj, "OCWComponentType", "OCW", "Open Controller component type")
+        self._ensure_string_property(obj, "OCWLibraryRef", "OCW", "Open Controller component library reference")
+        self._ensure_float_property(obj, "OCWX", "OCW", "Open Controller component X")
+        self._ensure_float_property(obj, "OCWY", "OCW", "Open Controller component Y")
+        self._ensure_float_property(obj, "OCWRotation", "OCW", "Open Controller component rotation")
+        setattr(obj, "OCWComponentId", str(component_data.get("id") or ""))
+        setattr(obj, "OCWComponentType", str(component_data.get("type") or "component"))
+        setattr(obj, "OCWLibraryRef", str(component_data.get("library_ref") or ""))
+        setattr(obj, "OCWX", float(component_data.get("x", 0.0) or 0.0))
+        setattr(obj, "OCWY", float(component_data.get("y", 0.0) or 0.0))
+        setattr(obj, "OCWRotation", float(component_data.get("rotation", 0.0) or 0.0))
+
+    def _set_component_label(self, obj: Any, component_data: dict[str, Any]) -> None:
+        component_id = str(component_data.get("id") or getattr(obj, "Name", "component"))
+        component_type = str(component_data.get("type") or "component")
+        self._set_generated_label(obj, f"{component_id} [{component_type}]")
+
+    def _style_document_object(self, obj: Any, role: str, component: dict[str, Any] | None = None) -> None:
+        view = getattr(obj, "ViewObject", None)
+        if view is None:
+            return
+        if hasattr(view, "Visibility"):
+            view.Visibility = True
+        if role == "body":
+            if hasattr(view, "ShapeColor"):
+                view.ShapeColor = (0.72, 0.72, 0.76)
+            if hasattr(view, "LineColor"):
+                view.LineColor = (0.24, 0.24, 0.28)
+            return
+        if role == "top_plate":
+            if hasattr(view, "ShapeColor"):
+                view.ShapeColor = (0.88, 0.88, 0.9)
+            if hasattr(view, "LineColor"):
+                view.LineColor = (0.25, 0.25, 0.28)
+            return
+        if role == "component":
+            component_type = str((component or {}).get("type") or "component")
+            palette = {
+                "button": ((0.32, 0.52, 0.8), (0.14, 0.24, 0.42)),
+                "encoder": ((0.28, 0.62, 0.54), (0.12, 0.32, 0.28)),
+                "fader": ((0.76, 0.56, 0.28), (0.4, 0.28, 0.12)),
+                "pad": ((0.62, 0.34, 0.76), (0.3, 0.16, 0.4)),
+                "display": ((0.18, 0.58, 0.74), (0.08, 0.26, 0.36)),
+                "rgb_button": ((0.78, 0.36, 0.36), (0.42, 0.14, 0.14)),
+            }
+            shape_color, line_color = palette.get(component_type, ((0.48, 0.62, 0.82), (0.18, 0.28, 0.42)))
+            if hasattr(view, "ShapeColor"):
+                view.ShapeColor = shape_color
+            if hasattr(view, "LineColor"):
+                view.LineColor = line_color
+
+    def _ensure_string_property(self, obj: Any, name: str, group: str, description: str) -> None:
+        properties = list(getattr(obj, "PropertiesList", []))
+        if name not in properties and hasattr(obj, "addProperty"):
+            obj.addProperty("App::PropertyString", name, group, description)
+
+    def _ensure_float_property(self, obj: Any, name: str, group: str, description: str) -> None:
+        properties = list(getattr(obj, "PropertiesList", []))
+        if name not in properties and hasattr(obj, "addProperty"):
+            obj.addProperty("App::PropertyFloat", name, group, description)

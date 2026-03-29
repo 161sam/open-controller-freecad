@@ -690,6 +690,106 @@ def test_sync_document_can_materialize_keepout_markers_in_debug_mode(monkeypatch
     assert labels == ["OCW_ControllerBody", "OCW_TopPlate", "OCW_btn1_keepout_top"]
 
 
+def test_sync_document_materializes_component_objects_in_components_group(monkeypatch):
+    class FakeBuilder:
+        def __init__(self, doc):
+            self.doc = doc
+
+        def build_body(self, _controller):
+            return self.doc.addObject("Part::Feature", "ControllerBody")
+
+        def build_top_plate(self, _controller):
+            top = self.doc.addObject("Part::Feature", "TopPlate")
+            top.Shape = type("Shape", (), {"BoundBox": type("BoundBox", (), {"ZMin": 27.0, "ZLength": 3.0})(), "copy": lambda self: self})()
+            return top
+
+        def apply_cutout_plan(self, top, _plan):
+            top.Shape = "cut"
+            return top
+
+        def plan_cutout_boolean(self, _top, components):
+            return type("CutPlan", (), {"tools": [object() for _ in components], "diagnostics": []})()
+
+        def build_component_feature(self, _controller, component):
+            return self.doc.addObject("Part::Feature", f"OCW_Component_{component['id']}")
+
+        def build_keepouts(self, _components):
+            return []
+
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocw_workbench.services.controller_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.reveal_generated_objects", lambda _doc: 0)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.activate_document", lambda _doc: True)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.focus_view", lambda _doc, fit=True: True)
+
+    service = ControllerService()
+    doc = FakeFeatureDocument()
+    service.create_controller(doc, {"id": "demo", "height": 30.0, "top_thickness": 3.0})
+    service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=20.0, y=30.0)
+    service.add_component(doc, "alps_ec11e15204a3", component_id="enc1", x=50.0, y=30.0)
+
+    generated = doc.getObject("OCW_Generated")
+    components_group = doc.getObject("OCW_Components")
+    btn1 = doc.getObject("OCW_Component_btn1")
+    enc1 = doc.getObject("OCW_Component_enc1")
+
+    assert generated is not None
+    assert components_group is not None
+    assert components_group in generated.Group
+    assert [obj.Name for obj in components_group.Group] == ["OCW_Component_btn1", "OCW_Component_enc1"]
+    assert btn1.Label == "btn1 [button]"
+    assert enc1.Label == "enc1 [encoder]"
+    assert btn1.OCWComponentId == "btn1"
+    assert enc1.OCWComponentType == "encoder"
+    assert doc.OCWLastSync["component_object_count"] == 2
+
+
+def test_component_selection_highlight_uses_component_metadata(monkeypatch):
+    class FakeBuilder:
+        def __init__(self, doc):
+            self.doc = doc
+
+        def build_body(self, _controller):
+            return self.doc.addObject("Part::Feature", "ControllerBody")
+
+        def build_top_plate(self, _controller):
+            top = self.doc.addObject("Part::Feature", "TopPlate")
+            top.Shape = type("Shape", (), {"BoundBox": type("BoundBox", (), {"ZMin": 27.0, "ZLength": 3.0})(), "copy": lambda self: self})()
+            return top
+
+        def apply_cutout_plan(self, top, _plan):
+            top.Shape = "cut"
+            return top
+
+        def plan_cutout_boolean(self, _top, components):
+            return type("CutPlan", (), {"tools": [object() for _ in components], "diagnostics": []})()
+
+        def build_component_feature(self, _controller, component):
+            return self.doc.addObject("Part::Feature", f"OCW_Component_{component['id']}")
+
+        def build_keepouts(self, _components):
+            return []
+
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocw_workbench.services.controller_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.reveal_generated_objects", lambda _doc: 0)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.activate_document", lambda _doc: True)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.focus_view", lambda _doc, fit=True: True)
+
+    service = ControllerService()
+    doc = FakeFeatureDocument()
+    service.create_controller(doc, {"id": "demo", "height": 30.0, "top_thickness": 3.0})
+    service.add_component(doc, "omron_b3f_1000", component_id="btn1", x=20.0, y=30.0)
+    service.add_component(doc, "omron_b3f_1000", component_id="btn2", x=50.0, y=30.0)
+    service.select_component(doc, "btn2")
+
+    btn1 = doc.getObject("OCW_Component_btn1")
+    btn2 = doc.getObject("OCW_Component_btn2")
+
+    assert btn1.ViewObject.ShapeColor != (0.9, 0.3, 0.2)
+    assert btn2.ViewObject.ShapeColor == (0.9, 0.3, 0.2)
+
+
 def test_repeated_sync_document_keeps_document_object_count_bounded(monkeypatch):
     class FakeBuilder:
         def __init__(self, doc):

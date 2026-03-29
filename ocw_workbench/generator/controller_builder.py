@@ -72,6 +72,13 @@ class ControllerBuilder:
         top_shape = self._build_top_plate_shape(plan, controller=controller)
         return shapes.create_feature(self.doc, "TopPlate", top_shape)
 
+    def build_component_feature(self, controller: Any, component: Any):
+        component_data = self._component_to_dict(component)
+        resolved = self.component_resolver.resolve(component_data)
+        shape = self._build_component_shape(controller, component_data, resolved)
+        component_id = str(component_data.get("id") or "component")
+        return shapes.create_feature(self.doc, f"OCW_Component_{component_id}", shape)
+
     def plan_body_build(self, controller: Any) -> BodyBuildPlan:
         surface = self.resolve_surface(controller)
         body_height = self._body_height(controller)
@@ -407,8 +414,64 @@ class ControllerBuilder:
             return deepcopy(vars(controller))
         raise TypeError(f"Unsupported controller representation: {type(controller)!r}")
 
+    def _component_to_dict(self, component: Any) -> dict[str, Any]:
+        if isinstance(component, dict):
+            return deepcopy(component)
+        if hasattr(component, "__dict__"):
+            return deepcopy(vars(component))
+        raise TypeError(f"Unsupported component representation: {type(component)!r}")
+
     def _supports_shell_geometry(self, surface: SurfacePrimitive) -> bool:
         return surface.shape in {"rectangle", "rounded_rect"}
+
+    def _build_component_shape(self, controller: Any, component: dict[str, Any], resolved: dict[str, Any]):
+        visual_height = self._component_visual_height(component)
+        top_z = self._body_height(controller) + float(getattr(controller, "top_thickness", 0.0) or 0.0)
+        top_keepout = resolved["resolved_mechanical"].keepout_top
+        x = float(component["x"])
+        y = float(component["y"])
+        rotation = float(component.get("rotation", 0.0) or 0.0)
+        if top_keepout.shape == "circle":
+            return shapes.translate_shape(
+                shapes.make_cylinder_shape(radius=float(top_keepout.diameter or 0.0) / 2.0, height=visual_height),
+                x=x,
+                y=y,
+                z=top_z,
+            )
+        if top_keepout.shape in {"rect", "slot"}:
+            shape_factory = shapes.make_rect_prism_shape if top_keepout.shape == "rect" else shapes.make_slot_prism_shape
+            placed_shape = shapes.translate_shape(
+                shape_factory(
+                    width=float(top_keepout.width or 0.0),
+                    depth=float(top_keepout.height or 0.0),
+                    height=visual_height,
+                ),
+                x=x - (float(top_keepout.width or 0.0) / 2.0),
+                y=y - (float(top_keepout.height or 0.0) / 2.0),
+                z=top_z,
+            )
+            if rotation != 0.0:
+                placed_shape = shapes.rotate_shape(placed_shape, rotation, center=(x, y, top_z))
+            return placed_shape
+        raise ValueError(f"Unsupported component keepout shape: {top_keepout.shape}")
+
+    def _component_visual_height(self, component: dict[str, Any]) -> float:
+        library_ref = component.get("library_ref")
+        height = None
+        if isinstance(library_ref, str) and library_ref:
+            library_component = self.component_resolver.mechanical_resolver.library_service.get(library_ref)
+            mechanical = library_component.get("mechanical", {})
+            if isinstance(mechanical, dict):
+                body_size = mechanical.get("body_size_mm", {})
+                if isinstance(body_size, dict):
+                    height = body_size.get("height")
+        if height is None:
+            mechanical = component.get("mechanical", {})
+            if isinstance(mechanical, dict):
+                body_size = mechanical.get("body_size_mm", {})
+                if isinstance(body_size, dict):
+                    height = body_size.get("height")
+        return max(float(height or 8.0), self.MIN_FEATURE_SIZE)
 
     def _body_height(self, controller: Any) -> float:
         top_thickness = max(float(getattr(controller, "top_thickness", 0.0) or 0.0), self.MIN_FEATURE_SIZE)
