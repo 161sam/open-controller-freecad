@@ -317,7 +317,7 @@ class ControllerService:
             raise
 
     def _resolve_component_update_sync_mode(self, updates: dict[str, Any]) -> str:
-        geometry_fields = {"x", "y", "rotation", "library_ref", "zone_id", "type"}
+        geometry_fields = {"x", "y", "rotation", "library_ref", "zone_id", "type", "group_id", "group_role"}
         if any(field in geometry_fields for field in updates):
             return SyncMode.FULL
         return SyncMode.STATE_ONLY

@@ -10,6 +10,7 @@ from ocw_workbench.freecad_api.model import (
     CONTROLLER_OBJECT_NAME,
     GENERATED_GROUP_NAME,
     clear_generated_group,
+    get_component_group,
     get_components_group,
     get_controller_object,
     get_generated_group,
@@ -329,13 +330,15 @@ class DocumentSyncService:
         if not components or not hasattr(builder, "build_component_feature"):
             return 0
         components_group = get_components_group(doc, create=True)
+        component_groups: dict[str, Any] = {}
         count = 0
         for component in components:
+            target_group = self._resolve_component_tree_group(doc, components_group, component, component_groups)
             feature = builder.build_component_feature(controller, component)
             self._set_component_metadata(feature, component)
             self._set_component_label(feature, component)
             self._style_document_object(feature, role="component", component=component)
-            self._group_component_object(components_group, feature)
+            self._group_component_object(target_group, feature)
             count += 1
         return count
 
@@ -411,16 +414,41 @@ class DocumentSyncService:
             except Exception:
                 pass
 
+    def _resolve_component_tree_group(
+        self,
+        doc: Any,
+        components_group: Any | None,
+        component_data: dict[str, Any],
+        group_cache: dict[str, Any],
+    ) -> Any | None:
+        group_id = component_data.get("group_id")
+        if not isinstance(group_id, str) or not group_id.strip():
+            return components_group
+        normalized_group_id = group_id.strip()
+        if normalized_group_id in group_cache:
+            return group_cache[normalized_group_id]
+        group_role = component_data.get("group_role")
+        role = str(group_role).strip() if isinstance(group_role, str) and group_role.strip() else None
+        group = get_component_group(doc, normalized_group_id, create=True, role=role)
+        if group is None:
+            return components_group
+        group_cache[normalized_group_id] = group
+        return group
+
     def _set_component_metadata(self, obj: Any, component_data: dict[str, Any]) -> None:
         self._ensure_string_property(obj, "OCWComponentId", "OCW", "Open Controller component id")
         self._ensure_string_property(obj, "OCWComponentType", "OCW", "Open Controller component type")
         self._ensure_string_property(obj, "OCWLibraryRef", "OCW", "Open Controller component library reference")
+        self._ensure_string_property(obj, "OCWGroupId", "OCW", "Open Controller component group id")
+        self._ensure_string_property(obj, "OCWGroupRole", "OCW", "Open Controller component group role")
         self._ensure_float_property(obj, "OCWX", "OCW", "Open Controller component X")
         self._ensure_float_property(obj, "OCWY", "OCW", "Open Controller component Y")
         self._ensure_float_property(obj, "OCWRotation", "OCW", "Open Controller component rotation")
         setattr(obj, "OCWComponentId", str(component_data.get("id") or ""))
         setattr(obj, "OCWComponentType", str(component_data.get("type") or "component"))
         setattr(obj, "OCWLibraryRef", str(component_data.get("library_ref") or ""))
+        setattr(obj, "OCWGroupId", str(component_data.get("group_id") or ""))
+        setattr(obj, "OCWGroupRole", str(component_data.get("group_role") or ""))
         setattr(obj, "OCWX", float(component_data.get("x", 0.0) or 0.0))
         setattr(obj, "OCWY", float(component_data.get("y", 0.0) or 0.0))
         setattr(obj, "OCWRotation", float(component_data.get("rotation", 0.0) or 0.0))

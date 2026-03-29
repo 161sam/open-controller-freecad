@@ -744,6 +744,168 @@ def test_sync_document_materializes_component_objects_in_components_group(monkey
     assert doc.OCWLastSync["component_object_count"] == 2
 
 
+def test_sync_document_materializes_component_groups_under_components_root(monkeypatch):
+    class FakeBuilder:
+        def __init__(self, doc):
+            self.doc = doc
+
+        def build_body(self, _controller):
+            return self.doc.addObject("Part::Feature", "ControllerBody")
+
+        def build_top_plate(self, _controller):
+            top = self.doc.addObject("Part::Feature", "TopPlate")
+            top.Shape = type("Shape", (), {"BoundBox": type("BoundBox", (), {"ZMin": 27.0, "ZLength": 3.0})(), "copy": lambda self: self})()
+            return top
+
+        def apply_cutout_plan(self, top, _plan):
+            top.Shape = "cut"
+            return top
+
+        def plan_cutout_boolean(self, _top, components):
+            return type("CutPlan", (), {"tools": [object() for _ in components], "diagnostics": []})()
+
+        def build_component_feature(self, _controller, component):
+            return self.doc.addObject("Part::Feature", f"OCW_Component_{component['id']}")
+
+        def build_keepouts(self, _components):
+            return []
+
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocw_workbench.services.controller_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.reveal_generated_objects", lambda _doc: 0)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.activate_document", lambda _doc: True)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.focus_view", lambda _doc, fit=True: True)
+
+    service = ControllerService()
+    doc = FakeFeatureDocument()
+    service.create_controller(doc, {"id": "demo", "height": 30.0, "top_thickness": 3.0})
+    service.add_components(
+        doc,
+        [
+            {
+                "id": "pad1",
+                "type": "pad",
+                "library_ref": "generic_mpc_pad_30mm",
+                "x": 10.0,
+                "y": 10.0,
+                "rotation": 0.0,
+                "group_id": "pad_grid_main",
+                "group_role": "performance_pad_matrix",
+                "label": "Pad 1,1",
+            },
+            {
+                "id": "pad2",
+                "type": "pad",
+                "library_ref": "generic_mpc_pad_30mm",
+                "x": 30.0,
+                "y": 10.0,
+                "rotation": 0.0,
+                "group_id": "pad_grid_main",
+                "group_role": "performance_pad_matrix",
+                "label": "Pad 1,2",
+            },
+            {
+                "id": "btn1",
+                "type": "button",
+                "library_ref": "omron_b3f_1000",
+                "x": 60.0,
+                "y": 20.0,
+                "rotation": 0.0,
+            },
+        ],
+    )
+
+    components_group = doc.getObject("OCW_Components")
+    pad_group = doc.getObject("OCW_Group_pad_grid_main")
+    pad1 = doc.getObject("OCW_Component_pad1")
+    pad2 = doc.getObject("OCW_Component_pad2")
+    btn1 = doc.getObject("OCW_Component_btn1")
+
+    assert components_group is not None
+    assert pad_group is not None
+    assert [obj.Name for obj in components_group.Group] == ["OCW_Group_pad_grid_main", "OCW_Component_btn1"]
+    assert [obj.Name for obj in pad_group.Group] == ["OCW_Component_pad1", "OCW_Component_pad2"]
+    assert pad_group.OCWGroupId == "pad_grid_main"
+    assert pad_group.OCWGroupRole == "performance_pad_matrix"
+    assert pad1.OCWGroupId == "pad_grid_main"
+    assert pad2.OCWGroupRole == "performance_pad_matrix"
+    assert btn1.OCWGroupId == ""
+
+
+def test_repeated_full_sync_keeps_component_group_tree_bounded(monkeypatch):
+    class FakeBuilder:
+        def __init__(self, doc):
+            self.doc = doc
+
+        def build_body(self, _controller):
+            obj = self.doc.addObject("Part::Feature", "ControllerBody")
+            obj.Shape = "body"
+            return obj
+
+        def build_top_plate(self, _controller):
+            obj = self.doc.addObject("Part::Feature", "TopPlate")
+            obj.Shape = type("Shape", (), {"BoundBox": type("BoundBox", (), {"ZMin": 0.0, "ZLength": 3.0})(), "copy": lambda self: self})()
+            return obj
+
+        def apply_cutout_plan(self, top, _plan):
+            top.Shape = "top-cut"
+            return top
+
+        def plan_cutout_boolean(self, _top, components):
+            return type("CutPlan", (), {"tools": [object() for _ in components], "diagnostics": []})()
+
+        def build_component_feature(self, _controller, component):
+            return self.doc.addObject("Part::Feature", f"OCW_Component_{component['id']}")
+
+        def build_keepouts(self, _components):
+            return []
+
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocw_workbench.services.controller_service.ControllerBuilder", FakeBuilder)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.reveal_generated_objects", lambda _doc: 0)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.activate_document", lambda _doc: True)
+    monkeypatch.setattr("ocw_workbench.services.document_sync_service.freecad_gui.focus_view", lambda _doc, fit=True: True)
+
+    service = ControllerService()
+    doc = FakeFeatureDocument()
+    service.create_controller(doc, {"id": "demo", "height": 30.0, "top_thickness": 3.0})
+    service.add_components(
+        doc,
+        [
+            {
+                "id": "pad1",
+                "type": "pad",
+                "library_ref": "generic_mpc_pad_30mm",
+                "x": 10.0,
+                "y": 10.0,
+                "rotation": 0.0,
+                "group_id": "pad_grid_main",
+            },
+            {
+                "id": "pad2",
+                "type": "pad",
+                "library_ref": "generic_mpc_pad_30mm",
+                "x": 30.0,
+                "y": 10.0,
+                "rotation": 0.0,
+                "group_id": "pad_grid_main",
+            },
+        ],
+    )
+
+    service.move_component(doc, "pad2", x=35.0, y=12.0)
+
+    group_names = [obj.Name for obj in doc.Objects if obj.Name == "OCW_Group_pad_grid_main"]
+    components_group = doc.getObject("OCW_Components")
+    pad_group = doc.getObject("OCW_Group_pad_grid_main")
+
+    assert group_names == ["OCW_Group_pad_grid_main"]
+    assert components_group is not None
+    assert pad_group is not None
+    assert [obj.Name for obj in components_group.Group] == ["OCW_Group_pad_grid_main"]
+    assert [obj.Name for obj in pad_group.Group] == ["OCW_Component_pad1", "OCW_Component_pad2"]
+
+
 def test_component_tree_label_prefers_component_label_when_present(monkeypatch):
     class FakeBuilder:
         def __init__(self, doc):

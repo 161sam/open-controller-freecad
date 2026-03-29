@@ -12,6 +12,8 @@ GENERATED_GROUP_NAME = "OCW_Generated"
 GENERATED_GROUP_LABEL = "OCW Generated"
 COMPONENTS_GROUP_NAME = "OCW_Components"
 COMPONENTS_GROUP_LABEL = "OCW Components"
+COMPONENT_GROUP_NAME_PREFIX = "OCW_Group_"
+COMPONENT_GROUP_LABEL_PREFIX = "Group: "
 LEGACY_GENERATED_GROUP_NAMES = ("OCF_Generated",)
 LEGACY_GENERATED_GROUP_LABELS = ("OCF Generated",)
 MODEL_GROUP_NAME = "OpenController"
@@ -117,6 +119,39 @@ def get_components_group(doc: Any, create: bool = True) -> Any | None:
     return group
 
 
+def get_component_group(
+    doc: Any,
+    group_id: str,
+    *,
+    create: bool = True,
+    role: str | None = None,
+) -> Any | None:
+    if not hasattr(doc, "addObject"):
+        return None
+    normalized_group_id = str(group_id or "").strip()
+    if not normalized_group_id:
+        return None
+    object_name = _component_group_object_name(normalized_group_id)
+    existing = _find_object(doc, (object_name,), (_component_group_label(normalized_group_id),))
+    if existing is not None or not create:
+        if existing is not None:
+            _style_component_group(existing, normalized_group_id)
+            _set_component_group_metadata(existing, normalized_group_id, role)
+            components_group = get_components_group(doc, create=create)
+            _add_object_to_group(components_group, existing)
+        return existing
+    group = _create_object(
+        doc,
+        object_name,
+        ("App::DocumentObjectGroup", "App::DocumentObjectGroupPython", "App::Feature"),
+    )
+    _style_component_group(group, normalized_group_id)
+    _set_component_group_metadata(group, normalized_group_id, role)
+    components_group = get_components_group(doc, create=True)
+    _add_object_to_group(components_group, group)
+    return group
+
+
 def write_project_state(doc: Any, state: dict[str, Any]) -> Any | None:
     controller = get_controller_object(doc, create=True)
     if controller is None:
@@ -149,6 +184,10 @@ def has_project_state(doc: Any) -> bool:
 
 def group_generated_object(doc: Any, obj: Any) -> None:
     group = get_generated_group(doc, create=True)
+    _add_object_to_group(group, obj)
+
+
+def _add_object_to_group(group: Any | None, obj: Any) -> None:
     if group is None or obj is None:
         return
     if hasattr(group, "addObject"):
@@ -452,9 +491,33 @@ def _style_components_group(group: Any) -> None:
         group.Label = COMPONENTS_GROUP_LABEL
 
 
+def _style_component_group(group: Any, group_id: str) -> None:
+    if hasattr(group, "Label"):
+        group.Label = _component_group_label(group_id)
+
+
+def _set_component_group_metadata(group: Any, group_id: str, role: str | None) -> None:
+    properties = list(getattr(group, "PropertiesList", []))
+    if "OCWGroupId" not in properties and hasattr(group, "addProperty"):
+        group.addProperty("App::PropertyString", "OCWGroupId", "OCW", "Open Controller component group id")
+    if "OCWGroupRole" not in properties and hasattr(group, "addProperty"):
+        group.addProperty("App::PropertyString", "OCWGroupRole", "OCW", "Open Controller component group role")
+    setattr(group, "OCWGroupId", str(group_id))
+    setattr(group, "OCWGroupRole", str(role or ""))
+
+
 def _is_group_object(obj: Any) -> bool:
     type_id = str(getattr(obj, "TypeId", "") or "")
     return "DocumentObjectGroup" in type_id
+
+
+def _component_group_object_name(group_id: str) -> str:
+    sanitized = "".join(character if character.isalnum() or character == "_" else "_" for character in group_id.strip())
+    return f"{COMPONENT_GROUP_NAME_PREFIX}{sanitized or 'group'}"
+
+
+def _component_group_label(group_id: str) -> str:
+    return f"{COMPONENT_GROUP_LABEL_PREFIX}{group_id}"
 
 
 def _iter_group_members_recursive(group: Any | None) -> list[Any]:

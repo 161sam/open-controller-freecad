@@ -4,11 +4,13 @@ import json
 
 from ocw_workbench.freecad_api.model import (
     COMPONENTS_GROUP_NAME,
+    COMPONENT_GROUP_NAME_PREFIX,
     CONTROLLER_OBJECT_NAME,
     GENERATED_GROUP_NAME,
     OVERLAY_OBJECT_NAME,
     PROJECT_JSON_PROPERTY,
     clear_generated_group,
+    get_component_group,
     get_components_group,
     get_controller_object,
     get_generated_group,
@@ -215,6 +217,22 @@ def test_components_group_is_created_once_and_nested_under_generated_group():
     assert first.Name == COMPONENTS_GROUP_NAME
     assert generated is not None
     assert first in generated.Group
+
+
+def test_component_subgroup_is_created_once_and_nested_under_components_group():
+    doc = FakeDocument()
+
+    components_group = get_components_group(doc, create=True)
+    first = get_component_group(doc, "pad_grid_main", create=True, role="performance_pad_matrix")
+    second = get_component_group(doc, "pad_grid_main", create=True, role="performance_pad_matrix")
+
+    assert first is second
+    assert first.Name == f"{COMPONENT_GROUP_NAME_PREFIX}pad_grid_main"
+    assert first.Label == "Group: pad_grid_main"
+    assert first.OCWGroupId == "pad_grid_main"
+    assert first.OCWGroupRole == "performance_pad_matrix"
+    assert components_group is not None
+    assert first in components_group.Group
 
 
 def test_controller_object_uses_featurepython_proxy_and_claims_generated_group_only():
