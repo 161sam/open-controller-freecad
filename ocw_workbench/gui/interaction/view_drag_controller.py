@@ -30,6 +30,8 @@ class DragMoveSession:
     original_y: float
     original_rotation: float
     previous_selection: str | None
+    grab_offset_x: float = 0.0
+    grab_offset_y: float = 0.0
     dragging: bool = False
 
 
@@ -68,12 +70,18 @@ class ViewDragController:
         self._last_preview_status = None
         self._last_hover_component_id = None
         self.interaction_service.begin_interaction(doc, "drag")
+        selected_component_id = self.controller_service.get_ui_context(doc).get("selection")
+        if isinstance(selected_component_id, str) and selected_component_id:
+            self._set_active_drag_component(selected_component_id)
+            label = self._component_label(selected_component_id)
+            self._publish_status(f"Drag '{label}' in 3D. Click the selected component to move it, release to commit, ESC to cancel.")
+        else:
+            self._publish_status("Drag in 3D. Hover to target, hold to move, release to commit, ESC to cancel.")
         if not self._view_callbacks.attach(view, self.handle_view_event):
             self.cancel(reason="error", publish_status=False)
             self._publish_status("Interaction error")
             return False
         set_interaction_cursor(view, "drag_ready")
-        self._publish_status("Drag in 3D. Hover to target, hold to move, release to commit, ESC to cancel.")
         return self._view_callbacks.is_registered
 
     def cancel(self, reason: str = "cancel", publish_status: bool = True) -> None:
@@ -153,8 +161,21 @@ class ViewDragController:
         point = get_view_point(self.view, screen_x, screen_y)
         if point is None:
             return False
+        pointer_xy = self._map_pointer_to_controller_xy(point, snap_enabled=False)
+        if pointer_xy is None:
+            return False
         overlay = self.overlay_renderer.refresh(self.doc)
-        component_id = hit_test_components(list(overlay.get("items", [])), x=float(point[0]), y=float(point[1]))
+        hit_component_id = hit_test_components(list(overlay.get("items", [])), x=float(point[0]), y=float(point[1]))
+        selected_component_id = self._selected_component_id()
+        if selected_component_id is not None:
+            if hit_component_id != selected_component_id:
+                label = self._component_label(selected_component_id)
+                self._set_active_drag_component(selected_component_id)
+                self._publish_status(f"Drag is locked to selected '{label}'. Click the selected component to move it.")
+                return False
+            component_id = selected_component_id
+        else:
+            component_id = hit_component_id
         if component_id is None:
             self._publish_status("No component at that position. Hover over a component to highlight it, then click to drag.")
             return False
@@ -168,8 +189,11 @@ class ViewDragController:
             original_y=float(component["y"]),
             original_rotation=float(component.get("rotation", 0.0) or 0.0),
             previous_selection=previous_selection,
+            grab_offset_x=float(pointer_xy[0]) - float(component["x"]),
+            grab_offset_y=float(pointer_xy[1]) - float(component["y"]),
             dragging=True,
         )
+        self._set_active_drag_component(component_id)
         self.interaction_service.move_component_preview(
             self.doc,
             component_id=component_id,
@@ -181,12 +205,20 @@ class ViewDragController:
         )
         self.overlay_renderer.refresh(self.doc)
         set_interaction_cursor(self.view, "drag_active")
-        self._publish_status(f"Dragging '{component_id}'. Move now, release to commit, ESC to cancel.")
+        self._publish_status(f"Dragging '{self._component_label(component_id)}'. Move now, release to commit, ESC to cancel.")
         return True
 
     def update_hover_from_screen(self, screen_x: float, screen_y: float) -> str | None:
         if self.doc is None or self.view is None:
             return None
+        selected_component_id = self._selected_component_id()
+        if isinstance(selected_component_id, str) and selected_component_id:
+            previous_hover_component_id = self._last_hover_component_id
+            self._set_active_drag_component(selected_component_id)
+            if previous_hover_component_id != selected_component_id:
+                set_interaction_cursor(self.view, "pick")
+                self._publish_status(f"Ready to drag '{self._component_label(selected_component_id)}'. Hold the left mouse button to move it.")
+            return selected_component_id
         point = get_view_point(self.view, screen_x, screen_y)
         if point is None:
             return None
@@ -205,15 +237,12 @@ class ViewDragController:
         point = get_view_point(self.view, screen_x, screen_y)
         if point is None:
             return None
-        state = self.controller_service.get_state(self.doc)
+        pointer_xy = self._map_pointer_to_controller_xy(point, snap_enabled=False)
+        if pointer_xy is None:
+            return None
         settings = self.interaction_service.get_settings(self.doc)
-        x, y = map_view_point_to_controller_xy(
-            point,
-            controller_width=float(state["controller"]["width"]),
-            controller_depth=float(state["controller"]["depth"]),
-            snap_enabled=bool(settings.get("snap_enabled", True)),
-            grid_mm=float(settings.get("grid_mm", 1.0)),
-        )
+        x = float(pointer_xy[0]) - float(self.session.grab_offset_x)
+        y = float(pointer_xy[1]) - float(self.session.grab_offset_y)
         payload = self.interaction_service.move_component_preview(
             self.doc,
             component_id=self.session.component_id,
@@ -251,6 +280,50 @@ class ViewDragController:
         self.cancel(reason="finish", publish_status=False)
         self._publish_status(f"Moved '{component_id}'.")
         return state
+
+    def _map_pointer_to_controller_xy(
+        self,
+        point: tuple[float, float, float] | list[float],
+        *,
+        snap_enabled: bool,
+    ) -> tuple[float, float] | None:
+        if self.doc is None:
+            return None
+        state = self.controller_service.get_state(self.doc)
+        settings = self.interaction_service.get_settings(self.doc)
+        return map_view_point_to_controller_xy(
+            point,
+            controller_width=float(state["controller"]["width"]),
+            controller_depth=float(state["controller"]["depth"]),
+            snap_enabled=snap_enabled and bool(settings.get("snap_enabled", True)),
+            grid_mm=float(settings.get("grid_mm", 1.0)),
+        )
+
+    def _selected_component_id(self) -> str | None:
+        if self.doc is None:
+            return None
+        selected_component_id = self.controller_service.get_ui_context(self.doc).get("selection")
+        if isinstance(selected_component_id, str) and selected_component_id:
+            return selected_component_id
+        return None
+
+    def _set_active_drag_component(self, component_id: str | None) -> None:
+        if self.doc is None:
+            return
+        settings = self.interaction_service.get_settings(self.doc)
+        updates: dict[str, Any] = {}
+        if settings.get("move_component_id") != component_id:
+            updates["move_component_id"] = component_id
+        if settings.get("hovered_component_id") != component_id:
+            updates["hovered_component_id"] = component_id
+        if updates:
+            self.interaction_service.update_settings(self.doc, updates)
+            self.controller_service.refresh_document_visuals(self.doc, recompute=False)
+        self._last_hover_component_id = component_id
+
+    def _component_label(self, component_id: str) -> str:
+        component = self.controller_service.get_component(self.doc, component_id) if self.doc is not None else {"label": component_id}
+        return str(component.get("label") or component_id)
 
     def _active_view(self, doc: Any) -> Any | None:
         return get_active_view(doc)
@@ -326,7 +399,6 @@ class ViewDragController:
             set_interaction_cursor(self.view, "drag_ready")
             self._publish_status("Drag in 3D. Hover to target, hold to move, release to commit, ESC to cancel.")
             return
-        component = self.controller_service.get_component(self.doc, component_id)
-        label = component.get("label") or component_id
+        label = self._component_label(component_id)
         set_interaction_cursor(self.view, "pick")
         self._publish_status(f"Ready to drag '{label}'. Hold the left mouse button to move it.")
