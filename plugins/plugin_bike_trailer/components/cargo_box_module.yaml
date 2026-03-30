@@ -34,3 +34,11 @@ ui:
     - cargo
     - module
     - storage
+  command:
+    placeable: true
+    toolbar: true
+    order: 30
+    category: Cargo Modules
+    label: Place Cargo Box Module
+    tooltip: Place a cargo box module after frame and running gear are in place. Click in the 3D view to position it.
+    command_id: OCW_PlaceCargoBoxModule

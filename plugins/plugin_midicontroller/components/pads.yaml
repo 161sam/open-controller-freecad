@@ -17,6 +17,14 @@ components:
         - "trigger"
         - "drum"
         - "finger-drumming"
+      command:
+        placeable: true
+        toolbar: true
+        order: 10
+        category: "Performance Surface"
+        label: "Place Performance Pad"
+        tooltip: "Place a 30 mm performance pad for finger drumming or clip launching. Click in the 3D view to position it."
+        command_id: "OCW_PlacePad"
     mechanical:
       body_size_mm:
         width: 32.0

@@ -7,6 +7,9 @@ from ocw_workbench.commands.factory import (
     component_toolbar_groups,
     iter_plugin_command_specs,
 )
+from ocw_workbench.plugins.activation import activate_plugin
+from ocw_workbench.plugins.registry import ExtensionRegistry, Plugin
+from ocw_workbench.services.plugin_service import reset_plugin_service
 
 
 def test_plugin_command_specs_include_pad_and_encoder() -> None:
@@ -47,3 +50,86 @@ def test_build_plugin_commands_creates_freecad_place_commands() -> None:
     assert "OCW_PlaceEncoder" in commands
     assert commands["OCW_PlacePad"].component_type == "pad"
     assert commands["OCW_PlaceEncoder"].component_type == "encoder"
+
+
+def test_build_plugin_commands_works_without_plugin_command_files() -> None:
+    reset_plugin_service()
+    activate_plugin("bike_trailer")
+
+    commands = build_plugin_commands()
+
+    assert "OCW_PlaceWheel" in commands
+    assert "OCW_PlaceCargoBoxModule" in commands
+    assert commands["OCW_PlaceWheel"].default_library_ref == "bike_trailer.wheel_20in_spoked"
+
+
+def test_explicit_plugin_command_overrides_auto_generated_place_command(monkeypatch) -> None:
+    import ocw_workbench.commands.factory as factory_module
+
+    registry = ExtensionRegistry()
+    registry.register_plugin(
+        Plugin(
+            plugin_id="demo_domain",
+            name="Demo Domain",
+            version="0.1.0",
+            plugin_type="domain",
+            domain_type="demo_domain",
+        )
+    )
+    registry.set_active_plugin("demo_domain")
+
+    class FakePluginService:
+        def registry(self):
+            return registry
+
+        def get_commands_for_active_plugin(self):
+            return {
+                "plugin_id": "demo_domain",
+                "root": None,
+                "commands": {
+                    "place_widget": {
+                        "id": "place_widget",
+                        "type": "place_component",
+                        "component": "widget",
+                        "category": "Override Tools",
+                        "icon": "override.svg",
+                        "label": "Place Override Widget",
+                        "tooltip": "Place Override Widget with explicit plugin command metadata.",
+                        "library_ref": "demo_domain.widget_default",
+                        "command_id": "OCW_PlaceWidget",
+                        "plugin_id": "demo_domain",
+                    }
+                },
+            }
+
+    class FakeManager:
+        def list_components(self):
+            return [
+                {
+                    "id": "demo_domain.widget_default",
+                    "category": "widget",
+                    "description": "Demo widget",
+                    "ocf": {"control_type": "widget"},
+                    "ui": {
+                        "label": "Demo Widget",
+                        "icon": "widget.svg",
+                        "category": "Demo Components",
+                        "command": {
+                            "placeable": True,
+                            "toolbar": True,
+                            "order": 10,
+                            "category": "Demo Components",
+                            "label": "Place Demo Widget",
+                            "command_id": "OCW_PlaceWidget",
+                        },
+                    },
+                }
+            ]
+
+    monkeypatch.setattr(factory_module, "get_plugin_service", lambda: FakePluginService())
+    monkeypatch.setattr(factory_module, "ComponentLibraryManager", FakeManager)
+
+    specs = {spec.command_id: spec for spec in iter_plugin_command_specs()}
+
+    assert specs["OCW_PlaceWidget"].label == "Place Override Widget"
+    assert specs["OCW_PlaceWidget"].category == "Override Tools"

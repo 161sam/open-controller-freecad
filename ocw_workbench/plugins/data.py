@@ -246,11 +246,15 @@ def _normalize_component_ui(
     ui_tags = ui.get("tags")
     if ui_tags is not None and not isinstance(ui_tags, list):
         raise ValueError(f"Component '{component_id}' field 'ui.tags' must be a list in {source}")
+    command = ui.get("command")
+    if command is not None and not isinstance(command, dict):
+        raise ValueError(f"Component '{component_id}' field 'ui.command' must be a mapping in {source}")
     return {
         "label": str(ui.get("label") or description or component_id),
         "icon": str(icon or "generic.svg"),
         "category": str(ui.get("category") or category),
         "tags": [str(item) for item in (ui_tags or tags)],
+        "command": deepcopy(command) if isinstance(command, dict) else {},
     }
 
 

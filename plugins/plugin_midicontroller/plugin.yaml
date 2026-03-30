@@ -6,7 +6,7 @@ domain_type: midicontroller
 description: Compact MIDI control-surface workflows for pads, channel strips, transport, and display-driven navigation.
 provides_templates: true
 provides_components: true
-provides_commands: true
+provides_commands: false
 
 depends_on:
   - ocw_kicad

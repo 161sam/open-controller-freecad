@@ -86,6 +86,9 @@ class ComponentLibraryManager:
             ui_tags = ui.get("tags")
             if ui_tags is not None and not isinstance(ui_tags, list):
                 raise ValueError(f"Component '{component_id}' field 'ui.tags' must be a list in {source}")
+            command = ui.get("command")
+            if command is not None and not isinstance(command, dict):
+                raise ValueError(f"Component '{component_id}' field 'ui.command' must be a mapping in {source}")
 
     def _ensure_loaded(self) -> None:
         current_revision = 0 if self.base_path is not None else get_plugin_service_revision()
@@ -165,6 +168,7 @@ class ComponentLibraryManager:
             "icon": str(ui.get("icon") or "generic.svg"),
             "category": str(ui.get("category") or category),
             "tags": [str(item) for item in (ui_tags if isinstance(ui_tags, list) else tags)],
+            "command": deepcopy(ui.get("command")) if isinstance(ui.get("command"), dict) else {},
         }
         normalized["tags"] = [str(item) for item in tags]
         return normalized

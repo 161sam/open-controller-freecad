@@ -16,6 +16,8 @@ components:
       tags:
         - "slider"
         - "level"
+      command:
+        placeable: false
     mechanical:
       body_size_mm:
         width: 56.0
@@ -80,6 +82,14 @@ components:
       tags:
         - "slider"
         - "level"
+      command:
+        placeable: true
+        toolbar: true
+        order: 20
+        category: "Mixing"
+        label: "Place Channel Fader"
+        tooltip: "Place a channel fader for level control. Click in the 3D view to position it."
+        command_id: "OCW_PlaceFader"
     mechanical:
       body_size_mm:
         width: 70.0

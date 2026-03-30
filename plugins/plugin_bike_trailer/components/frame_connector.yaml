@@ -34,3 +34,11 @@ ui:
     - frame
     - connector
     - crossbar
+  command:
+    placeable: true
+    toolbar: true
+    order: 10
+    category: Frame Setup
+    label: Place Crossbar Connector
+    tooltip: Place a frame crossbar connector to define the trailer deck structure. Click in the 3D view to position it.
+    command_id: OCW_PlaceFrameConnector

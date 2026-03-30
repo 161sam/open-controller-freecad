@@ -34,3 +34,11 @@ ui:
     - axle
     - mount
     - frame
+  command:
+    placeable: true
+    toolbar: true
+    order: 15
+    category: Frame Setup
+    label: Place Axle Mount Pair
+    tooltip: Place an axle mount pair to anchor the wheel position on the trailer frame. Click in the 3D view to position it.
+    command_id: OCW_PlaceAxleMount

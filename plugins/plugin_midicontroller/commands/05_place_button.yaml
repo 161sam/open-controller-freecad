@@ -1,9 +1,0 @@
-id: place_button
-type: place_component
-component: button
-category: Buttons & Utility
-icon: button.svg
-label: Place Utility Button
-tooltip: Place a small utility button for transport, menu, or mode switching. Click in the 3D view to position it.
-library_ref: omron_b3f_1000
-command_id: OCW_PlaceButton

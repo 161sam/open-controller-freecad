@@ -1,9 +1,0 @@
-id: place_rgb_button
-type: place_component
-component: rgb_button
-category: Performance Surface
-icon: generic.svg
-label: Place RGB Performance Button
-tooltip: Place an illuminated RGB button for cue, mode, or performance feedback. Click in the 3D view to position it.
-library_ref: generic_rgb_arcade_button_24mm
-command_id: OCW_PlaceRgbButton

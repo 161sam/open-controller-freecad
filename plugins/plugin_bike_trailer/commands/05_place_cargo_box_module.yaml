@@ -1,9 +1,0 @@
-id: place_cargo_box_module
-type: place_component
-component: cargo_box_module
-category: Cargo Modules
-icon: generic.svg
-label: Place Cargo Box Module
-tooltip: Place a cargo box module after frame and running gear are in place. Click in the 3D view to position it.
-library_ref: bike_trailer.cargo_box_module_standard
-command_id: OCW_PlaceCargoBoxModule

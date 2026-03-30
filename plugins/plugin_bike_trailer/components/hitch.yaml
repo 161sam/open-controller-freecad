@@ -33,3 +33,11 @@ ui:
     - hitch
     - trailer
     - tow
+  command:
+    placeable: true
+    toolbar: true
+    order: 25
+    category: Rolling Gear
+    label: Place Drawbar Hitch
+    tooltip: Place the front hitch to define the tow connection and drawbar direction. Click in the 3D view to position it.
+    command_id: OCW_PlaceHitch

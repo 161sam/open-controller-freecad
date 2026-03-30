@@ -17,6 +17,8 @@ components:
       tags:
         - "knob"
         - "rotate"
+      command:
+        placeable: false
     mechanical:
       body_size_mm:
         width: 11.0
@@ -84,6 +86,14 @@ components:
       tags:
         - "knob"
         - "press"
+      command:
+        placeable: true
+        toolbar: true
+        order: 35
+        category: "Navigation & Feedback"
+        label: "Place Push Encoder"
+        tooltip: "Place a push encoder for browsing, parameter control, or menu navigation. Click in the 3D view to position it."
+        command_id: "OCW_PlaceEncoder"
     mechanical:
       body_size_mm:
         width: 12.0
@@ -150,6 +160,8 @@ components:
         - "knob"
         - "press"
         - "large"
+      command:
+        placeable: false
     mechanical:
       body_size_mm:
         width: 12.0

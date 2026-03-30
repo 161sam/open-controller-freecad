@@ -1,9 +1,0 @@
-id: place_axle_mount
-type: place_component
-component: axle_mount
-category: Frame Setup
-icon: generic.svg
-label: Place Axle Mount Pair
-tooltip: Place an axle mount pair to anchor the wheel position on the trailer frame. Click in the 3D view to position it.
-library_ref: bike_trailer.axle_mount_plate_pair
-command_id: OCW_PlaceAxleMount

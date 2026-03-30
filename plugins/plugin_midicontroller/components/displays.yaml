@@ -18,6 +18,14 @@ components:
       tags:
         - "screen"
         - "status"
+      command:
+        placeable: true
+        toolbar: true
+        order: 30
+        category: "Navigation & Feedback"
+        label: "Place OLED Display"
+        tooltip: "Place a status display for menus, mode feedback, or parameter readout. Click in the 3D view to position it."
+        command_id: "OCW_PlaceDisplay"
     mechanical:
       breakout_size_mm:
         width: 29.2
@@ -97,6 +105,8 @@ components:
         - "screen"
         - "status"
         - "large"
+      command:
+        placeable: false
     mechanical:
       breakout_size_mm:
         width: 35.0

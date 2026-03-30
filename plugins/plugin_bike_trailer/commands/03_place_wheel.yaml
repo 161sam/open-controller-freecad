@@ -1,9 +1,0 @@
-id: place_wheel
-type: place_component
-component: wheel
-category: Rolling Gear
-icon: generic.svg
-label: Place Trailer Wheel
-tooltip: Place a trailer wheel to establish track width and running stance. Click in the 3D view to position it.
-library_ref: bike_trailer.wheel_20in_spoked
-command_id: OCW_PlaceWheel

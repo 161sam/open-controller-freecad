@@ -6,6 +6,6 @@ domain_type: bike_trailer
 description: First-step trailer layout workflows for flatbed and cargo-hauler concepts with frame, running gear, and hitch placement.
 provides_templates: true
 provides_components: true
-provides_commands: true
+provides_commands: false
 
 depends_on: []

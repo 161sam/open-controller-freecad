@@ -34,3 +34,11 @@ ui:
     - wheel
     - trailer
     - running-gear
+  command:
+    placeable: true
+    toolbar: true
+    order: 20
+    category: Rolling Gear
+    label: Place Trailer Wheel
+    tooltip: Place a trailer wheel to establish track width and running stance. Click in the 3D view to position it.
+    command_id: OCW_PlaceWheel

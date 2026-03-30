@@ -1,9 +1,0 @@
-id: place_display
-type: place_component
-component: display
-category: Navigation & Feedback
-icon: display.svg
-label: Place OLED Display
-tooltip: Place a status display for menus, mode feedback, or parameter readout. Click in the 3D view to position it.
-library_ref: adafruit_oled_096_i2c_ssd1306
-command_id: OCW_PlaceDisplay

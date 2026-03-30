@@ -1,9 +1,0 @@
-id: place_pad
-type: place_component
-component: pad
-category: Performance Surface
-icon: pad.svg
-label: Place Performance Pad
-tooltip: Place a 30 mm performance pad for finger drumming or clip launching. Click in the 3D view to position it.
-library_ref: generic_mpc_pad_30mm
-command_id: OCW_PlacePad

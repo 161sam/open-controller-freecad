@@ -39,7 +39,7 @@ def test_workbench_primary_toolbars_prioritize_direct_actions(monkeypatch) -> No
     assert "OCW_CreateController" not in toolbar_map["OCW Project"]
     assert "OCW_PlaceButton" in toolbar_map["OCW Components"]
     assert "OCW_PlaceRgbButton" in toolbar_map["OCW Components"]
-    assert toolbar_map["OCW Pads"] == ["OCW_PlacePad"]
-    assert toolbar_map["OCW Encoders"] == ["OCW_PlaceEncoder"]
+    assert toolbar_map["OCW Performance Surface"] == ["OCW_PlacePad", "OCW_PlaceRgbButton"]
+    assert toolbar_map["OCW Navigation & Feedback"] == ["OCW_PlaceDisplay", "OCW_PlaceEncoder"]
     assert menu_map["OCW/Create"] == ["OCW_CreateController", "OCW_ImportTemplateFromFCStd"]
     assert menu_map["OCW/Components/Favorites"][-1] == workbench_module._FAVORITE_MORE_COMMAND_ID

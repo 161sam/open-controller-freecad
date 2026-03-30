@@ -1,9 +1,0 @@
-id: place_fader
-type: place_component
-component: fader
-category: Mixing
-icon: fader.svg
-label: Place Channel Fader
-tooltip: Place a channel fader for level control. Click in the 3D view to position it.
-library_ref: generic_60mm_linear_fader
-command_id: OCW_PlaceFader

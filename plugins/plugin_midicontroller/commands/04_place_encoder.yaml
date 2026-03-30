@@ -1,9 +1,0 @@
-id: place_encoder
-type: place_component
-component: encoder
-category: Navigation & Feedback
-icon: encoder.svg
-label: Place Push Encoder
-tooltip: Place a push encoder for browsing, parameter control, or menu navigation. Click in the 3D view to position it.
-library_ref: generic_ec11_encoder_with_push
-command_id: OCW_PlaceEncoder

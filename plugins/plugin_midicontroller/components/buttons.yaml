@@ -18,6 +18,14 @@ components:
         - "press"
         - "trigger"
         - "menu"
+      command:
+        placeable: true
+        toolbar: true
+        order: 40
+        category: "Buttons & Utility"
+        label: "Place Utility Button"
+        tooltip: "Place a small utility button for transport, menu, or mode switching. Click in the 3D view to position it."
+        command_id: "OCW_PlaceButton"
     mechanical:
       body_size_mm:
         width: 6.0

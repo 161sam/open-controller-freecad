@@ -1,9 +1,0 @@
-id: place_hitch
-type: place_component
-component: hitch
-category: Rolling Gear
-icon: generic.svg
-label: Place Drawbar Hitch
-tooltip: Place the front hitch to define the tow connection and drawbar direction. Click in the 3D view to position it.
-library_ref: bike_trailer.drawbar_hitch_standard
-command_id: OCW_PlaceHitch

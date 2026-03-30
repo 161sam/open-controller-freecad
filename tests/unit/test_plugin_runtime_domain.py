@@ -30,7 +30,7 @@ def test_scan_plugins_loads_domain_plugin_from_repo_root() -> None:
     assert plugin.domain_type == "midicontroller"
     assert plugin.provides_templates is True
     assert plugin.provides_components is True
-    assert plugin.provides_commands is True
+    assert plugin.provides_commands is False
     assert plugin.dependencies == ("ocw_kicad",)
 
 

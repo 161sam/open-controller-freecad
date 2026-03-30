@@ -1,9 +1,0 @@
-id: place_frame_connector
-type: place_component
-component: frame_connector
-category: Frame Setup
-icon: generic.svg
-label: Place Crossbar Connector
-tooltip: Place a frame crossbar connector to define the trailer deck structure. Click in the 3D view to position it.
-library_ref: bike_trailer.frame_connector_crossbar
-command_id: OCW_PlaceFrameConnector
