@@ -50,6 +50,8 @@ metadata:
       zone_id: "top_label_area"
       group_id: "channel_display"
       group_role: "feedback_header"
+      excludes:
+        - "has_channel_display"
       components:
         - id: "display"
           library_ref: "adafruit_oled_096_i2c_ssd1306"
@@ -71,6 +73,10 @@ metadata:
       zone_id: "top_encoder"
       group_id: "channel_encoder"
       group_role: "navigation_header"
+      excludes:
+        - "has_top_encoder"
+      promote_if:
+        - "has_channel_display"
       components:
         - id: "encoder"
           library_ref: "generic_ec11_encoder_with_push"
@@ -93,6 +99,10 @@ metadata:
       group_id: "channel_extra_utility"
       group_role: "channel_utility_extension"
       spacing_mm: 20
+      excludes:
+        - "has_utility_strip"
+      promote_if:
+        - "has_channel_display"
       components:
         - id: "arm"
           library_ref: "omron_b3f_1000"

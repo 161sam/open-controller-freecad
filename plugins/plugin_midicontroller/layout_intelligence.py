@@ -6,6 +6,8 @@ from typing import Any
 
 DEFAULT_EDGE_MARGIN_MM = 12.0
 DEFAULT_SPACING_MM = 18.0
+PRIMARY_PRIORITY = "primary"
+SECONDARY_PRIORITY = "secondary"
 
 
 def build_layout_intelligence(
@@ -30,47 +32,133 @@ def build_layout_intelligence(
         }
 
     metadata = deepcopy(template.get("metadata", {})) if isinstance(template.get("metadata"), dict) else {}
-    additions: list[dict[str, Any]] = []
+    normalized_additions: list[dict[str, Any]] = []
     for addition in metadata.get("suggested_additions", []):
         if not isinstance(addition, dict):
             continue
-        suggestion = _normalize_suggested_addition(addition)
-        preview_components = build_suggested_addition(
-            state,
-            str(suggestion.get("id") or ""),
-            template_payload=template,
-            library_service=library_service,
-            assign_unique_ids=False,
-        )
-        suggestion["preview_components"] = preview_components
-        if preview_components:
-            suggestion["target_zone_id"] = preview_components[0].get("zone_id")
-        additions.append(suggestion)
-    additions.sort(
-        key=lambda item: (
-            0 if str(item.get("priority") or "secondary") == "primary" else 1,
-            _safe_int(item.get("order"), default=200),
-            str(item.get("label") or "").lower(),
-        )
+        normalized_additions.append(_normalize_suggested_addition(addition))
+    workflow_state = evaluate_workflow_state(
+        state,
+        metadata=metadata,
+        additions=normalized_additions,
+        library_service=library_service,
     )
-    workflow_card = _build_workflow_card(
+    additions = resolve_suggested_additions(
+        state,
+        additions=normalized_additions,
+        workflow_state=workflow_state,
+        template_payload=template,
+        library_service=library_service,
+    )
+    workflow_card = build_workflow_card(
         template=template,
         workflow_hint=str(metadata.get("workflow_hint") or ""),
         ideal_for=deepcopy(metadata.get("ideal_for", [])) if isinstance(metadata.get("ideal_for"), list) else [],
         additions=additions,
+        workflow_state=workflow_state,
     )
+    next_step_hint = str(workflow_card.get("next_step_hint") or metadata.get("next_step") or "")
 
     return {
         "template_id": template.get("template", {}).get("id"),
         "template_name": template.get("template", {}).get("name"),
         "workflow_hint": metadata.get("workflow_hint"),
         "ideal_for": deepcopy(metadata.get("ideal_for", [])) if isinstance(metadata.get("ideal_for"), list) else [],
-        "next_step": metadata.get("next_step"),
+        "next_step": next_step_hint,
         "layout_zones": deepcopy(metadata.get("layout_zones", [])) if isinstance(metadata.get("layout_zones"), list) else [],
         "smart_defaults": deepcopy(metadata.get("smart_defaults", {})) if isinstance(metadata.get("smart_defaults"), dict) else {},
         "suggested_additions": additions,
+        "workflow_state": workflow_state,
         "workflow_card": workflow_card,
     }
+
+
+def evaluate_workflow_state(
+    state: dict[str, Any],
+    *,
+    metadata: dict[str, Any],
+    additions: list[dict[str, Any]],
+    library_service: Any | None = None,
+) -> dict[str, Any]:
+    components = deepcopy(state.get("components", []))
+    signals = _evaluate_workflow_signals(components)
+    completed_additions: list[str] = []
+    for addition in additions:
+        addition_id = str(addition.get("id") or "")
+        if not addition_id:
+            continue
+        completed = _suggested_addition_present(addition, components)
+        signals[f"addition:{addition_id}"] = completed
+        if completed:
+            completed_additions.append(addition_id)
+    signals["has_display_or_utility_support"] = bool(
+        signals.get("has_feedback_display") or signals.get("has_utility_strip")
+    )
+    signals["has_display_and_navigation_support"] = bool(
+        signals.get("has_feedback_display") and signals.get("has_navigation_encoder")
+    )
+    visible_candidates = [
+        addition
+        for addition in additions
+        if isinstance(addition, dict) and str(addition.get("id") or "") not in completed_additions
+    ]
+    return {
+        "signals": signals,
+        "completed_additions": completed_additions,
+        "completed_count": len(completed_additions),
+        "remaining_count": len(visible_candidates),
+        "total_count": len(additions),
+        "default_next_step": str(metadata.get("next_step") or ""),
+    }
+
+
+def resolve_suggested_additions(
+    state: dict[str, Any],
+    *,
+    additions: list[dict[str, Any]],
+    workflow_state: dict[str, Any],
+    template_payload: dict[str, Any],
+    library_service: Any | None = None,
+) -> list[dict[str, Any]]:
+    resolved: list[dict[str, Any]] = []
+    signals = workflow_state.get("signals", {}) if isinstance(workflow_state, dict) else {}
+    for addition in additions:
+        if not isinstance(addition, dict):
+            continue
+        suggestion = deepcopy(addition)
+        addition_id = str(suggestion.get("id") or "")
+        if not addition_id:
+            continue
+        if bool(signals.get(f"addition:{addition_id}")):
+            continue
+        rule_state = _evaluate_action_conditions(suggestion, signals)
+        if not rule_state["visible"]:
+            continue
+        preview_components = build_suggested_addition(
+            state,
+            addition_id,
+            template_payload=template_payload,
+            library_service=library_service,
+            assign_unique_ids=False,
+        )
+        suggestion["preview_components"] = preview_components
+        if preview_components:
+            suggestion["target_zone_id"] = preview_components[0].get("zone_id")
+        suggestion["workflow_match"] = {
+            "completed": False,
+            "requires_met": rule_state["requires_met"],
+            "promoted": rule_state["promoted"],
+        }
+        suggestion["priority"] = rule_state["priority"]
+        resolved.append(suggestion)
+    resolved.sort(
+        key=lambda item: (
+            0 if str(item.get("priority") or SECONDARY_PRIORITY) == PRIMARY_PRIORITY else 1,
+            _safe_int(item.get("order"), default=200),
+            str(item.get("label") or "").lower(),
+        )
+    )
+    return resolved
 
 
 def suggest_component_placement(
@@ -245,28 +333,32 @@ def _normalize_suggested_addition(addition: dict[str, Any]) -> dict[str, Any]:
     suggestion["category"] = str(suggestion.get("category") or "Next Steps")
     suggestion["group"] = str(suggestion.get("group") or "utility")
     suggestion["icon"] = str(suggestion.get("icon") or "generic.svg")
-    suggestion["priority"] = str(suggestion.get("priority") or "secondary")
+    suggestion["priority"] = str(suggestion.get("priority") or SECONDARY_PRIORITY)
     suggestion["order"] = _safe_int(suggestion.get("order"), default=200)
     suggestion["command_id"] = str(suggestion.get("command_id") or _command_id_for_addition_id(str(suggestion.get("id") or "")))
     suggestion["status_message"] = str(
         suggestion.get("status_message")
         or f"{suggestion['label']} added."
     )
+    for key in ("requires", "excludes", "promote_if"):
+        raw = suggestion.get(key, [])
+        suggestion[key] = [str(item) for item in raw if isinstance(item, str) and item.strip()] if isinstance(raw, list) else []
     return suggestion
 
 
-def _build_workflow_card(
+def build_workflow_card(
     *,
     template: dict[str, Any],
     workflow_hint: str,
     ideal_for: list[Any],
     additions: list[dict[str, Any]],
+    workflow_state: dict[str, Any],
 ) -> dict[str, Any]:
     primary_action = next(
         (
             item
             for item in additions
-            if isinstance(item, dict) and str(item.get("priority") or "secondary") == "primary"
+            if isinstance(item, dict) and str(item.get("priority") or SECONDARY_PRIORITY) == PRIMARY_PRIORITY
         ),
         additions[0] if additions else None,
     )
@@ -275,12 +367,32 @@ def _build_workflow_card(
         for item in additions
         if isinstance(item, dict) and item is not primary_action
     ][:4]
+    completed_count = _safe_int(workflow_state.get("completed_count"), default=0)
+    total_count = _safe_int(workflow_state.get("total_count"), default=0)
+    progress_text = (
+        f"{completed_count} of {total_count} typical setup steps completed."
+        if total_count > 0
+        else ""
+    )
+    if isinstance(primary_action, dict):
+        next_step_hint = str(primary_action.get("description") or primary_action.get("label") or workflow_hint)
+    elif total_count > 0 and completed_count >= total_count:
+        next_step_hint = "Typical starter additions for this template are already in place."
+    else:
+        next_step_hint = str(workflow_state.get("default_next_step") or workflow_hint or "")
+    short_description = next_step_hint
+    if progress_text:
+        short_description = f"{short_description} {progress_text}".strip()
     return {
         "template_title": str(template.get("template", {}).get("name") or template.get("template", {}).get("id") or "-"),
-        "short_description": workflow_hint or "",
+        "short_description": short_description,
         "ideal_for": [str(item) for item in ideal_for if isinstance(item, str) and item.strip()][:3],
         "primary_action": deepcopy(primary_action) if isinstance(primary_action, dict) else None,
         "secondary_actions": deepcopy(secondary_actions),
+        "next_step_hint": next_step_hint,
+        "progress_text": progress_text,
+        "completed_steps": completed_count,
+        "total_steps": total_count,
     }
 
 
@@ -309,6 +421,112 @@ def _reason_for_preference(preference: str) -> str:
         "aligned_with_group": "Placed in line with the current primary group for a predictable extension.",
     }
     return reasons.get(preference, "Placed using the template smart defaults.")
+
+
+def _evaluate_workflow_signals(components: list[dict[str, Any]]) -> dict[str, bool]:
+    return {
+        "has_utility_strip": any(_component_matches(component, group_roles={"utility_strip", "channel_utility_extension"}) for component in components),
+        "has_feedback_display": any(_component_matches(component, component_types={"display"}, group_roles={"feedback_header"}) for component in components),
+        "has_navigation_encoder": any(_component_matches(component, component_types={"encoder"}, group_roles={"navigation_strip", "navigation_header", "navigation_extension"}) for component in components),
+        "has_navigation_pair": _count_matching_components(
+            components,
+            component_types={"encoder"},
+            group_roles={"navigation_strip", "navigation_header", "navigation_extension"},
+        ) >= 2,
+        "has_channel_display": any(_component_matches(component, component_types={"display"}, zone_ids={"top_label_area"}, addition_ids={"channel_display"}) for component in components),
+        "has_transport_buttons": any(_component_matches(component, group_roles={"transport_strip"}, addition_ids={"transport_buttons"}) for component in components),
+        "has_secondary_encoder_row": any(_component_matches(component, group_roles={"secondary_encoder_row"}, addition_ids={"secondary_encoder_row"}) for component in components),
+        "has_top_encoder": any(_component_matches(component, group_roles={"navigation_header"}, addition_ids={"top_encoder"}) for component in components),
+    }
+
+
+def _evaluate_action_conditions(addition: dict[str, Any], signals: dict[str, Any]) -> dict[str, Any]:
+    requires = [signal for signal in addition.get("requires", []) if isinstance(signal, str) and signal.strip()]
+    excludes = [signal for signal in addition.get("excludes", []) if isinstance(signal, str) and signal.strip()]
+    promote_if = [signal for signal in addition.get("promote_if", []) if isinstance(signal, str) and signal.strip()]
+    requires_met = all(bool(signals.get(signal)) for signal in requires)
+    excluded = any(bool(signals.get(signal)) for signal in excludes)
+    promoted = bool(promote_if) and all(bool(signals.get(signal)) for signal in promote_if)
+    priority = PRIMARY_PRIORITY if promoted else str(addition.get("priority") or SECONDARY_PRIORITY)
+    return {
+        "visible": requires_met and not excluded,
+        "requires_met": requires_met,
+        "promoted": promoted,
+        "priority": priority,
+    }
+
+
+def _suggested_addition_present(addition: dict[str, Any], components: list[dict[str, Any]]) -> bool:
+    addition_id = str(addition.get("id") or "")
+    if addition_id and any(_component_matches(component, addition_ids={addition_id}) for component in components):
+        return True
+    group_id = str(addition.get("group_id") or "")
+    if group_id and any(str(component.get("group_id") or "") == group_id for component in components):
+        return True
+    group_role = str(addition.get("group_role") or "")
+    suggestion_items = addition.get("components", [])
+    if not group_role or not isinstance(suggestion_items, list) or not suggestion_items:
+        return False
+    existing_by_library: dict[str, int] = {}
+    for component in components:
+        if str(component.get("group_role") or "") != group_role:
+            continue
+        library_ref = str(component.get("library_ref") or "")
+        existing_by_library[library_ref] = existing_by_library.get(library_ref, 0) + 1
+    required_by_library: dict[str, int] = {}
+    for item in suggestion_items:
+        if not isinstance(item, dict):
+            continue
+        library_ref = str(item.get("library_ref") or "")
+        if not library_ref:
+            continue
+        required_by_library[library_ref] = required_by_library.get(library_ref, 0) + 1
+    return bool(required_by_library) and all(existing_by_library.get(library_ref, 0) >= count for library_ref, count in required_by_library.items())
+
+
+def _component_matches(
+    component: dict[str, Any],
+    *,
+    component_types: set[str] | None = None,
+    group_roles: set[str] | None = None,
+    zone_ids: set[str] | None = None,
+    addition_ids: set[str] | None = None,
+) -> bool:
+    if not isinstance(component, dict):
+        return False
+    if component_types is not None and str(component.get("type") or "") not in component_types:
+        return False
+    if group_roles is not None and str(component.get("group_role") or "") not in group_roles:
+        return False
+    if zone_ids is not None and str(component.get("zone_id") or "") not in zone_ids:
+        return False
+    if addition_ids is not None:
+        properties = component.get("properties", {})
+        addition_id = str(properties.get("suggested_addition_id") or "") if isinstance(properties, dict) else ""
+        if addition_id not in addition_ids:
+            return False
+    return True
+
+
+def _count_matching_components(
+    components: list[dict[str, Any]],
+    *,
+    component_types: set[str] | None = None,
+    group_roles: set[str] | None = None,
+    zone_ids: set[str] | None = None,
+    addition_ids: set[str] | None = None,
+) -> int:
+    return sum(
+        1
+        for component in components
+        if _component_matches(
+            component,
+            component_types=component_types,
+            group_roles=group_roles,
+            zone_ids=zone_ids,
+            addition_ids=addition_ids,
+        )
+    )
 
 
 def _anchor_for_components(

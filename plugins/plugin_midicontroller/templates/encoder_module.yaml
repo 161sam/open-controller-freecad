@@ -50,6 +50,8 @@ metadata:
       zone_id: "display_header"
       group_id: "encoder_display_header"
       group_role: "feedback_header"
+      excludes:
+        - "has_feedback_display"
       components:
         - id: "display"
           library_ref: "adafruit_oled_096_i2c_ssd1306"
@@ -72,6 +74,10 @@ metadata:
       group_id: "encoder_utility_row"
       group_role: "utility_strip"
       spacing_mm: 24
+      excludes:
+        - "has_utility_strip"
+      promote_if:
+        - "has_feedback_display"
       components:
         - id: "page"
           library_ref: "omron_b3f_1000"
@@ -98,6 +104,10 @@ metadata:
       group_id: "encoder_secondary_row"
       group_role: "secondary_encoder_row"
       spacing_mm: 24
+      excludes:
+        - "has_secondary_encoder_row"
+      promote_if:
+        - "has_feedback_display"
       components:
         - id: "enc5"
           library_ref: "generic_ec11_encoder_with_push"

@@ -9,7 +9,10 @@ from ocw_workbench.templates.generator import TemplateGenerator
 from ocw_workbench.templates.registry import TemplateRegistry
 from plugins.plugin_midicontroller.layout_intelligence import (
     build_layout_intelligence,
+    build_workflow_card,
     build_suggested_addition,
+    evaluate_workflow_state,
+    resolve_suggested_additions,
     suggest_component_placement,
 )
 
@@ -79,6 +82,7 @@ def test_build_layout_intelligence_returns_preview_additions_for_pad_grid() -> N
     assert intelligence["workflow_hint"].startswith("Use this when the pads")
     assert intelligence["workflow_card"]["template_title"] == "Finger Drum Pad Grid"
     assert intelligence["workflow_card"]["primary_action"]["id"] == "utility_strip_right"
+    assert intelligence["workflow_state"]["completed_count"] == 0
     assert [item["id"] for item in intelligence["workflow_card"]["secondary_actions"]] == [
         "navigation_encoder_pair",
         "display_header",
@@ -88,6 +92,69 @@ def test_build_layout_intelligence_returns_preview_additions_for_pad_grid() -> N
     assert suggestions["utility_strip_right"]["tooltip"].startswith("Add a right-side utility strip")
     assert len(suggestions["utility_strip_right"]["preview_components"]) == 3
     assert suggestions["display_header"]["preview_components"][0]["y"] < suggestions["utility_strip_right"]["preview_components"][0]["y"]
+
+
+def test_workflow_state_tracks_completed_pad_grid_steps_and_promotes_next_action() -> None:
+    service = ControllerService()
+    doc = FakeDocument()
+
+    service.create_from_template(doc, "pad_grid_4x4")
+    service.apply_suggested_addition(doc, "utility_strip_right")
+    state = service.get_state(doc)
+    template = TemplateRegistry().get_template("pad_grid_4x4")
+    metadata = template["metadata"]
+    additions = [item for item in metadata["suggested_additions"] if isinstance(item, dict)]
+    normalized = [
+        {
+            **item,
+        }
+        for item in additions
+    ]
+
+    workflow_state = evaluate_workflow_state(
+        state,
+        metadata=metadata,
+        additions=normalized,
+        library_service=service.library_service,
+    )
+    resolved = resolve_suggested_additions(
+        state,
+        additions=normalized,
+        workflow_state=workflow_state,
+        template_payload=template,
+        library_service=service.library_service,
+    )
+    workflow_card = build_workflow_card(
+        template=template,
+        workflow_hint=str(metadata.get("workflow_hint") or ""),
+        ideal_for=metadata.get("ideal_for", []),
+        additions=resolved,
+        workflow_state=workflow_state,
+    )
+
+    assert workflow_state["signals"]["has_utility_strip"] is True
+    assert workflow_state["signals"]["addition:utility_strip_right"] is True
+    assert workflow_state["completed_count"] == 1
+    assert [item["id"] for item in resolved] == ["display_header", "navigation_encoder_pair"]
+    assert workflow_card["primary_action"]["id"] == "display_header"
+    assert workflow_card["next_step_hint"].startswith("Adds a compact OLED centered above the pad grid")
+
+
+def test_build_layout_intelligence_hides_completed_steps_and_updates_progress() -> None:
+    service = ControllerService()
+    doc = FakeDocument()
+
+    service.create_from_template(doc, "pad_grid_4x4")
+    service.apply_suggested_addition(doc, "utility_strip_right")
+    intelligence = service.get_layout_intelligence(doc)
+
+    assert [item["id"] for item in intelligence["suggested_additions"]] == [
+        "display_header",
+        "navigation_encoder_pair",
+    ]
+    assert intelligence["workflow_card"]["primary_action"]["id"] == "display_header"
+    assert intelligence["workflow_card"]["progress_text"] == "1 of 3 typical setup steps completed."
+    assert intelligence["next_step"].startswith("Adds a compact OLED centered above the pad grid")
 
 
 def test_suggest_component_placement_prefers_contextual_zone_for_display() -> None:
@@ -159,3 +226,17 @@ def test_controller_service_can_apply_midicontroller_suggested_addition() -> Non
     assert after == before + 3
     assert [component["id"] for component in added] == ["shift", "scene", "mode"]
     assert all(component["zone_id"] == "right_utility_strip" for component in added)
+
+
+def test_encoder_module_workflow_promotes_utility_buttons_after_display() -> None:
+    service = ControllerService()
+    doc = FakeDocument()
+
+    service.create_from_template(doc, "encoder_module")
+    service.apply_suggested_addition(doc, "display_header")
+    intelligence = service.get_layout_intelligence(doc)
+
+    assert intelligence["workflow_card"]["primary_action"]["id"] == "utility_buttons"
+    assert [item["id"] for item in intelligence["workflow_card"]["secondary_actions"]] == [
+        "secondary_encoder_row",
+    ]

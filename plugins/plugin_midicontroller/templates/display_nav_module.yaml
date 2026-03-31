@@ -47,6 +47,8 @@ metadata:
       group_id: "display_nav_transport"
       group_role: "transport_strip"
       spacing_mm: 22
+      excludes:
+        - "has_transport_buttons"
       components:
         - id: "play"
           library_ref: "omron_b3f_1000"
@@ -75,6 +77,10 @@ metadata:
       placement_preference: "right_of_main"
       group_id: "display_nav_secondary_encoder"
       group_role: "navigation_extension"
+      excludes:
+        - "has_navigation_encoder"
+      promote_if:
+        - "has_transport_buttons"
       components:
         - id: "enc_aux"
           library_ref: "generic_ec11_encoder_with_push"
@@ -96,6 +102,10 @@ metadata:
       group_id: "display_nav_utility_buttons"
       group_role: "utility_strip"
       spacing_mm: 20
+      excludes:
+        - "has_utility_strip"
+      promote_if:
+        - "has_transport_buttons"
       components:
         - id: "shift"
           library_ref: "omron_b3f_1000"

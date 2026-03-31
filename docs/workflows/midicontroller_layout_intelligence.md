@@ -5,6 +5,7 @@
 This MVP adds lightweight layout guidance to `plugin_midicontroller`.
 
 It does not attempt full auto-layout or generic recommendation logic across every domain.
+The workflow card is now state-aware for MIDI templates and recomputes from the current document state.
 
 ## What The MVP Adds
 
@@ -33,6 +34,15 @@ Suggested additions can also carry UI-facing metadata:
 - `order`
 - `command_id`
 - `status_message`
+- `requires`
+- `excludes`
+- `promote_if`
+
+These rules stay intentionally small:
+
+- `requires`: show only when all listed state signals are present
+- `excludes`: hide once any listed state signal is present
+- `promote_if`: keep the action visible, but raise it to the current primary recommendation when all signals match
 
 ## Template Patterns
 
@@ -73,12 +83,38 @@ Anchor selection prefers:
 ## What It Can Do
 
 - expose template-specific next-step suggestions
+- derive a small workflow state from the current component set
 - build template-specific workflow cards with one primary action and a short secondary action list
 - surface those suggestions in the existing `InfoPanel` as clickable workflow actions
 - register suggested additions as direct commands such as `OCW_AddUtilityStrip`
 - generate deterministic default positions for suggested additions
 - suggest a sensible default position for a newly added component type
 - keep added controls grouped through `group_id` and `group_role`
+- hide completed workflow steps once they are already present
+- promote a different primary action after earlier workflow steps were applied
+- show lightweight progress such as `1 of 3 typical setup steps completed.`
+
+## Workflow State Signals
+
+The MVP only uses a small set of robust plugin-specific signals:
+
+- `has_utility_strip`
+- `has_feedback_display`
+- `has_navigation_encoder`
+- `has_navigation_pair`
+- `has_channel_display`
+- `has_transport_buttons`
+- `has_secondary_encoder_row`
+- `has_top_encoder`
+- `addition:<suggested_addition_id>`
+
+Signals are derived from already persisted component data such as:
+
+- `group_role`
+- `group_id`
+- `zone_id`
+- `type`
+- `properties.suggested_addition_id`
 
 ## How Users Trigger It
 
@@ -106,6 +142,13 @@ These actions:
 - add grouped components with deterministic default positions
 - reuse the same plugin logic as the command path
 - surface the most likely next build step first
+- refresh immediately after each suggested addition so the next primary action can change
+
+Example guided flow for `pad_grid_4x4`:
+
+1. `Add Utility Strip`
+2. `Add Display Header`
+3. `Add Navigation Encoder Pair`
 
 ## What It Does Not Do
 
@@ -113,6 +156,7 @@ These actions:
 - collision solving beyond normal layout / validation paths
 - adaptive optimization or AI placement
 - generic cross-domain recommendation logic
+- free-form expressions or a generic rule engine for every plugin
 
 ## Next Evolution
 

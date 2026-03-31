@@ -309,6 +309,11 @@ def test_info_panel_shows_midicontroller_next_steps_and_can_apply_them():
     utility_buttons = [component for component in state["components"] if component.get("group_role") == "utility_strip"]
 
     assert [component["id"] for component in utility_buttons] == ["shift", "scene", "mode"]
+    assert info_panel.form["primary_action_button"].text == "Add Display Header"
+    assert [button.text for button in info_panel.form["next_step_buttons"]] == [
+        "Navigation Pair",
+    ]
+    assert "1 of 3 typical setup steps completed." in info_panel.form["workflow_card_hint"].text
 
 
 def test_info_panel_hides_workflow_card_for_documents_without_template_context():

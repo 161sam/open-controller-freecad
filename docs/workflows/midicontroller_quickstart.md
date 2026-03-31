@@ -39,6 +39,7 @@ Build a plausible first MIDI controller concept without leaving the normal Gener
 ## Smart Next Steps
 
 The MIDI plugin now carries lightweight layout-intelligence metadata for common follow-up moves.
+The `InfoPanel` workflow card is state-aware: after you apply one suggested addition, the next primary action is recalculated from the current controller state.
 
 - `Finger Drum Pad Grid`: utility strip, navigation encoder pair, or display header
 - `Macro Encoder Bank`: display header or compact utility buttons
@@ -47,3 +48,4 @@ The MIDI plugin now carries lightweight layout-intelligence metadata for common 
 - `Transport Control Strip`: display header or jog encoder
 
 These suggestions use deterministic placement preferences such as `right_of_main`, `top_row`, `centered_above_group`, and `bottom_transport_row`.
+They deliberately stay plugin-specific and deterministic instead of introducing a generic rule engine.

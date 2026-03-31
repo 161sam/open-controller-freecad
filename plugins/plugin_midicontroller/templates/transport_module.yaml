@@ -50,6 +50,8 @@ metadata:
       zone_id: "display_header"
       group_id: "transport_display"
       group_role: "feedback_header"
+      excludes:
+        - "has_feedback_display"
       components:
         - id: "display"
           library_ref: "adafruit_oled_096_i2c_ssd1306"
@@ -71,6 +73,10 @@ metadata:
       zone_id: "right_navigation"
       group_id: "transport_navigation"
       group_role: "navigation_strip"
+      excludes:
+        - "has_navigation_encoder"
+      promote_if:
+        - "has_feedback_display"
       components:
         - id: "jog"
           library_ref: "generic_ec11_encoder_with_push"
@@ -92,6 +98,10 @@ metadata:
       group_id: "transport_utility_buttons"
       group_role: "utility_strip"
       spacing_mm: 20
+      excludes:
+        - "has_utility_strip"
+      promote_if:
+        - "has_feedback_display"
       components:
         - id: "marker"
           library_ref: "omron_b3f_1000"

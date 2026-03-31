@@ -55,6 +55,8 @@ metadata:
       zone_id: "right_utility_strip"
       group_id: "pad_utility_strip"
       group_role: "utility_strip"
+      excludes:
+        - "has_utility_strip"
       components:
         - id: "shift"
           library_ref: "omron_b3f_1000"
@@ -85,6 +87,10 @@ metadata:
       group_id: "pad_navigation_top"
       group_role: "navigation_strip"
       spacing_mm: 28
+      excludes:
+        - "has_navigation_pair"
+      promote_if:
+        - "has_feedback_display"
       components:
         - id: "nav_left"
           library_ref: "generic_ec11_encoder_with_push"
@@ -110,6 +116,10 @@ metadata:
       zone_id: "display_header"
       group_id: "pad_display_header"
       group_role: "feedback_header"
+      excludes:
+        - "has_feedback_display"
+      promote_if:
+        - "has_utility_strip"
       components:
         - id: "display"
           library_ref: "adafruit_oled_096_i2c_ssd1306"
