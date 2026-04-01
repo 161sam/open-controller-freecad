@@ -29,6 +29,13 @@ from ocw_workbench.gui.panels._common import (
     wrap_widget_in_scroll_area,
     widget_value,
 )
+from ocw_workbench.gui.ui_semantics import (
+    STATUS_PLACEMENT_CANCELLED,
+    context_badge,
+    placement_status_text,
+    workflow_badge,
+    workflow_step_text,
+)
 from ocw_workbench.services.controller_service import ControllerService
 
 
@@ -80,6 +87,7 @@ class InfoPanel:
         set_label_text(self.form["selection"], selection_label)
         set_label_text(self.form["selection_count"], str(context.get("selection_count", len(selected_ids))))
         set_label_text(self.form["component_count"], str(context["component_count"]))
+        set_label_text(self.form["context_badge"], snapshot["badge"])
         set_label_text(self.form["context_title"], snapshot["title"])
         set_label_text(self.form["context_subtitle"], snapshot["subtitle"])
         set_label_text(self.form["context_meta"], snapshot["meta"])
@@ -167,7 +175,7 @@ class InfoPanel:
                 started = bool(self.on_suggested_addition_requested(addition_id))
                 if started:
                     self.refresh()
-                    self._publish_status("Move cursor over target area", level="info")
+                    self._publish_status(placement_status_text({"mode": "suggested_addition"}), level="info")
                     return
             self.apply_suggested_addition(addition_id)
         except Exception as exc:
@@ -178,7 +186,7 @@ class InfoPanel:
             if callable(self.on_suggested_addition_cancelled):
                 self.on_suggested_addition_cancelled()
                 self.refresh()
-                self._publish_status("Placement cancelled", level="info")
+                self._publish_status(STATUS_PLACEMENT_CANCELLED, level="info")
         except Exception as exc:
             self._publish_status(friendly_ui_error("Could not cancel guided placement", exc), level="error")
 
@@ -194,14 +202,7 @@ class InfoPanel:
             self.on_status(message, level)
 
     def _workflow_status_text(self, preview: Any) -> str:
-        if not isinstance(preview, dict) or str(preview.get("mode") or "") != "suggested_addition":
-            return "Ready"
-        placement_feedback = preview.get("placement_feedback") if isinstance(preview.get("placement_feedback"), dict) else {}
-        if placement_feedback.get("active_zone_id"):
-            return "Click to place"
-        if placement_feedback.get("invalid_target") and placement_feedback.get("hover_zone_id"):
-            return "No valid target here"
-        return "Move cursor over target area"
+        return placement_status_text(preview)
 
     def _context_snapshot(
         self,
@@ -224,15 +225,18 @@ class InfoPanel:
         next_label = str(primary_action.get("label") or "") if isinstance(primary_action, dict) else ""
         lines = [f"Active template: {template_name}"]
         lines.append(f"Components: {component_count}")
-        title = f"Template: {template_name}"
+        badge = context_badge(placement_active=placement_active, selection_count=selection_count)
+        title = template_name
         subtitle = f"{component_count} components on surface"
         if placement_active:
             placement_label = str(preview.get("label") or preview.get("addition_id") or "Placement")
-            title = f"Targeting: {placement_label}"
+            title = placement_label
             subtitle = self._placement_context_subtitle(state, preview)
             lines.append(f"Targeting: {placement_label}")
         elif selection_count > 0:
-            title = f"Selected: {selected_ids[0]}{' (+' + str(selection_count - 1) + ')' if selection_count > 1 else ''}"
+            title = selected_ids[0]
+            if selection_count > 1:
+                title = f"{title} (+{selection_count - 1})"
             subtitle = self._selected_context_subtitle(state, selected_ids)
             lines.append(f"Selected: {', '.join(selected_ids)}")
         if next_label and not placement_active:
@@ -247,6 +251,7 @@ class InfoPanel:
         show_geometry = not placement_active and selection_count == 0
         show_status = placement_active
         return {
+            "badge": badge,
             "title": title,
             "subtitle": subtitle,
             "meta": " | ".join(meta_parts),
@@ -280,7 +285,7 @@ class InfoPanel:
             if isinstance(item, str) and item
         ]
         if not context_ids:
-            return "Select target"
+            return "Move over target area"
         component_map = {
             str(component.get("id") or ""): component
             for component in state.get("components", [])
@@ -343,13 +348,20 @@ class InfoPanel:
         if placement_active:
             action_hint = self._workflow_status_text(preview)
         title = (
-            f"Next: {primary_action.get('label')}"
+            str(primary_action.get("label") or "Workflow")
             if isinstance(primary_action, dict) and str(primary_action.get("label") or "").strip()
             else "Workflow"
         )
         if placement_active:
-            title = "Placement"
+            title = "Guided placement"
         short_hint = self._compact_workflow_hint(short_description, action_hint)
+        badge = workflow_badge(
+            placement_active=placement_active,
+            has_primary_action=isinstance(primary_action, dict),
+            completed_steps=int(workflow_card.get("completed_steps", 0) or 0),
+            total_steps=int(workflow_card.get("total_steps", len(steps)) or len(steps)),
+        )
+        set_label_text(self.form["workflow_card_badge"], badge)
         set_label_text(self.form["workflow_card_title"], title)
         set_label_text(self.form["workflow_card_hint"], short_hint or "No next step")
         total_steps = int(workflow_card.get("total_steps", len(steps)) or len(steps))
@@ -368,7 +380,7 @@ class InfoPanel:
         _qtcore, _qtgui, qtwidgets = load_qt()
         if qtwidgets is None:
             if isinstance(primary_action, dict):
-                primary_button.text = "Placing in 3D" if placement_active else str(primary_action.get("label") or "Primary Action")
+                primary_button.text = "Placement active" if placement_active else str(primary_action.get("label") or "Primary Action")
                 set_tooltip(primary_button, str(primary_action.get("tooltip") or primary_action.get("description") or "Apply this workflow step."))
                 primary_button.enabled = not placement_active
                 if not placement_active:
@@ -389,7 +401,7 @@ class InfoPanel:
             for step in self._visible_workflow_steps(steps, placement_active=placement_active):
                 if not isinstance(step, dict):
                     continue
-                label = FallbackLabel(_workflow_step_text(step))
+                label = FallbackLabel(workflow_step_text(step))
                 self.form["workflow_progress_items"].append(label)
             self.form["workflow_card_section"].visible = visible
             self.form["quick_actions_section"].visible = bool(primary_button.visible or cancel_button.visible or apply_button.visible)
@@ -397,7 +409,7 @@ class InfoPanel:
 
         self._clear_action_layout(self.form.get("workflow_progress_layout"))
         if isinstance(primary_action, dict):
-            primary_label = "Placing in 3D" if placement_active else str(primary_action.get("label") or "Primary Action")
+            primary_label = "Placement active" if placement_active else str(primary_action.get("label") or "Primary Action")
             primary_tooltip = str(primary_action.get("tooltip") or primary_action.get("description") or primary_label)
             primary_button.setText(primary_label)
             set_tooltip(primary_button, primary_tooltip)
@@ -434,9 +446,9 @@ class InfoPanel:
             step_copy = dict(step)
             if placement_active and active_addition_id and str(step_copy.get("id") or "") == active_addition_id:
                 step_copy["status"] = "current"
-            label = create_hint_label(qtwidgets, _workflow_step_text(step_copy))
-            if str(step_copy.get("status") or "") == "current" and hasattr(label, "setObjectName"):
-                label.setObjectName("OCWSectionHeaderTitle")
+            label = create_hint_label(qtwidgets, workflow_step_text(step_copy))
+            if hasattr(label, "setObjectName"):
+                label.setObjectName(_workflow_step_object_name(str(step_copy.get("status") or "open")))
             self.form["workflow_progress_layout"].addWidget(label)
             self.form["workflow_progress_items"].append(label)
         if hasattr(self.form["workflow_card_section"], "setVisible"):
@@ -501,6 +513,7 @@ def _build_form() -> dict[str, Any]:
             "selection_count": FallbackLabel("0"),
             "component_count": FallbackLabel("0"),
             "context_section": FallbackLabel(),
+            "context_badge": FallbackLabel("Template"),
             "context_title": FallbackLabel("No template"),
             "context_subtitle": FallbackLabel("No active context"),
             "context_meta": FallbackLabel("0 parts"),
@@ -519,6 +532,7 @@ def _build_form() -> dict[str, Any]:
             "apply_button": FallbackButton("Apply Geometry"),
             "info": FallbackText(),
             "workflow_card_section": FallbackLabel(),
+            "workflow_card_badge": FallbackLabel("Next"),
             "workflow_card_title": FallbackLabel("Workflow"),
             "workflow_card_hint": FallbackLabel("No next step"),
             "workflow_card_progress_summary": FallbackLabel("No steps"),
@@ -544,6 +558,7 @@ def _build_form() -> dict[str, Any]:
     selection = qtwidgets.QLabel("-")
     selection_count = qtwidgets.QLabel("0")
     component_count = qtwidgets.QLabel("0")
+    context_badge = qtwidgets.QLabel("Template")
     context_title = qtwidgets.QLabel("No template")
     context_subtitle = create_hint_label(qtwidgets, "No active context")
     context_meta = create_hint_label(qtwidgets, "0 parts")
@@ -557,6 +572,8 @@ def _build_form() -> dict[str, Any]:
         selection_count.setObjectName("OCWInspectorKeyValue")
     if hasattr(component_count, "setObjectName"):
         component_count.setObjectName("OCWInspectorKeyValue")
+    if hasattr(context_badge, "setObjectName"):
+        context_badge.setObjectName("OCWSemanticBadge")
     if hasattr(context_title, "setObjectName"):
         context_title.setObjectName("OCWInspectorContextTitle")
     if hasattr(context_subtitle, "setObjectName"):
@@ -568,7 +585,8 @@ def _build_form() -> dict[str, Any]:
     meta_layout.addRow("Selected", selection)
     meta_layout.addRow("Selection", selection_count)
     meta_layout.addRow("Components", component_count)
-    meta_layout.addRow("Focus", context_title)
+    meta_layout.addRow("Focus", context_badge)
+    meta_layout.addRow("", context_title)
     meta_layout.addRow("", context_subtitle)
     meta_layout.addRow("", context_meta)
 
@@ -631,7 +649,10 @@ def _build_form() -> dict[str, Any]:
     )
     if hasattr(workflow_card_section, "setObjectName"):
         workflow_card_section.setObjectName("OCWInspectorWorkflowSection")
+    workflow_card_badge = qtwidgets.QLabel("Next")
     workflow_card_title = qtwidgets.QLabel("Workflow")
+    if hasattr(workflow_card_badge, "setObjectName"):
+        workflow_card_badge.setObjectName("OCWSemanticBadge")
     if hasattr(workflow_card_title, "font"):
         title_font = workflow_card_title.font()
         if hasattr(title_font, "setBold"):
@@ -658,6 +679,7 @@ def _build_form() -> dict[str, Any]:
     header_layout = qtwidgets.QVBoxLayout()
     header_layout.setContentsMargins(0, 0, 0, 0)
     header_layout.setSpacing(3)
+    header_layout.addWidget(workflow_card_badge)
     header_layout.addWidget(workflow_card_title)
     header_layout.addWidget(workflow_card_hint)
     workflow_card_layout.addWidget(wrap_layout_in_widget(qtwidgets, header_layout))
@@ -716,6 +738,7 @@ def _build_form() -> dict[str, Any]:
         "selection_count": selection_count,
         "component_count": component_count,
         "context_section": context_section,
+        "context_badge": context_badge,
         "context_title": context_title,
         "context_subtitle": context_subtitle,
         "context_meta": context_meta,
@@ -734,6 +757,7 @@ def _build_form() -> dict[str, Any]:
         "apply_button": apply_button,
         "info": info,
         "workflow_card_section": workflow_card_section,
+        "workflow_card_badge": workflow_card_badge,
         "workflow_card_title": workflow_card_title,
         "workflow_card_hint": workflow_card_hint,
         "workflow_card_progress_summary": workflow_card_progress_summary,
@@ -745,21 +769,27 @@ def _build_form() -> dict[str, Any]:
         "next_step_buttons": [],
         "status": status,
     }
-
-
-def _workflow_step_text(step: dict[str, Any]) -> str:
-    status = str(step.get("status") or "open")
-    label = str(step.get("short_label") or step.get("label") or "Step")
-    bullet = "●" if status == "completed" else "○"
+def _workflow_step_object_name(status: str) -> str:
+    if status == "completed":
+        return "OCWWorkflowStepDone"
     if status == "current":
-        return f"{bullet} {label} (Current)"
-    return f"{bullet} {label}"
+        return "OCWWorkflowStepActive"
+    return "OCWWorkflowStepNext"
 
 
 def _info_panel_stylesheet() -> str:
     return """
 QWidget#OCWInfoPanelRoot {
     background: transparent;
+}
+QLabel#OCWSemanticBadge {
+    color: #9eb1c7;
+    background: #162130;
+    border: 1px solid #243244;
+    border-radius: 9px;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 7px;
 }
 QFrame#OCWInspectorContextSection,
 QFrame#OCWInspectorWorkflowSection,
@@ -785,7 +815,7 @@ QLabel#OCWInspectorContextTitle {
     color: #f3f7fb;
     font-size: 15px;
     font-weight: 700;
-    padding-top: 2px;
+    padding-top: 1px;
 }
 QLabel#OCWInspectorContextSubtitle {
     color: #c5d2df;
@@ -824,12 +854,20 @@ QWidget#OCWInspectorWorkflowSteps QLabel#OCWHelperText {
     color: #94a5b8;
     font-size: 10px;
 }
-QWidget#OCWInspectorWorkflowSteps QLabel#OCWSectionHeaderTitle {
-    color: #dbe7f5;
+QWidget#OCWInspectorWorkflowSteps QLabel#OCWWorkflowStepDone {
+    color: #7ea27e;
     font-size: 10px;
     font-weight: 600;
-    letter-spacing: 0;
-    text-transform: none;
+}
+QWidget#OCWInspectorWorkflowSteps QLabel#OCWWorkflowStepActive {
+    color: #dbe7f5;
+    font-size: 10px;
+    font-weight: 700;
+}
+QWidget#OCWInspectorWorkflowSteps QLabel#OCWWorkflowStepNext {
+    color: #94a5b8;
+    font-size: 10px;
+    font-weight: 600;
 }
 QLabel#OCWInspectorWorkflowStatus {
     color: #8ea1b7;

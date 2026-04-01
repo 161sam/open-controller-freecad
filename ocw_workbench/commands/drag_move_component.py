@@ -10,8 +10,8 @@ class DragMoveComponentCommand(BaseCommand):
 
     def GetResources(self):
         return self.resources(
-            "Drag Move Component",
-            "Drag a component to a new position in the 3D view.",
+            "Move",
+            "Move a selected component directly in the 3D view.",
         )
 
     def IsActive(self):

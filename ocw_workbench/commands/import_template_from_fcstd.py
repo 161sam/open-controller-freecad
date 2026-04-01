@@ -10,7 +10,7 @@ class ImportTemplateFromFCStdCommand(BaseCommand):
 
     def GetResources(self):
         return self.resources(
-            "Import Template from FCStd",
+            "Import Template",
             "Import a template from an FCStd file.",
         )
 

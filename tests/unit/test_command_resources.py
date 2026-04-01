@@ -78,6 +78,14 @@ def test_workbench_icon_exists() -> None:
     assert Path(OpenControllerWorkbench.Icon).exists()
 
 
+def test_core_command_labels_follow_toolbar_microcopy() -> None:
+    assert ImportTemplateFromFCStdCommand().GetResources()["MenuText"] == "Import Template"
+    assert OpenComponentPaletteCommand().GetResources()["MenuText"] == "Component Library"
+    assert DragMoveComponentCommand().GetResources()["MenuText"] == "Move"
+    assert ToggleMeasurementsCommand().GetResources()["MenuText"] == "Measurements"
+    assert ShowConstraintOverlayCommand().GetResources()["MenuText"] == "Issue Overlay"
+
+
 def test_runtime_icon_helpers_fall_back_to_default_assets() -> None:
     missing_icon = Path(icon_path("missing-icon-name"))
     missing_component_icon = Path(component_icon_path("missing-component-icon.svg"))

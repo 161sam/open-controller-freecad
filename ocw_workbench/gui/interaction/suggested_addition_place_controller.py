@@ -17,6 +17,14 @@ from ocw_workbench.gui.interaction.view_place_preview import load_preview_state
 from ocw_workbench.gui.overlay.renderer import OverlayRenderer
 from ocw_workbench.freecad_api.gui import clear_interaction_cursor, set_interaction_cursor
 from ocw_workbench.gui.panels._common import log_exception, log_to_console
+from ocw_workbench.gui.ui_semantics import (
+    STATUS_CLICK_TO_PLACE,
+    STATUS_INTERACTION_ERROR,
+    STATUS_INVALID_TARGET,
+    STATUS_MOVE_TARGET,
+    STATUS_PLACEMENT_CANCELLED,
+    STATUS_PLACEMENT_COMPLETE,
+)
 from ocw_workbench.services.controller_service import ControllerService
 from ocw_workbench.services.interaction_service import InteractionService
 
@@ -322,13 +330,13 @@ class SuggestedAdditionPlaceController:
         invalid_target = bool(placement_feedback.get("invalid_target"))
         if active_zone_id:
             key = "ready"
-            message = "Click to place"
+            message = STATUS_CLICK_TO_PLACE
         elif invalid_target and hover_zone_id:
             key = "invalid"
-            message = "No valid target here"
+            message = STATUS_INVALID_TARGET
         else:
             key = "move"
-            message = "Move cursor over target area"
+            message = STATUS_MOVE_TARGET
         if self.session.last_status_key == key:
             return
         self.session.last_status_key = key
@@ -354,12 +362,12 @@ class SuggestedAdditionPlaceController:
 
     def _status_for_reason(self, reason: str) -> str:
         return {
-            "cancel": "Placement cancelled",
-            "switch": "Placement cancelled",
-            "view_unavailable": "Placement cancelled",
-            "error": "Interaction error",
-            "committed": "Placement complete",
-        }.get(reason, "Placement cancelled")
+            "cancel": STATUS_PLACEMENT_CANCELLED,
+            "switch": STATUS_PLACEMENT_CANCELLED,
+            "view_unavailable": STATUS_PLACEMENT_CANCELLED,
+            "error": STATUS_INTERACTION_ERROR,
+            "committed": STATUS_PLACEMENT_COMPLETE,
+        }.get(reason, STATUS_PLACEMENT_CANCELLED)
 
 
 def _components_anchor(components: list[dict[str, Any]]) -> tuple[float, float]:

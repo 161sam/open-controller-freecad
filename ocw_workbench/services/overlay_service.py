@@ -12,6 +12,7 @@ from ocw_workbench.gui.interaction.view_place_preview import load_preview_state
 from ocw_workbench.gui.overlay.colors import overlay_style
 from ocw_workbench.gui.overlay.labels import component_label, issue_label, zone_label
 from ocw_workbench.gui.overlay.shapes import circle_item, line_item, rect_item, slot_item, text_item
+from ocw_workbench.gui.ui_semantics import STATUS_CLICK_TO_PLACE, STATUS_INVALID_TARGET, STATUS_MOVE_TARGET
 from ocw_workbench.services.constraint_overlay_service import ConstraintOverlayService
 from ocw_workbench.services.constraint_service import ConstraintService
 from ocw_workbench.services.controller_service import ControllerService
@@ -653,13 +654,13 @@ class OverlayService:
             return f"{base} | {status}"
         if mode == "suggested_addition":
             if bool(placement_feedback.get("active_zone_id")):
-                return f"{base} | Click to place"
+                return f"{base} | {STATUS_CLICK_TO_PLACE}"
             if bool(placement_feedback.get("invalid_target")) and bool(placement_feedback.get("hover_zone_id")):
-                return f"{base} | No valid target here"
-            return f"{base} | Move cursor over target area"
+                return f"{base} | {STATUS_INVALID_TARGET}"
+            return f"{base} | {STATUS_MOVE_TARGET}"
         if mode == "move":
             return f"{base} | Release to commit"
-        return f"{base} | Click to place"
+        return f"{base} | {STATUS_CLICK_TO_PLACE}"
 
     def _placement_zone_label(self, context: dict[str, Any], zone_id: str) -> str:
         layout_intelligence = context.get("layout_intelligence", {}) if isinstance(context, dict) else {}

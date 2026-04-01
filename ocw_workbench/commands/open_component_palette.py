@@ -10,8 +10,8 @@ class OpenComponentPaletteCommand(BaseCommand):
 
     def GetResources(self):
         return self.resources(
-            "Component Palette",
-            "Open the component palette.",
+            "Component Library",
+            "Open the component library.",
         )
 
     def Activated(self):

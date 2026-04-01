@@ -9,7 +9,7 @@ class ShowConstraintOverlayCommand(BaseCommand):
 
     def GetResources(self):
         return self.resources(
-            "Issues",
+            "Issue Overlay",
             "Show or hide validation issues in the 3D view.",
         )
 

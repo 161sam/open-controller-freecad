@@ -123,7 +123,7 @@ def test_place_controller_cleanup_is_idempotent_and_clears_preview():
     assert load_preview_state(doc) is None
     assert controller.doc is None
     assert len(view.callbacks) == 0
-    assert statuses[-1] == "Placement cancelled."
+    assert statuses[-1] == "Placement cancelled"
 
 
 def test_place_controller_commit_keeps_session_active_until_escape():

@@ -17,6 +17,11 @@ from ocw_workbench.gui.overlay.renderer import OverlayRenderer
 from ocw_workbench.freecad_api.gui import clear_interaction_cursor, set_interaction_cursor
 from ocw_workbench.gui.interaction.view_place_preview import load_preview_state
 from ocw_workbench.gui.panels._common import log_exception, log_to_console
+from ocw_workbench.gui.ui_semantics import (
+    STATUS_INTERACTION_ERROR,
+    STATUS_PLACEMENT_CANCELLED,
+    STATUS_PLACEMENT_COMPLETE,
+)
 from ocw_workbench.services.controller_service import ControllerService
 from ocw_workbench.services.interaction_service import InteractionService
 
@@ -284,14 +289,12 @@ class ViewPlaceController:
 
     def _status_for_reason(self, reason: str) -> str:
         if reason == "error":
-            return "Interaction error"
+            return STATUS_INTERACTION_ERROR
         if reason == "finish":
-            return "Placement finished."
-        if reason == "switch":
-            return "Placement mode switched."
-        if reason == "view_unavailable":
-            return "Placement mode stopped because the 3D view is no longer available."
-        return "Placement cancelled."
+            return STATUS_PLACEMENT_COMPLETE
+        if reason in {"switch", "view_unavailable"}:
+            return STATUS_PLACEMENT_CANCELLED
+        return STATUS_PLACEMENT_CANCELLED
 
     def _resolve_snap(self, position: tuple[float, float]) -> SnapResult:
         overlay = getattr(self.doc, "OCWOverlayState", None) if self.doc is not None else None
